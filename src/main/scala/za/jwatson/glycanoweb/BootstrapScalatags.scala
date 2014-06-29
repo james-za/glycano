@@ -32,7 +32,7 @@ object BootstrapScalatags {
   object Info extends Style("info")
   object Warning extends Style("warning")
   object Danger extends Style("danger")
-  object Link extends Style("link")
+  object LinkStyle extends Style("link")
 
   case class Size(name: String)
   object Lg extends Size("lg")
@@ -47,7 +47,7 @@ object BootstrapScalatags {
   def panelBody(classes: String = ""): TypedTag[HTMLDivElement] = div(cls:=s"panel-body $classes")
   def panelFooter: TypedTag[HTMLDivElement] = div(cls:="panel-footer")
 
-  def btn(style: Style, size: Size): TypedTag[HTMLButtonElement] = button(cls:=s"btn btn-${style.name} btn-${size.name}")
+  def btn(style: Style, size: Size, block: Boolean): TypedTag[HTMLButtonElement] = button(cls:=s"btn btn-${style.name} btn-${size.name}${if(block) " btn-block" else ""}")
   def btn(style: Style = Default): TypedTag[HTMLButtonElement] = button(cls:=s"btn btn-${style.name}")
 
   def radioButton(style: Style = Default, inputName: String, classes: String = "", innerMods: Seq[Modifier] = Seq.empty): TypedTag[HTMLLabelElement] =

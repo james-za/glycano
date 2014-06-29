@@ -34,7 +34,7 @@ object GlycanoBuild extends Build {
     libraryDependencies ++= Seq(
       "org.scala-lang.modules.scalajs" %%% "scalajs-dom"       % "0.6",
       "org.scala-lang.modules.scalajs" %%% "scalajs-jquery"    % "0.6",
-      "com.scalatags"                  %%% "scalatags"         % "0.3.2",
+      "com.scalatags"                  %%% "scalatags"         % "0.3.8",
       "com.scalarx"                    %%% "scalarx"           % "0.2.5",
       "org.scalaz"                     %%% "scalaz-core"       % "7.0.6",
       "com.chuusai"                    %%% "shapeless"         % "2.0.0",

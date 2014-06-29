@@ -1,21 +1,19 @@
 package za.jwatson.glycanoweb.render
 
-import scala.scalajs.js
-import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
-import importedjs.{paper => p}
-import p.Implicits._
-import za.jwatson.glycanoweb.structure.Absolute.{L, D}
+import importedjs.paper.Implicits._
 import importedjs.paper._
-import za.jwatson.glycanoweb.structure._
+import importedjs.{paper => p}
 import org.scalajs.dom.SVGElement
-import za.jwatson.glycanoweb.structure.Bond
-import scala.Some
-import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
-import za.jwatson.glycanoweb.structure.Link
 import za.jwatson.glycanoweb.render.Convention.CanvasItemMod
+import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
+import za.jwatson.glycanoweb.structure.Absolute.{D, L}
+import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
+import za.jwatson.glycanoweb.structure.Residue.Link
+import za.jwatson.glycanoweb.structure._
+
+import scala.scalajs.js
 
 abstract class Convention(scope: p.PaperScope) {
-
   val handleHL: CanvasItemMod[p.Path, Residue]
   val handlePress: CanvasItemMod[p.Path, Residue]
 
@@ -32,23 +30,23 @@ abstract class Convention(scope: p.PaperScope) {
   def drawBoxSelection(box: Option[Rectangle]): Unit
 
   def removeResidue(residue: Residue): Unit
-  def removeBond(b: Bond): Unit
+  def removeBond(r: Residue): Unit
 
   def highlightResidue(residue: Residue): Unit
   def unhighlightResidue(residue: Residue): Unit
 
   def addResidue(r: Residue, pos: p.Point): Unit
-  def addBond(b: Bond): Unit
+  def addBond(from: Residue, to: Residue, p: Int): Unit
 
-  def residueMoved(e: p.ToolEvent, r: Residue, o: p.Point): Unit
-  def updateBond(b: Bond): Unit
+  def updateBond(from: Residue, to: Residue, p: Int): Unit
   
   def getResidue(item: p.Item): Option[Residue]
   def getItem(residue: Residue): Option[p.Item]
   
   def items: Iterable[p.Item]
   
-  def getClosestLink(point: p.Point): Option[Link]
+  def getClosestLink(point: p.Point, parent: Boolean = false, angle: Double = 0): Option[Link]
+  def getClosestLink(from: p.Point, to: Residue, angle: Double = 0): Option[Link]
   def highlightLink(link: Option[Link]): Unit
   def linkPosition(link: Link): p.Point
 
@@ -58,7 +56,7 @@ abstract class Convention(scope: p.PaperScope) {
 object Convention {
   class UCT(scope: p.PaperScope) extends Convention(scope) {
 
-    import p.{Point => P}
+    import importedjs.paper.{Point => P}
 
     override def createIcon(rt: ResidueType, abs: Absolute, ano: Anomer, bounds: p.Rectangle): SVGElement = {
       val rs = ResidueShape(Residue(rt, ano, abs))
@@ -90,7 +88,7 @@ object Convention {
     val hexagon = closedPath(P(90,0), P(65,40), P(25,40), P(0,0), P(25,-40), P(65,-40))
 
     val details = {
-      import ResidueType._
+      import za.jwatson.glycanoweb.structure.ResidueType._
       Map[ResidueType, (p.Path, String, String, p.Path)](
         Glycero -> (triangle, "white", "white", new p.Path()),
         Erythro -> (diamond, "white", "white", new p.Path()),
@@ -134,7 +132,7 @@ object Convention {
       val detail = d.clonePath(insert = false)
       val outline = o.clonePath(insert = false)
       val handle = handleBase.clonePath(insert = false)
-      handle.fillColor = residue.anomeric match {
+      handle.fillColor = residue.anomer match {
         case Alpha => new p.Color("white")
         case Beta => new p.Color("black")
         //case Unknown => halfGradientWB
@@ -201,8 +199,8 @@ object Convention {
     override def getResidue(item: Item): Option[Residue] = item.getResidue
     override def getItem(residue: Residue): Option[Item] = residue.getGroup
 
-    val bonds = collection.mutable.Map[js.Number, Bond]()
-    val bondItems = collection.mutable.Map[Bond, p.Path]()
+    val bonds = collection.mutable.Map[js.Number, Residue]()
+    val bondItems = collection.mutable.Map[Residue, p.Path]()
 
     override def addResidue(r: Residue, pos: p.Point): Unit = {
       val rs = ResidueShape(r)
@@ -243,46 +241,61 @@ object Convention {
       hls foreach (_.remove())
     }
 
-    override def addBond(b: Bond): Unit = {
+    override def addBond(from: Residue, to: Residue, i: Int): Unit = {
+
       val item = new p.Path()
       item.strokeColor = "black"
       item.strokeWidth = 7
-      if(b.from.residue.anomeric == Beta) {
+      if(from.anomer == Beta) {
         item.dashArray = js.Array(15, 10)
       }
       item.project.layers(0) addChild item
-      bonds(item.id) = b
-      bondItems(b) = item
-      updateBond(b)
+      bonds(item.id) = from
+      bondItems(from) = item
+      updateBond(from, to, i)
     }
 
-    override def removeBond(b: Bond): Unit = {
-      val item = bondItems(b)
-      item.remove()
-      bondItems.remove(b)
-      bonds.remove(item.id)
-    }
-
-    override def updateBond(b: Bond): Unit = {
-      for(path <- bondItems.get(b)) {
-        path.removeSegments()
-        path.add(b.from.residue.outline.segments(b.from.position - 1).point)
-        path.add(b.to.residue.outline.segments(b.to.position - 1).point)
+    override def removeBond(r: Residue): Unit = {
+      for(item <- bondItems.get(r)) {
+        item.remove()
+        bondItems.remove(r)
+        bonds.remove(item.id)
       }
     }
 
-    def residueMoved(e: p.ToolEvent, r: Residue, o: p.Point): Unit = {
-      for(item <- r.getGroup) item.position = e.point add o
-      for {
-        b <- r.bonds.values
-      } updateBond(b)
+    override def updateBond(from: Residue, to: Residue, i: Int): Unit = {
+      for(path <- bondItems.get(from)) {
+        path.removeSegments()
+        path.add(from.outline.segments(0).point)
+        path.add(to.outline.segments(i - 1).point)
+      }
     }
 
-    override def getClosestLink(point: p.Point): Option[Link] = {
+    def linkValid(from: p.Point, to: p.Point, parent: Boolean, angle: Double): Boolean = {
+      val dot = p.Point(1, 0).rotate(angle, p.Point(0, 0)).dot(to.point subtract from)
+      (dot > 0) == parent
+    }
+
+    override def getClosestLink(from: p.Point, parent: Boolean = false, angle: Double = 0): Option[Link] = {
       val points = for {
         residueShape <- residueResidueShapes.values
         segment <- residueShape.outline.segments.toSeq
-        distsq = segment.point.getDistance(point, true)
+        if linkValid(from, segment.point, parent, angle)
+        distsq = segment.point.getDistance(from, true)
+        if distsq < threshold
+      } yield (segment, distsq)
+
+      val segment = if(points.nonEmpty) Some(points.minBy(_._2.doubleValue())._1) else None
+
+      segment flatMap getLink
+    }
+
+    override def getClosestLink(from: p.Point, to: Residue, angle: Double = 0): Option[Link] = {
+      val points = for {
+        residueShape <- residueResidueShapes.get(to)
+        segment <- residueShape.outline.segments.toSeq
+        if linkValid(from, segment.point, parent = true, angle)
+        distsq = segment.point.getDistance(from, true)
         if distsq < threshold
       } yield (segment, distsq)
 
@@ -376,7 +389,7 @@ object Convention {
     }
 
     override def finishBond(from: Link, to: p.Point): Option[Link] = {
-      getClosestLink(to)
+      getClosestLink(to, parent = true)
     }
 
     override val handleHL = new CanvasItemMod[p.Path, Residue] {

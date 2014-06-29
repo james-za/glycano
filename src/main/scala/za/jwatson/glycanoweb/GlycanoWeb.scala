@@ -1,18 +1,21 @@
 package za.jwatson.glycanoweb
 
-import scala.scalajs.js
-import scala.scalajs.js.annotation.JSExport
-import org.scalajs.jquery.{jQuery => $, _}
+import importedjs.paper
 import org.scalajs.dom
-import za.jwatson.glycanoweb.structure._
-import scalatags.JsDom._
-import scalatags.JsDom.all._
+import org.scalajs.dom.MouseEvent
+import org.scalajs.jquery.{jQuery => $, _}
+import rx._
+import za.jwatson.glycanoweb.render.GlycanoCanvas
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
-import org.scalajs.dom.{MouseEvent, HTMLCanvasElement}
-import importedjs.paper
-import za.jwatson.glycanoweb.render.GlycanoCanvas
-import rx._
+import za.jwatson.glycanoweb.structure.Residue.Link
+import za.jwatson.glycanoweb.structure._
+
+import scala.scalajs.js
+import scala.scalajs.js.UndefOr
+import scala.scalajs.js.annotation.JSExport
+import scalatags.JsDom._
+import scalatags.JsDom.all._
 
 @JSExport
 object GlycanoWeb {
@@ -20,7 +23,7 @@ object GlycanoWeb {
   trait RichJQuery extends org.scalajs.jquery.JQuery {
     def button(state: js.String = ???): JQuery = ???
     def tooltip(options: js.Dynamic = ???): JQuery = ???
-    def tooltipster(options: js.Dynamic = ???): JQuery = ???
+    def tooltipster(options: js.Dynamic): JQuery = ???
   }
   import scala.language.implicitConversions
   implicit def richJQuery(jq: JQuery) = jq.asInstanceOf[RichJQuery]
@@ -35,7 +38,7 @@ object GlycanoWeb {
     val iconWidth = 50
     val iconHeight = 40
 
-    import BootstrapScalatags._
+    import za.jwatson.glycanoweb.BootstrapScalatags._
 
     /** Toggles for absolute and anomeric configuration */
     val residueConfig =
@@ -64,8 +67,8 @@ object GlycanoWeb {
       panel(Default)(
         panelHeading("Residues"),
         panelBody(classes = "text-center")(
-          row(col(md=12)(residueConfig)),
-          row(col(md=12)(residuePages))
+          row(col(xs=12)(residueConfig)),
+          row(col(xs=12)(residuePages))
         )
       )
 
@@ -80,18 +83,13 @@ object GlycanoWeb {
     val casperForm =
       /*form("role".attr:="form")(*/
         div(cls:="form-group input-group")(
-          input(`type`:="text", cls:="form-control"),
-          span(cls:="input-group-btn")(btn()("ASDF")),
-          span(cls:="input-group-btn")(btn()("ASDF"))
+          input(id:="casper", `type`:="text", cls:="form-control"),
+          span(cls:="input-group-btn")(btn()(id:="casper-parse", "Parse"))
         )
       /*)*/
 
     /** Main canvas element */
-    val stagePanel =
-      panel()(id:="stage-panel")(
-        canvas(display.`inline-block`, verticalAlign:="top", id:="stage"/*,
-          "width".attr:="auto", "height".attr:="auto"*/, tabindex:=1)
-      )
+    val stagePanel = panel()(id:="stage-panel")()
 
     /** Overview of selected residues */
     val overviewPanel =
@@ -116,30 +114,46 @@ object GlycanoWeb {
         )
       ))
 
+
+
+//    val modeCreate =
+//      col(xs=6)(btn(Primary, Lg, block = true)("Create")(id:="mode-create", onclick:={
+//        if(residueType().isEmpty) residueType() = Some(ResidueType.Glycero)
+//      }))
+    val modeSelect =
+      col(xs=12)(btn(Primary, Lg, block = true)(glyphIcon("hand-up")(marginRight:=15.px), "Selection Mode")(id:="mode-select", onclick:={() =>
+        if(residueType().isDefined) residueType() = None
+      }))
+
     /** Main container */
-    $("body").html(containerFluid(
+    val mainContainer = containerFluid(
       row(glycanoNavbar),
       row(
-        col(md=3)(
-          row(col(md=12)(residuePanel)),
-          row(col(md=12)(substituentPanel))
+        col(xs=3)(
+          row(col(xs=12)(residuePanel)),
+          row(col(xs=12)(substituentPanel))
         ),
-        col(md=6)(
-          row(col(md=12)(casperForm)),
-          row(col(md=12)(stagePanel))
+        col(xs=6)(
+          row(col(xs=12)(casperForm)),
+          row(col(xs=12)(stagePanel)),
+          row(modeSelect)
         ),
-        col(md=3)(overviewPanel)
+        col(xs=3)(overviewPanel)
       )
-    ).toString())
+    )
+    dom.document.body.appendChild(mainContainer.render)
 
-    val cv = $("#stage").get(0).asInstanceOf[HTMLCanvasElement]
+    val cv = canvas(display.`inline-block`, verticalAlign:="top", id:="stage", tabindex:=1).render
+    dom.document.getElementById("stage-panel").appendChild(cv)
     val glycanoCanvas = new GlycanoCanvas(cv)
+
+    def graph = glycanoCanvas.graph
 
     def resizeCanvas(): Unit = {
       val w = $("#stage-panel").width()
       val top = $("#stage-panel").offset().asInstanceOf[js.Dynamic].top.asInstanceOf[Double]
       val docHeight = $(js.Dynamic.global.window).height()
-      val h = docHeight - top - 15
+      val h = docHeight - top - 15 - 45
       $("#stage").width(w).height(h)
       glycanoCanvas.scope.view.viewSize = new paper.Size(w, h)
       glycanoCanvas.scope.view.draw()
@@ -185,9 +199,19 @@ object GlycanoWeb {
     for(rt <- ResidueType.ResidueTypes) {
       val rtElem = dom.document.getElementById(rt.desc)
       rtElem.onclick = (e: MouseEvent) => {
-        val wasActive = $(rtElem).hasClass("active")
-        $(".residue.active").not(rtElem).removeClass("active").button("reset")
-        residueType() = if(wasActive) None else Some(rt)
+        residueType() = if($(rtElem).hasClass("active")) None else Some(rt)
+      }
+    }
+
+    Obs(residueType) {
+      residueType().fold {
+        dom.document.getElementById("mode-select").setAttribute("disabled", "disabled")
+        $(".residue.active").removeClass("active").button("reset")
+      } { rt =>
+        dom.document.getElementById("mode-select").removeAttribute("disabled")
+        val elem = dom.document.getElementById(rt.desc)
+        $(".residue.active").not(elem).removeClass("active").button("reset")
+        //$(elem).button("toggle")
       }
     }
 
@@ -221,7 +245,7 @@ object GlycanoWeb {
 
     resizeCanvas()
 
-    import ResidueType._
+    import za.jwatson.glycanoweb.structure.ResidueType._
     glycanoCanvas.addResidue(Alpha, D, Ara, randomPoint(glycanoCanvas.scope.view.bounds))
     glycanoCanvas.addResidue(Alpha, L, Ido, randomPoint(glycanoCanvas.scope.view.bounds))
     glycanoCanvas.addResidue(Beta, D, Lyx, randomPoint(glycanoCanvas.scope.view.bounds))
@@ -236,20 +260,31 @@ object GlycanoWeb {
     }
     Obs(overviewTitle)($("#overview-title").html(overviewTitle()))
 
-    val overviewContent = Rx {
+    val casperText = Rx {
+      glycanoCanvas.residues()
+      glycanoCanvas.bonds()
       val sel = glycanoCanvas.selection()
-      sel.size match {
-        case 0 => ""
-        case 1 =>
-          div(
-            for {
-              b <- sel.head.bonds.toSeq.sortBy(_._1).map(_._2)
-            } yield div(s"${b.from.residue.desc}(${b.from.position}->${b.to.position})${b.to.residue.desc}")
-          ).toString()
-        case n => div(sel.toSeq.map(s => div(s.desc))).toString()
+      CASPER.getStrings(sel)(graph).values.mkString("; ")
+    }
+    Obs(casperText) {
+      dom.document.getElementById("casper").setAttribute("value", casperText())
+    }
+
+    val overviewContent = Rx {
+      glycanoCanvas.selection().toList match {
+        case Nil => div()
+        case res :: Nil =>
+          val first = for(Link(to, p) <- graph.parent(res)) yield div(s"${res.desc}(1->$p)${to.desc}")
+          val rest = for((i, src) <- graph.children(res)) yield div(s"${src.desc}(1->$i)${res.desc}")
+          div((first ++ rest).toSeq)
+        case ress => div(ress.map(r => div(r.desc)))
       }
     }
-    Obs(overviewContent)($("#overview-body").html(overviewContent()))
+    val ov = dom.document.getElementById("overview-body")
+    Obs(overviewContent) {
+      while(ov.hasChildNodes()) ov.removeChild(ov.firstChild)
+      ov.appendChild(overviewContent().render)
+    }
 
     glycanoCanvas.scope.view.draw()
 

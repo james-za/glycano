@@ -3,16 +3,20 @@ package za.jwatson.glycanoweb.render
 import importedjs.{paper => p}
 import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => jQ}
-import scalajs.js
 import rx._
 import za.jwatson.glycanoweb.GlycanoWeb
 import za.jwatson.glycanoweb.render.Convention.UCT
 import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
+import za.jwatson.glycanoweb.structure.Residue.Link
 import za.jwatson.glycanoweb.structure._
 
+import scala.scalajs.js
+
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
-  val residues = Var(Set[Residue]())
-  val bonds = collection.mutable.Set[Bond]()
+  val graph = new Graph
+  val residues = Var[Set[Residue]](Set.empty)
+  val bonds = Var[Set[Residue]](Set.empty)
+
   val scope = new p.PaperScope()
   scope.setup(canvas)
   val convention = rx.Var[Convention](new UCT(scope))
@@ -20,13 +24,16 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     //todo: conversion between uct/cfg/oxford
   }
 
+
   def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, pos: p.Point): Unit = {
     val residue = Residue(rt, ano, abs)
+    graph += residue
     convention().addResidue(residue, pos)
     residues() += residue
   }
 
   def removeResidue(residue: Residue): Unit = {
+    graph -= residue
     convention().removeResidue(residue)
     residues() -= residue
   }
@@ -47,19 +54,19 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   canvas.onmouseup = mouseUp _
   canvas.onmousemove = mouseMove _
 
-  sealed trait State
-  object State {
-    case object Default extends State
-    case object PlaceResidue extends State
-    case class BoxSelect(down: p.Point) extends State
-    case class Drag(last: p.Point) extends State
-    case object CreateBond extends State
-    case object PostCreateBond extends State
-    case class Hit(down: p.Point, item: p.Item) extends State
+  sealed trait InputState
+  object InputState {
+    case object Default extends InputState
+    case object PlaceResidue extends InputState
+    case class BoxSelect(down: p.Point) extends InputState
+    case class Drag(last: p.Point) extends InputState
+    case object CreateBond extends InputState
+    case object PostCreateBond extends InputState
+    case class Hit(down: p.Point, item: p.Item) extends InputState
   }
-  import State._
+  import InputState._
 
-  val state = Var[State](Default)
+  val state = Var[InputState](Default)
 
   val selection = Var(Set.empty[Residue])
 /*
@@ -75,11 +82,6 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }*/
 
 
-
-  Obs(selection) {
-    for(r <- selection()) convention().highlightResidue(r)
-  }
-
   val boxSelect = Var[Option[p.Rectangle]](None)
 
   Obs(boxSelect) {
@@ -89,53 +91,81 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def updateBoxSelect(begin: p.Point, end: p.Point): Unit = {
     boxSelect() = Some(new p.Rectangle(begin, end))
     for(rect <- boxSelect()) {
-      clearSelection()
-      selection() = residues().filter(convention().testSelection(rect, _))
+      val newSelection = graph.residues.filter(convention().testSelection(rect, _)).toSet
+      updateSelection(newSelection)
     }
   }
 
   def endBoxSelect(): Unit = {
-
     boxSelect() = None
   }
 
-  def clearSelection(): Unit = {
-    for (res <- selection()) convention().unhighlightResidue(res)
-    selection() = Set.empty[Residue]
+  def updateSelection(newSelection: Set[Residue]): Unit = {
+    val oldSelection = selection()
+    if(newSelection != oldSelection) {
+      for (res <- oldSelection diff newSelection) convention().unhighlightResidue(res)
+      for (res <- newSelection diff oldSelection) convention().highlightResidue(res)
+      selection() = newSelection
+    }
   }
 
   var hitHandle: Boolean = false
-  val tempBond = Var[Option[TempBond]](None)
+  val tempBonds = Var[Seq[TempBond]](Seq.empty)
 
-  Obs(tempBond)(convention() tempBond tempBond())
+  Obs(tempBonds)(convention() tempBond tempBonds())
 
   def beginBond(residue: Residue, point: p.Point): Unit = {
-    for(bond <- residue.bonds.get(1)) {
-      residue.removeBond(1)
-      convention().removeBond(bond)
+    for(Link(p, i) <- graph.parent(residue)) {
+      graph.removeBond(residue)
+      convention().removeBond(residue)
+      bonds() -= residue
+      if(i == 1) convention().removeBond(p)
     }
-    tempBond() = Some(TempBond(Link(residue, 1), point))
+    tempBonds() = Seq(TempBond(Link(residue, 1), point))
+  }
+  
+  def updateBondSource(point: p.Point): Unit = {
+    for(TempBond(Link(from, i), to) <- tempBonds()) {
+      if(i == 1) {
+
+      }
+      convention().getClosestLink(point, parent = true, angle = 0)
+    }
+    tempBonds() = tempBonds()
   }
 
-  def updateBond(point: p.Point): Unit = {
-    tempBond() = tempBond().map(tb => TempBond(tb.from, point))
+  def updateBondTarget(point: p.Point): Unit = {
+    tempBonds() = tempBonds().map(_.copy(to = point))
   }
 
   def endBond(): Unit = {
     for {
-      tb <- tempBond()
-      linkTo <- convention().finishBond(tb.from, tb.to)
-      if tb.from.residue != linkTo.residue
+      TempBond(fromLink @ Link(from, fromP), toPoint) <- tempBonds()
+      Link(to, p) <- convention().finishBond(fromLink, toPoint)
+      if from != to
     } {
-      val removed = linkTo.residue.removeBond(linkTo.position)
-      for(b <- removed) {
-        convention().removeBond(b)
+      if(p == 1) {
+        for(Link(toParent, toTarget) <- graph.removeBond(to)) {
+          convention().removeBond(to)
+          bonds() -= to
+          if(toTarget == 1) {
+            convention().removeBond(toParent)
+            bonds() -= toParent
+          }
+        }
+      } else {
+        for(oldFrom <- graph.child(to, p)) {
+          graph.removeBond(oldFrom)
+          convention().removeBond(oldFrom)
+          bonds() -= oldFrom
+        }
       }
-      val bond = tb.from.residue.bond(linkTo.residue, linkTo.position, tb.from.position)
-      bonds += bond
-      convention().addBond(bond)
+
+      graph.addBond(from, to, p)
+      convention().addBond(from, to, p)
+      bonds() += from
     }
-    tempBond() = None
+    tempBonds() = None
   }
 
   val residueTemplate = Rx {
@@ -146,20 +176,24 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   val clearOldTemplate = Obs(residueTemplate) {
     state() = residueTemplate() match {
-      case Some(r) => PlaceResidue
-      case None => Default
+      case Some(r) => canvas.style.cursor = "none"; PlaceResidue
+      case None => canvas.style.cursor = "default"; Default
     }
     convention().showResidueTemplate(None, null)
     scope.view.draw()
   }
 
   def updateSelectionBonds(): Unit = {
-    val affectedBonds = (for {
+    val affectedBonds = for {
       r <- selection()
-      b <- r.bonds.values
-    } yield b)(collection.breakOut): Set[Bond]
+      b <- r +: (graph.children(r).values.toSeq
+        ++ graph.parent(r).filter(_.position == 1).map(_.residue).toSeq)
+    } yield b
 
-    affectedBonds foreach convention().updateBond
+    for {
+      from <- affectedBonds
+      Link(to, i) <- graph.parent(from)
+    } convention().updateBond(from, to, i)
   }
 
   def moveSelectionBy(delta: p.Point) {
@@ -185,40 +219,60 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     scope.view.viewToProject(pointOffset)
   }
 
+  def cancelPlace(): Unit = {
+    GlycanoWeb.residueType() = None
+  }
+
   def mouseDown(e: MouseEvent): Unit = {
+//    {
+//      import scalaz._, Scalaz._
+//
+//      val mouseUp = State[InputState, Unit] {
+//        case BoxSelect(down) => (Default, ())
+//        case s => (s, ())
+//      }
+//      mouseUp.exec(state())
+//      val up = for {
+//        a <- gets[InputState, List[Int]](s => List(1, 2, 3))
+//        b <- mouseUp
+//      } yield b
+//      up
+//    }
+    
     canvas.focus()
     canvas.blur()
     val point = clientToProject(e)
     state() match {
-      case Default if e.button == 0 =>
-        val hitTest = scope.project.hitTest(point)
-        Option(hitTest) match {
-          case Some(hit) =>
-            for(r <- hit.item.getResidue) {
-              if (convention().hitHandle(r, point)) {
-                convention().handlePress(Some(r))
-                beginBond(r, point)
-                convention().handleHL(None)
-                state() = CreateBond
-              } else {
-                state() = Hit(point, hit.item)
-                if (!selection().contains(r)) {
-                  clearSelection()
-                  selection() += r
+      case Default =>
+        if(e.button == 0) {
+          val hitTest = scope.project.hitTest(point)
+          Option(hitTest) match {
+            case Some(hit) =>
+              for (r <- hit.item.getResidue) {
+                if (convention().hitHandle(r, point)) {
+                  convention().handlePress(Some(r))
+                  beginBond(r, point)
+                  convention().handleHL(None)
+                  state() = CreateBond
+                } else {
+                  state() = Hit(point, hit.item)
+                  if(!selection().contains(r)) {
+                    updateSelection(Set(r))
+                  }
                 }
               }
-            }
-          case None =>
-            updateBoxSelect(point, point)
-            state() = BoxSelect(point)
+            case None =>
+              updateBoxSelect(point, point)
+              state() = BoxSelect(point)
+          }
         }
       case PlaceResidue =>
         e.button match {
           case 0 =>
             for(t <- residueTemplate())
-              addResidue(t.anomeric, t.absolute, t.rt, point)
+              addResidue(t.anomer, t.absolute, t.rt, point)
           case 2 =>
-            GlycanoWeb.residueType() = None
+            cancelPlace()
         }
       case BoxSelect(_) =>
       case Drag(_) =>
@@ -245,9 +299,8 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         convention().highlightLink(None)
         state() = Default
       case Hit(_, item) =>
-        clearSelection()
         for(r <- item.getResidue) {
-          selection() += r
+          updateSelection(Set(r))
         }
         state() = Default
     }
@@ -266,6 +319,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         convention().handleHL(hitHandle)
       case PlaceResidue =>
         convention().showResidueTemplate(residueTemplate(), point)
+        updateBondTarget(point)
       case BoxSelect(down) =>
         updateBoxSelect(down, point)
       case Drag(last) =>
@@ -274,9 +328,9 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         updateSelectionBonds()
         state() = Drag(point)
       case CreateBond =>
-        updateBond(point)
+        updateBondTarget(point)
         convention().highlightLink(for {
-          tb <- tempBond()
+          tb <- tempBonds()
           link <- convention().getClosestLink(tb.to)
         } yield link)
       case PostCreateBond =>
