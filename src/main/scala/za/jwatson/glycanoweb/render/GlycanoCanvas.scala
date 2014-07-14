@@ -7,15 +7,18 @@ import rx._
 import za.jwatson.glycanoweb.GlycanoWeb
 import za.jwatson.glycanoweb.render.Convention.UCT
 import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
+import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure.Residue.Link
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
 
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
-  val graph = new Graph
-  val residues = Var[Set[Residue]](Set.empty)
-  val bonds = Var[Set[Residue]](Set.empty)
+  val graph = Var(RGraph())
+  implicit def _graph = graph()
+  val residues = Rx { graph().entries.keySet }
+  val bonds = Rx { residues().filter(_.hasParent) }
+
 
   val scope = new p.PaperScope()
   scope.setup(canvas)
@@ -25,17 +28,16 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
 
-  def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, pos: p.Point): Unit = {
+  def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, pos: p.Point): Residue = {
     val residue = Residue(rt, ano, abs)
-    graph += residue
+    graph() += residue
     convention().addResidue(residue, pos)
-    residues() += residue
+    residue
   }
 
   def removeResidue(residue: Residue): Unit = {
-    graph -= residue
+    graph() -= residue
     convention().removeResidue(residue)
-    residues() -= residue
   }
 
   implicit class RichResidue(residue: Residue) {
@@ -91,7 +93,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def updateBoxSelect(begin: p.Point, end: p.Point): Unit = {
     boxSelect() = Some(new p.Rectangle(begin, end))
     for(rect <- boxSelect()) {
-      val newSelection = graph.residues.filter(convention().testSelection(rect, _)).toSet
+      val newSelection = residues().filter(convention().testSelection(rect, _)).toSet
       updateSelection(newSelection)
     }
   }
@@ -112,24 +114,26 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   var hitHandle: Boolean = false
   val tempBonds = Var[Seq[TempBond]](Seq.empty)
 
-  Obs(tempBonds)(convention() tempBond tempBonds())
+  Obs(tempBonds) {
+    val tbs = tempBonds()
+    convention() tempBond (if(tbs.isEmpty) None else Some(tbs))
+  }
 
   def beginBond(residue: Residue, point: p.Point): Unit = {
-    for(Link(p, i) <- graph.parent(residue)) {
-      graph.removeBond(residue)
+    for(link @ Link(p, i) <- residue.parent) {
+      graph() -= link
       convention().removeBond(residue)
-      bonds() -= residue
       if(i == 1) convention().removeBond(p)
     }
-    tempBonds() = Seq(TempBond(Link(residue, 1), point))
+    tempBonds() = Seq(TempBond(Link(residue, 1), point, None, None))
   }
   
   def updateBondSource(point: p.Point): Unit = {
-    for(TempBond(Link(from, i), to) <- tempBonds()) {
+    for(TempBond(Link(from, i), to, _, _) <- tempBonds()) {
       if(i == 1) {
 
       }
-      convention().getClosestLink(point, parent = true, angle = 0)
+      convention().getClosestLinkAny(point, parent = true, angle = 0)
     }
     tempBonds() = tempBonds()
   }
@@ -140,32 +144,23 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   def endBond(): Unit = {
     for {
-      TempBond(fromLink @ Link(from, fromP), toPoint) <- tempBonds()
-      Link(to, p) <- convention().finishBond(fromLink, toPoint)
+      TempBond(fromLink @ Link(from, fromP), toPoint, _, _) <- tempBonds()
+      toLink @ Link(to, p) <- convention().finishBond(fromLink, toPoint)
       if from != to
     } {
-      if(p == 1) {
-        for(Link(toParent, toTarget) <- graph.removeBond(to)) {
-          convention().removeBond(to)
-          bonds() -= to
-          if(toTarget == 1) {
-            convention().removeBond(toParent)
-            bonds() -= toParent
-          }
-        }
-      } else {
-        for(oldFrom <- graph.child(to, p)) {
-          graph.removeBond(oldFrom)
-          convention().removeBond(oldFrom)
-          bonds() -= oldFrom
-        }
+      for(parent <- to.parent) convention().removeBond(to)
+      for(c <- to.child(p)) convention().removeBond(c)
+      graph() -= toLink
+      for(old <- to.parent if old.position == 1) {
+        graph() -= old
+        convention().removeBond(old.residue)
       }
 
-      graph.addBond(from, to, p)
+      graph() += Bond(from, toLink)
       convention().addBond(from, to, p)
-      bonds() += from
     }
-    tempBonds() = None
+
+    tempBonds() = Seq.empty
   }
 
   val residueTemplate = Rx {
@@ -186,13 +181,13 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def updateSelectionBonds(): Unit = {
     val affectedBonds = for {
       r <- selection()
-      b <- r +: (graph.children(r).values.toSeq
-        ++ graph.parent(r).filter(_.position == 1).map(_.residue).toSeq)
+      b <- r +: (r.children.fold(Seq[Residue]())(_.values.toSeq)
+        ++ r.parent.toSeq.map(_.residue))
     } yield b
 
     for {
       from <- affectedBonds
-      Link(to, i) <- graph.parent(from)
+      Link(to, i) <- from.parent
     } convention().updateBond(from, to, i)
   }
 
@@ -220,25 +215,61 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   def cancelPlace(): Unit = {
+    tempBonds() = Seq.empty
     GlycanoWeb.residueType() = None
   }
 
+  def showPlaceTempBonds(point: p.Point, angle: Double): Unit = {
+    for {
+      t <- residueTemplate()
+      ti <- convention().residueTemplateItem()
+    } {
+      val ris = for {
+        r <- residues()
+        item <- r.getItem
+      } yield r -> item
+      val (right, left) = ris.partition {
+        case (r, i) => convention().onRightOf(point, i.position, angle)
+      }
+      val rrss = for {
+        rightPt <- convention().residueTemplateLinkPosition(1).toSeq
+        (rr, rri) <- right
+        rrlink <- convention().getClosestLink(rightPt, rr, parent = true, angle)
+        rrpos = convention().linkPosition(rrlink)
+        if convention().linkValid(rightPt, rrpos, parent = true, angle)
+        rrdist = rightPt.getDistance(rrpos, squared = true)
+        if rrdist < 500 * 500
+      } yield (rrlink, rrdist, rrpos)
+      val rightTB = if(rrss.isEmpty) List() else {
+        val rrmin = rrss.minBy(_._2)
+        List(TempBond(null, rrmin._3, None, Some(rrmin._1)))
+      }
+      val validLefts = for {
+        (r, i) <- left.toSeq if !r.hasParent
+        link = Link(r, 1)
+        linkPt = convention().linkPosition(link)
+        dist = linkPt.getDistance(point, squared = true)
+        if dist < 200 * 200
+      } yield (link, i, dist)
+      val leftSorted = validLefts.sortBy(_._3).take(t.rt.linkage - 1)
+      val slots = for {
+        i: Int <- (1 to t.rt.linkage).toSet
+        pt <- convention().residueTemplateLinkPosition(i)
+      } yield i -> pt
+
+      def slotAll(lefts: List[Link], slots: Set[(Int, p.Point)]): List[TempBond] =
+        lefts match {
+          case Nil => Nil
+          case x :: xs =>
+            val lp = convention().linkPosition(x)
+            val min = slots.minBy(_._2.getDistance(lp, squared = true))
+            TempBond(x, min._2, Some(min._1), None) :: slotAll(xs, slots - min)
+        }
+      tempBonds() = slotAll(leftSorted.map(_._1).toList, slots) ++ rightTB
+    }
+  }
+
   def mouseDown(e: MouseEvent): Unit = {
-//    {
-//      import scalaz._, Scalaz._
-//
-//      val mouseUp = State[InputState, Unit] {
-//        case BoxSelect(down) => (Default, ())
-//        case s => (s, ())
-//      }
-//      mouseUp.exec(state())
-//      val up = for {
-//        a <- gets[InputState, List[Int]](s => List(1, 2, 3))
-//        b <- mouseUp
-//      } yield b
-//      up
-//    }
-    
     canvas.focus()
     canvas.blur()
     val point = clientToProject(e)
@@ -269,14 +300,32 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case PlaceResidue =>
         e.button match {
           case 0 =>
-            for(t <- residueTemplate())
-              addResidue(t.anomer, t.absolute, t.rt, point)
+            for(t <- residueTemplate()) {
+              val added = addResidue(t.anomer, t.absolute, t.rt, point)
+              for {
+                tb <- tempBonds().filter(_.toPos.isDefined)
+                leftPos <- tb.toPos
+              } {
+                graph() += Bond(tb.from.residue, Link(added, leftPos))
+                convention().addBond(tb.from.residue, added, leftPos)
+              }
+              for {
+                tb <- tempBonds()
+                rightLink <- tb.toLink
+              } {
+                graph() += Bond(added, rightLink)
+                convention().addBond(added, rightLink.residue, rightLink.position)
+              }
+            }
           case 2 =>
             cancelPlace()
         }
       case BoxSelect(_) =>
       case Drag(_) =>
       case CreateBond =>
+        if(e.button != 0) {
+          convention() tempBond None
+        }
         endBond()
         state() = PostCreateBond
       case PostCreateBond =>
@@ -296,7 +345,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case CreateBond =>
         convention().handlePress(None)
       case PostCreateBond =>
-        convention().highlightLink(None)
+        convention().highlightLink(Seq.empty)
         state() = Default
       case Hit(_, item) =>
         for(r <- item.getResidue) {
@@ -319,6 +368,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         convention().handleHL(hitHandle)
       case PlaceResidue =>
         convention().showResidueTemplate(residueTemplate(), point)
+        showPlaceTempBonds(point, angle = 0.0)
         updateBondTarget(point)
       case BoxSelect(down) =>
         updateBoxSelect(down, point)
@@ -331,7 +381,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         updateBondTarget(point)
         convention().highlightLink(for {
           tb <- tempBonds()
-          link <- convention().getClosestLink(tb.to)
+          link <- convention().getClosestLinkAny(tb.to, parent = true)
         } yield link)
       case PostCreateBond =>
       case Hit(down, _) =>
@@ -341,6 +391,6 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 }
 
 object GlycanoCanvas {
-  case class TempBond(from: Link, to: p.Point)
+  case class TempBond(from: Link, to: p.Point, toPos: Option[Int], toLink: Option[Link])
   case class Selected(residue: Residue, offset: p.Point)
 }

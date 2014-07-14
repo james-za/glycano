@@ -21,7 +21,7 @@ abstract class Convention(scope: p.PaperScope) {
 
   def hitHandle(residue: Residue, point: Point): Boolean
 
-  val tempBond: CanvasItemMod[p.Path, TempBond]
+  val tempBond: CanvasItemMod[Seq[p.Path], Seq[TempBond]]
 
   def showResidueTemplate(residue: Option[Residue], pos: p.Point): Unit
 
@@ -45,12 +45,18 @@ abstract class Convention(scope: p.PaperScope) {
   
   def items: Iterable[p.Item]
   
-  def getClosestLink(point: p.Point, parent: Boolean = false, angle: Double = 0): Option[Link]
-  def getClosestLink(from: p.Point, to: Residue, angle: Double = 0): Option[Link]
-  def highlightLink(link: Option[Link]): Unit
+  def getClosestLinkAny(point: p.Point, parent: Boolean, angle: Double = 0, threshold: Double = 50 * 50): Option[Link]
+  def getClosestLink(from: p.Point, to: Residue, parent: Boolean, angle: Double = 0): Option[Link]
+  def highlightLink(link: Seq[Link]): Unit
   def linkPosition(link: Link): p.Point
 
   def createIcon(rt: ResidueType, abs: Absolute, ano: Anomer, bounds: p.Rectangle): SVGElement
+
+  def linkValid(from: p.Point, to: p.Point, parent: Boolean, angle: Double): Boolean
+  def onRightOf(from: p.Point, to: p.Point, angle: Double): Boolean
+
+  def residueTemplateItem(): Option[p.Item]
+  def residueTemplateLinkPosition(i: Int): Option[p.Point]
 }
 
 object Convention {
@@ -272,16 +278,19 @@ object Convention {
     }
 
     def linkValid(from: p.Point, to: p.Point, parent: Boolean, angle: Double): Boolean = {
-      val dot = p.Point(1, 0).rotate(angle, p.Point(0, 0)).dot(to.point subtract from)
-      (dot > 0) == parent
+      onRightOf(from, to, angle) == parent
     }
 
-    override def getClosestLink(from: p.Point, parent: Boolean = false, angle: Double = 0): Option[Link] = {
+    def onRightOf(from: p.Point, to: p.Point, angle: Double): Boolean = {
+      p.Point(1, 0).rotate(angle, p.Point(0, 0)).dot(to subtract from) > 0
+    }
+
+    override def getClosestLinkAny(from: p.Point, parent: Boolean = false, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] = {
       val points = for {
         residueShape <- residueResidueShapes.values
         segment <- residueShape.outline.segments.toSeq
         if linkValid(from, segment.point, parent, angle)
-        distsq = segment.point.getDistance(from, true)
+        distsq = segment.point.getDistance(from, squared = true)
         if distsq < threshold
       } yield (segment, distsq)
 
@@ -290,16 +299,16 @@ object Convention {
       segment flatMap getLink
     }
 
-    override def getClosestLink(from: p.Point, to: Residue, angle: Double = 0): Option[Link] = {
+    override def getClosestLink(from: p.Point, to: Residue, parent: Boolean, angle: Double = 0): Option[Link] = {
       val points = for {
-        residueShape <- residueResidueShapes.get(to)
+        residueShape <- residueResidueShapes.get(to).toSeq
         segment <- residueShape.outline.segments.toSeq
-        if linkValid(from, segment.point, parent = true, angle)
-        distsq = segment.point.getDistance(from, true)
+        if linkValid(from, segment.point, parent, angle)
+        distsq = segment.point.getDistance(from, squared = true)
         if distsq < threshold
       } yield (segment, distsq)
 
-      val segment = if(points.nonEmpty) Some(points.minBy(_._2.doubleValue())._1) else None
+      val segment = if(points.nonEmpty) Some(points.minBy[Double](_._2)._1) else None
 
       segment flatMap getLink
     }
@@ -315,13 +324,13 @@ object Convention {
 
     val threshold = 50 * 50
 
-    var highlightedLink: Option[Link] = None
-    var linkHighlight: Option[p.Item] = None
+    var highlightedLink: Seq[Link] = Seq.empty
+    var linkHighlight: Seq[p.Item] = Seq.empty
 
-    override def highlightLink(link: Option[Link]): Unit = {
+    override def highlightLink(link: Seq[Link]): Unit = {
       if(highlightedLink != link) {
         linkHighlight.map(_.remove())
-        linkHighlight = None
+        linkHighlight = Seq.empty
         highlightedLink = link
         linkHighlight = link.map { l =>
           val num = new p.PointText(linkPosition(l))
@@ -354,34 +363,54 @@ object Convention {
     override def testSelection(rect: Rectangle, residue: Residue): Boolean = {
       rect.contains(residue.group.position)
     }
-    
-    var residueTemplate: Option[p.Item] = None
+
+    var residueTemplate: Option[(p.Item, p.Path)] = None
 
     override def showResidueTemplate(residue: Option[Residue], pos: p.Point): Unit = {
       residue match {
         case Some(r) =>
-          if(residueTemplate.isEmpty)
-            residueTemplate = Some(ResidueShape(r).group)
-          residueTemplate.map(_.position = pos)
+          if(residueTemplate.isEmpty) {
+            val rs = ResidueShape(r)
+            residueTemplate = Some((rs.group, rs.outline))
+          }
+          residueTemplate.map(_._1.position = pos)
         case None =>
-          residueTemplate.map(_.remove())
+          residueTemplate.map(_._1.remove())
           residueTemplate = None
       }
     }
 
-    override val tempBond = new CanvasItemMod[p.Path, TempBond] {
-      override def create(s: TempBond): p.Path = {
-        val line = p.Path.Line(linkPosition(s.from), s.to)
-        line.strokeWidth = 10
-        line.strokeColor = "#AAAAAA"
-        line.dashArray = js.Array(1, 15)
-        line.strokeCap = "round"
-        line
+    override def residueTemplateItem(): Option[p.Item] = {
+      residueTemplate.map(_._1)
+    }
+
+    override def residueTemplateLinkPosition(i: Int): Option[p.Point] = {
+      residueTemplate.map(_._2.segments(i - 1).point)
+    }
+
+    override val tempBond = new CanvasItemMod[Seq[p.Path], Seq[TempBond]] {
+      override def create(ss: Seq[TempBond]): Seq[p.Path] = {
+        for(s <- ss) yield {
+          //todo: broken beyond all hope -- refactor to a TempBond case class tree later
+          val line = if(s.from == null) {
+            p.Path.Line(residueTemplateLinkPosition(1).get, s.to)
+          } else p.Path.Line(linkPosition(s.from), s.to)
+
+          line.strokeWidth = 10
+          line.strokeColor = "#AAAAAA"
+          line.dashArray = js.Array(1, 15)
+          line.strokeCap = "round"
+          line
+        }
       }
-      override def update(t: p.Path, s: TempBond): Unit = {
-        t.segments(1).point = s.to
+      override def update(ts: Seq[p.Path], ss: Seq[TempBond]): Unit = {
+        for((t, s) <- ts.zip(ss)) {
+          t.segments(1).point = s.to
+        }
       }
-      override def revert(t: p.Path, s: TempBond): Unit = t.remove()
+      override def revert(ts: Seq[p.Path], ss: Seq[TempBond]): Unit = {
+        for(t <- ts) t.remove()
+      }
     }
 
     override def hitHandle(residue: Residue, point: P): Boolean = {
@@ -389,17 +418,17 @@ object Convention {
     }
 
     override def finishBond(from: Link, to: p.Point): Option[Link] = {
-      getClosestLink(to, parent = true)
+      getClosestLinkAny(to, parent = true)
     }
 
     override val handleHL = new CanvasItemMod[p.Path, Residue] {
-      override def create(r: Residue) = r.handle
+      override def create(r: Residue): p.Path = r.handle
       override def update(h: p.Path, r: Residue) = h.strokeColor = "blue"
       override def revert(h: p.Path, r: Residue) = h.strokeColor = "black"
     }
     
     override val handlePress = new CanvasItemMod[p.Path, Residue] {
-      override def create(r: Residue) = r.handle
+      override def create(r: Residue): p.Path = r.handle
       override def update(h: p.Path, r: Residue) = h.strokeWidth = 2
       override def revert(h: p.Path, r: Residue) = h.strokeWidth = 1
     }
@@ -414,19 +443,27 @@ object Convention {
     var itemSource: Option[S] = None
 
     def apply(source: Option[S]): Unit = {
-      source match {
-        case Some(s) =>
-          if(source != itemSource) {
-            for(t <- item) revert(t, s)
-            item = Some(create(s))
-          }
-          update(item.get, s)
-        case None =>
-          for(t <- item) {
-            revert(t, itemSource.get)
-            item = None
-          }
+      for (t <- item) {
+        revert(t, itemSource.get)
+        item = None
       }
+      for(s <- source) {
+        item = Some(create(s))
+        update(item.get, s)
+      }
+//      source match {
+//        case Some(s) =>
+//          if(source != itemSource) {
+//            for (t <- item) revert(t, s)
+//            item = Some(create(s))
+//          }
+//          update(item.get, s)
+//        case None =>
+//          for(t <- item) {
+//            revert(t, itemSource.get)
+//            item = None
+//          }
+//      }
       itemSource = source
     }
   }

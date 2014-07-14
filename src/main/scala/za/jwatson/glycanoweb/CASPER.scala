@@ -1,35 +1,40 @@
 package za.jwatson.glycanoweb
 
-import za.jwatson.glycanoweb.structure.{Graph, Residue}
+import za.jwatson.glycanoweb.structure.{RGraph, Graph, Residue}
 import za.jwatson.glycanoweb.structure.Residue.Link
 
 import scala.annotation.tailrec
 import scalaz.Scalaz._
 import scalaz._
+import RGraph._
 
 object CASPER {
-  def findRoot(graph: Graph, r: Residue): Option[Residue] = findRootRec(graph, r, Set.empty)
-  @tailrec def findRootRec(graph: Graph, r: Residue, rs: Set[Residue]): Option[Residue] = {
-    graph.parent(r) match {
+  def findRoot(r: Residue)(implicit graph: RGraph): Option[Residue] = findRootRec(r, Set.empty)
+  @tailrec def findRootRec(r: Residue, rs: Set[Residue])(implicit graph: RGraph): Option[Residue] = {
+    r.parent match {
       case None =>
         r.some
       case Some(Link(parent, i)) =>
-        if(i == 1) none else findRootRec(graph, parent, rs + r)
+        if(i == 1) none else findRootRec(parent, rs + r)
     }
   }
 
-  def getStrings(residues: Set[Residue])(implicit graph: Graph): Map[Residue, String] = {
-    val roots = residues.flatMap(findRoot(graph, _)).toSeq
+  def getStrings(residues: Set[Residue])(implicit graph: RGraph): Map[Residue, String] = {
+    val roots = residues.flatMap(findRoot(_)).toSeq
     val strings = roots map (getString(graph, _))
     Map(roots zip strings: _*)
   }
 
-  def getString(graph: Graph, root: Residue): String = {
-    val tree = residueTree(graph, root)
+  def getString(graph: RGraph, root: Residue): String = {
+    implicit val rg = graph
+    val tree = residueTree(root)
     val strTree = tree.map({ r =>
-      val mod = for (Link(t, p) <- graph.parent(r)) yield {
-        val left = graph.children(t).exists(_._1 < p) ? "]" | ""
-        val right = graph.children(t).exists(_._1 > p) ? "[" | ""
+      val mod = for {
+        Link(t, p) <- r.parent
+        children <- r.children
+      } yield {
+        val left = children.exists(_._1 < p) ? "]" | ""
+        val right = children.exists(_._1 > p) ? "[" | ""
         s"(1->$p)$left$right"
       }
       r.symbol + (mod | "")
@@ -37,8 +42,8 @@ object CASPER {
     strTree.flatten.reverseIterator.mkString
   }
 
-  def residueTree(graph: Graph, root: Residue): Tree[Residue] = {
-    val leaves = graph.children(root).toSeq.sortBy(-_._1).map(c => residueTree(graph, c._2))
+  def residueTree(root: Residue)(implicit graph: RGraph): Tree[Residue] = {
+    val leaves = root.children.toSeq.flatten.sortBy(-_._1).map(c => residueTree(c._2))
     root.node(leaves: _*)
   }
 }

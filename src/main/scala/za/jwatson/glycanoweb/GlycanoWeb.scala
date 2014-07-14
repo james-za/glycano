@@ -10,6 +10,7 @@ import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
 import za.jwatson.glycanoweb.structure.Residue.Link
 import za.jwatson.glycanoweb.structure._
+import za.jwatson.glycanoweb.structure.RGraph._
 
 import scala.scalajs.js
 import scala.scalajs.js.UndefOr
@@ -147,7 +148,7 @@ object GlycanoWeb {
     dom.document.getElementById("stage-panel").appendChild(cv)
     val glycanoCanvas = new GlycanoCanvas(cv)
 
-    def graph = glycanoCanvas.graph
+    implicit def graph = glycanoCanvas.graph()
 
     def resizeCanvas(): Unit = {
       val w = $("#stage-panel").width()
@@ -264,7 +265,7 @@ object GlycanoWeb {
       glycanoCanvas.residues()
       glycanoCanvas.bonds()
       val sel = glycanoCanvas.selection()
-      CASPER.getStrings(sel)(graph).values.mkString("; ")
+      CASPER.getStrings(sel).values.mkString("; ")
     }
     Obs(casperText) {
       dom.document.getElementById("casper").setAttribute("value", casperText())
@@ -274,8 +275,8 @@ object GlycanoWeb {
       glycanoCanvas.selection().toList match {
         case Nil => div()
         case res :: Nil =>
-          val first = for(Link(to, p) <- graph.parent(res)) yield div(s"${res.desc}(1->$p)${to.desc}")
-          val rest = for((i, src) <- graph.children(res)) yield div(s"${src.desc}(1->$i)${res.desc}")
+          val first = for(Link(to, p) <- res.parent) yield div(s"${res.desc}(1->$p)${to.desc}")
+          val rest = for(ch <- res.children.toSeq; (i, src) <- ch) yield div(s"${src.desc}(1->$i)${res.desc}")
           div((first ++ rest).toSeq)
         case ress => div(ress.map(r => div(r.desc)))
       }

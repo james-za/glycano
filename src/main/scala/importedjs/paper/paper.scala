@@ -21,16 +21,16 @@ object Implicits {
 }
 
 trait KeyModifiers extends js.Object {
-  var shift: js.Boolean = ???
-  var control: js.Boolean = ???
-  var option: js.Boolean = ???
-  var command: js.Boolean = ???
-  var capsLock: js.Boolean = ???
+  var shift: Boolean = ???
+  var control: Boolean = ???
+  var option: Boolean = ???
+  var command: Boolean = ???
+  var capsLock: Boolean = ???
 }
 
 @JSName("paper.PaperScope")
 class PaperScope extends js.Object {
-  var version: js.Number = ???
+  var version: Double = ???
   var project: Project = ???
   var projects: js.Array[Project] = ???
   var view: View = ???
@@ -46,7 +46,7 @@ class PaperScope extends js.Object {
 
 @JSName("paper.PaperScope")
 object PaperScope extends js.Object {
-  def get(id: js.String): PaperScope = ???
+  def get(id: String): PaperScope = ???
   def each(iter: js.Function0[Any]): js.Dynamic = ???
 }
 
@@ -56,53 +56,53 @@ class PaperScript extends js.Object {
 
 @JSName("paper.PaperScript")
 object PaperScript extends js.Object {
-  def compile(code: js.String): js.String = ???
-  def evaluate(code: js.String, scope: PaperScope): js.Any = ???
+  def compile(code: String): String = ???
+  def evaluate(code: String, scope: PaperScope): js.Any = ???
 }
 
 @JSName("paper.Point")
 class Point protected () extends js.Object {
-  def this(x: js.Number, y: js.Number) = this()
+  def this(x: Double, y: Double) = this()
   def this(values: js.Array[js.Any]) = this()
   def this(`object`: js.Any) = this()
   def this(size: Size) = this()
   def this(point: Point) = this()
-  var x: js.Number = ???
-  var y: js.Number = ???
-  var length: js.Number = ???
-  var angle: js.Number = ???
-  var angleInRadians: js.Number = ???
-  var quadrant: js.Number = ???
-  var selected: js.Boolean = ???
+  var x: Double = ???
+  var y: Double = ???
+  var length: Double = ???
+  var angle: Double = ???
+  var angleInRadians: Double = ???
+  var quadrant: Double = ???
+  var selected: Boolean = ???
   def add(point: Point): Point = ???
-  def add(x: js.Number, y: js.Number): Point = ???
-  def add(value: js.Number): Point = ???
+  def add(x: Double, y: Double): Point = ???
+  def add(value: Double): Point = ???
   def subtract(point: Point): Point = ???
-  def subtract(x: js.Number, y: js.Number): Point = ???
-  def subtract(value: js.Number): Point = ???
+  def subtract(x: Double, y: Double): Point = ???
+  def subtract(value: Double): Point = ???
   def multiply(point: Point): Point = ???
-  def multiply(x: js.Number, y: js.Number): Point = ???
-  def multiply(value: js.Number): Point = ???
+  def multiply(x: Double, y: Double): Point = ???
+  def multiply(value: Double): Point = ???
   def divide(point: Point): Point = ???
-  def divide(x: js.Number, y: js.Number): Point = ???
-  def divide(value: js.Number): Point = ???
+  def divide(x: Double, y: Double): Point = ???
+  def divide(value: Double): Point = ???
   @JSName("clone") def clonePoint(insert: Boolean = ???): Point = ???
   override def toString(): String = ???
   def transform(matrix: Matrix): Point = ???
-  def getDistance(point: Point, squared: js.Boolean): js.Number = ???
-  def normalize(length: js.Number = ???): js.Dynamic = ???
-  def getAngle(): js.Number = ???
-  def getAngleInRadians(): js.Number = ???
-  def getDirectedAngle(point: Point): js.Number = ???
-  def rotate(angle: js.Number, center: Point): Point = ???
-  def isInside(rect: Rectangle): js.Boolean = ???
-  def isClose(point: Point, tolerance: js.Number): js.Boolean = ???
-  def isColinear(point: Point): js.Boolean = ???
-  def isOrthogonal(point: Point): js.Boolean = ???
-  def isZero(): js.Boolean = ???
-  def isNan(): js.Boolean = ???
-  def dot(point: Point): js.Number = ???
-  def cross(point: Point): js.Number = ???
+  def getDistance(point: Point, squared: Boolean): Double = ???
+  def normalize(length: Double = ???): js.Dynamic = ???
+  def getAngle(): Double = ???
+  def getAngleInRadians(): Double = ???
+  def getDirectedAngle(point: Point): Double = ???
+  def rotate(angle: Double, center: Point): Point = ???
+  def isInside(rect: Rectangle): Boolean = ???
+  def isClose(point: Point, tolerance: Double): Boolean = ???
+  def isColinear(point: Point): Boolean = ???
+  def isOrthogonal(point: Point): Boolean = ???
+  def isZero(): Boolean = ???
+  def isNan(): Boolean = ???
+  def dot(point: Point): Double = ???
+  def cross(point: Point): Double = ???
   def project(point: Point): Point = ???
 }
 
@@ -113,18 +113,18 @@ object Points extends js.Object {
 }
 
 object Point {
-  def apply(x: js.Number, y: js.Number): Point = new Point(x, y)
+  def apply(x: Double, y: Double): Point = new Point(x, y)
 }
 
 @JSName("paper.Size")
 class Size extends js.Object {
-  def this(width: js.Number, height: js.Number) = this()
-  var width: js.Number = ???
-  var height: js.Number = ???
+  def this(width: Double, height: Double) = this()
+  var width: Double = ???
+  var height: Double = ???
   override def toString(): String = ???
   @JSName("clone") def cloneSize(insert: Boolean = ???): Size = ???
-  def isZero(): js.Boolean = ???
-  def isNan(): js.Boolean = ???
+  def isZero(): Boolean = ???
+  def isNan(): Boolean = ???
   def round(): Size = ???
   def ceil(): Size = ???
   def floor(): Size = ???
@@ -141,19 +141,19 @@ object Size extends js.Object {
 @JSName("paper.Rectangle")
 class Rectangle protected () extends js.Object {
   def this(point: Point, size: Size) = this()
-  def this(x: js.Number, y: js.Number, width: js.Number, height: js.Number) = this()
+  def this(x: Double, y: Double, width: Double, height: Double) = this()
   def this(point1: Point, point2: Point) = this()
   def this(rect: Rectangle) = this()
-  var x: js.Number = ???
-  var y: js.Number = ???
-  var width: js.Number = ???
-  var height: js.Number = ???
+  var x: Double = ???
+  var y: Double = ???
+  var width: Double = ???
+  var height: Double = ???
   var point: Point = ???
   var size: Size = ???
-  var left: js.Number = ???
-  var top: js.Number = ???
-  var right: js.Number = ???
-  var bottom: js.Number = ???
+  var left: Double = ???
+  var top: Double = ???
+  var right: Double = ???
+  var bottom: Double = ???
   var center: Point = ???
   var topLeft: Point = ???
   var topRight: Point = ???
@@ -163,11 +163,11 @@ class Rectangle protected () extends js.Object {
   var topCenter: Point = ???
   var rightCenter: Point = ???
   var bottomCenter: Point = ???
-  def isEmpty(): js.Boolean = ???
+  def isEmpty(): Boolean = ???
   override def toString(): String = ???
-  def contains(point: Point): js.Boolean = ???
-  def contains(rect: Rectangle): js.Boolean = ???
-  def intersects(rect: Rectangle): js.Boolean = ???
+  def contains(point: Point): Boolean = ???
+  def contains(rect: Rectangle): Boolean = ???
+  def intersects(rect: Rectangle): Boolean = ???
   def intersect(rect: Rectangle): Rectangle = ???
   def unite(rect: Rectangle): Rectangle = ???
   def include(point: Point): js.Dynamic = ???
@@ -175,62 +175,62 @@ class Rectangle protected () extends js.Object {
 
 @JSName("paper.Matrix")
 class Matrix protected () extends js.Object {
-  def this(a: js.Number, c: js.Number, b: js.Number, d: js.Number, tx: js.Number, ty: js.Number) = this()
-  var scaleX: js.Number = ???
-  var scaleY: js.Number = ???
-  var shearX: js.Number = ???
-  var shearY: js.Number = ???
-  var translateX: js.Number = ???
-  var translateY: js.Number = ???
-  var values: js.Array[js.Number] = ???
-  var rotation: js.Number = ???
+  def this(a: Double, c: Double, b: Double, d: Double, tx: Double, ty: Double) = this()
+  var scaleX: Double = ???
+  var scaleY: Double = ???
+  var shearX: Double = ???
+  var shearY: Double = ???
+  var translateX: Double = ???
+  var translateY: Double = ???
+  var values: js.Array[Double] = ???
+  var rotation: Double = ???
   @JSName("clone") def cloneMatrix(insert: Boolean = ???): Matrix = ???
-  def set(a: js.Number, c: js.Number, b: js.Number, d: js.Number, tx: js.Number, ty: js.Number): Matrix = ???
-  def scale(scale: js.Number, center: Point = ???): Matrix = ???
-  @JSName("scale") def scale2(hor: js.Number, ver: js.Number, center: Point = ???): Matrix = ???
+  def set(a: Double, c: Double, b: Double, d: Double, tx: Double, ty: Double): Matrix = ???
+  def scale(scale: Double, center: Point = ???): Matrix = ???
+  @JSName("scale") def scale2(hor: Double, ver: Double, center: Point = ???): Matrix = ???
   def translate(point: Point): Matrix = ???
-  def translate(dx: js.Number, dy: js.Number): Matrix = ???
-  def rotate(angle: js.Number, center: Point): Matrix = ???
-  def rotate(angle: js.Number, x: js.Number, y: js.Number): Matrix = ???
+  def translate(dx: Double, dy: Double): Matrix = ???
+  def rotate(angle: Double, center: Point): Matrix = ???
+  def rotate(angle: Double, x: Double, y: Double): Matrix = ???
   def shear(point: Point, center: Point = ???): Matrix = ???
-  @JSName("shear") def shear2(hor: js.Number, ver: js.Number, center: Point = ???): Matrix = ???
+  @JSName("shear") def shear2(hor: Double, ver: Double, center: Point = ???): Matrix = ???
   override def toString(): String = ???
   def concatenate(mx: Matrix): Matrix = ???
   def preConcatenate(mx: Matrix): Matrix = ???
   def transform(point: Point): Matrix = ???
-  def transform(src: js.Array[js.Number], srcOff: js.Number, dst: js.Array[js.Number], dstOff: js.Number, numPts: js.Number): js.Array[js.Number] = ???
+  def transform(src: js.Array[Double], srcOff: Double, dst: js.Array[Double], dstOff: Double, numPts: Double): js.Array[Double] = ???
   def inverseTransform(point: Point): Matrix = ???
-  def isIdentity(): js.Boolean = ???
-  def isInvertible(): js.Boolean = ???
-  def isSingular(): js.Boolean = ???
+  def isIdentity(): Boolean = ???
+  def isInvertible(): Boolean = ???
+  def isSingular(): Boolean = ???
   def createInverse(): Matrix = ???
-  def setToScale(hor: js.Number, ver: js.Number): Matrix = ???
-  def setToTranslation(dx: js.Number, dy: js.Number): Matrix = ???
-  def setToShear(hor: js.Number, ver: js.Number): Matrix = ???
-  def setToRotation(angle: js.Number, x: js.Number, y: js.Number): Matrix = ???
-  def applyToContext(ctx: js.Any, reset: js.Boolean = ???): js.Dynamic = ???
+  def setToScale(hor: Double, ver: Double): Matrix = ???
+  def setToTranslation(dx: Double, dy: Double): Matrix = ???
+  def setToShear(hor: Double, ver: Double): Matrix = ???
+  def setToRotation(angle: Double, x: Double, y: Double): Matrix = ???
+  def applyToContext(ctx: js.Any, reset: Boolean = ???): js.Dynamic = ???
 }
 
 @JSName("paper.Matrix")
 object Matrix extends js.Object {
-  def getScaleInstance(hor: js.Number, ver: js.Number): Matrix = ???
-  def getTranslateInstance(dx: js.Number, dy: js.Number): Matrix = ???
-  def getShearInstance(hor: js.Number, ver: js.Number, center: Point): Matrix = ???
-  def getRotateInstance(angle: js.Number, x: js.Number, y: js.Number): Matrix = ???
+  def getScaleInstance(hor: Double, ver: Double): Matrix = ???
+  def getTranslateInstance(dx: Double, dy: Double): Matrix = ???
+  def getShearInstance(hor: Double, ver: Double, center: Point): Matrix = ???
+  def getRotateInstance(angle: Double, x: Double, y: Double): Matrix = ???
 }
 
 @JSName("paper.Item")
 class Item extends js.Object {
-  var id: js.Number = ???
-  var name: js.String = ???
+  var id: Double = ???
+  var name: String = ???
   var position: Point = ???
   var style: PathStyle = ???
-  var visible: js.Boolean = ???
-  var blendMode: js.String = ???
-  var opacity: js.Number = ???
-  var guide: js.Number = ???
-  var selected: js.Boolean = ???
-  var clipMask: js.Boolean = ???
+  var visible: Boolean = ???
+  var blendMode: String = ???
+  var opacity: Double = ???
+  var guide: Double = ???
+  var selected: Boolean = ???
+  var clipMask: Boolean = ???
   var project: Project = ???
   var layer: Layer = ???
   var parent: Item = ???
@@ -239,49 +239,49 @@ class Item extends js.Object {
   var lastChild: Item = ???
   var nextSibling: Item = ???
   var previousSibling: Item = ???
-  var index: js.Number = ???
+  var index: Double = ???
   var bounds: Rectangle = ???
   var strokeBounds: Rectangle = ???
   var handleBounds: Rectangle = ???
   var strokeColor: js.Any = ???
-  var strokeWidth: js.Number = ???
-  var strokeCap: js.String = ???
-  var strokeJoin: js.String = ???
-  var dashOffset: js.Number = ???
-  var dashArray: js.Array[js.Number] = ???
-  var miterLimit: js.Number = ???
+  var strokeWidth: Double = ???
+  var strokeCap: String = ???
+  var strokeJoin: String = ???
+  var dashOffset: Double = ???
+  var dashArray: js.Array[Double] = ???
+  var miterLimit: Double = ???
   var fillColor: Color = ???
-  @JSName("fillColor") var fillColorString: js.String = ???
+  @JSName("fillColor") var fillColorString: String = ???
   def addChild(item: Item): js.Dynamic = ???
   def insertChild(index: js.Any, item: Item): js.Dynamic = ???
   def addChildren(items: js.Array[Item]): js.Dynamic = ???
   def insertChildren(index: js.Any, items: js.Array[Item]): js.Dynamic = ???
-  def insertAbove(item: Item): js.Boolean = ???
-  def insertBelow(item: Item): js.Boolean = ???
-  def remove(): js.Boolean = ???
+  def insertAbove(item: Item): Boolean = ???
+  def insertBelow(item: Item): Boolean = ???
+  def remove(): Boolean = ???
   def removeChildren(): js.Array[Item] = ???
-  def removeChildren(from: js.Number, to: js.Number = ???): js.Array[Item] = ???
+  def removeChildren(from: Double, to: Double = ???): js.Array[Item] = ???
   def reverseChildren(): js.Dynamic = ???
-  def hasChildren(): js.Boolean = ???
-  def isAbove(item: Item): js.Boolean = ???
-  def isBelow(item: Item): js.Boolean = ???
-  def isParent(item: Item): js.Boolean = ???
-  def isChild(item: Item): js.Boolean = ???
-  def isDescendant(item: Item): js.Boolean = ???
-  def isAncestor(item: Item): js.Boolean = ???
-  def isGroupedWith(item: Item): js.Boolean = ???
-  def contains(point: Point): js.Boolean = ???
-  def matches(data: js.Dynamic): js.Boolean = ???
+  def hasChildren(): Boolean = ???
+  def isAbove(item: Item): Boolean = ???
+  def isBelow(item: Item): Boolean = ???
+  def isParent(item: Item): Boolean = ???
+  def isChild(item: Item): Boolean = ???
+  def isDescendant(item: Item): Boolean = ???
+  def isAncestor(item: Item): Boolean = ???
+  def isGroupedWith(item: Item): Boolean = ???
+  def contains(point: Point): Boolean = ???
+  def matches(data: js.Dynamic): Boolean = ???
   def getItems(data: js.Dynamic): js.Array[Item] = ???
   def getItem(data: js.Dynamic): Item = ???
-  def scale(scale: js.Number, center: Point): js.Dynamic = ???
-  def scale(hor: js.Number, ver: js.Number, center: Point = ???): js.Dynamic = ???
-  def translate(delta: js.Number): js.Dynamic = ???
-  def rotate(angle: js.Number, center: Point): js.Dynamic = ???
+  def scale(scale: Double, center: Point): js.Dynamic = ???
+  def scale(hor: Double, ver: Double, center: Point = ???): js.Dynamic = ???
+  def translate(delta: Double): js.Dynamic = ???
+  def rotate(angle: Double, center: Point): js.Dynamic = ???
   def shear(point: Point, center: Point): js.Dynamic = ???
-  def shear(hor: js.Number, ver: js.Number, center: Point): js.Dynamic = ???
+  def shear(hor: Double, ver: Double, center: Point): js.Dynamic = ???
   def transform(matrix: Matrix, flags: js.Array[js.Any] = ???): js.Dynamic = ???
-  def fitBounds(rectangle: Rectangle, fill: js.Boolean = ???): js.Dynamic = ???
+  def fitBounds(rectangle: Rectangle, fill: Boolean = ???): js.Dynamic = ???
   def removeOn(`object`: js.Any): js.Dynamic = ???
   def removeOnMove(): js.Dynamic = ???
   def removeOnDown(): js.Dynamic = ???
@@ -290,14 +290,14 @@ class Item extends js.Object {
   @JSName("clone") def cloneItem(insert: Boolean = ???): Item = ???
   def exportSVG(options: js.Dynamic = ???): SVGElement = ???
   def importSVG(svg: SVGElement): Item = ???
-  def exportJSON(options: js.Dynamic = ???): js.String = ???
-  def importJSON(json: js.String): Item = ???
+  def exportJSON(options: js.Dynamic = ???): String = ???
+  def importJSON(json: String): Item = ???
 }
 
 @JSName("paper.Group")
 class Group protected () extends Item {
   def this(children: js.Array[Item]) = this()
-  var clipped: js.Boolean = ???
+  var clipped: Boolean = ???
 }
 
 @JSName("paper.Layer")
@@ -313,20 +313,20 @@ class PlacedItem extends Item {
 
 @JSName("paper.Raster")
 class Raster protected () extends PlacedItem {
-  def this(imageId: js.String) = this()
+  def this(imageId: String) = this()
   var size: Size = ???
-  var width: js.Number = ???
-  var height: js.Number = ???
-  var ppi: js.Number = ???
+  var width: Double = ???
+  var height: Double = ???
+  var ppi: Double = ???
   var image: HTMLImageElement = ???
   def getSubImage(rect: Rectangle): HTMLCanvasElement = ???
   def drawImage(image: HTMLImageElement, point: Point): js.Dynamic = ???
   def getAverageColor(path: Path): Color = ???
   def getAverageColor(rect: Rectangle): Color = ???
   def getAverageColor(point: Point): Color = ???
-  def getPixel(x: js.Number, y: js.Number): RgbColor = ???
+  def getPixel(x: Double, y: Double): RgbColor = ???
   def getPixel(point: Point): RgbColor = ???
-  def setPixel(x: js.Number, y: js.Number, color: Color): js.Dynamic = ???
+  def setPixel(x: Double, y: Double, color: Color): js.Dynamic = ???
   def setPixel(point: Point, color: Color): js.Dynamic = ???
   def createData(size: Size): js.Any = ???
   def getData(rect: Rectangle): js.Any = ???
@@ -342,8 +342,8 @@ class PlacedSymbol protected () extends PlacedItem {
 
 @JSName("paper.HitResult")
 class HitResult extends js.Object {
-  var `type`: js.String = ???
-  var name: js.String = ???
+  var `type`: String = ???
+  var name: String = ???
   var item: Item = ???
   var location: CurveLocation = ???
   var segment: Segment = ???
@@ -354,19 +354,19 @@ class HitResult extends js.Object {
 class PathItem extends Item {
   def smooth(): js.Dynamic = ???
   def moveTo(point: Point): js.Dynamic = ???
-  def moveTo(x: js.Number, y: js.Number): js.Dynamic = ???
+  def moveTo(x: Double, y: Double): js.Dynamic = ???
   def lineTo(point: Point): js.Dynamic = ???
-  def lineTo(x: js.Number, y: js.Number): js.Dynamic = ???
+  def lineTo(x: Double, y: Double): js.Dynamic = ???
   def cubicCurveTo(handle1: Point, handle2: Point, to: Point): js.Dynamic = ???
   def quadraticCurveTo(handle: Point, to: Point): js.Dynamic = ???
   def curveTo(through: Point, to: Point, parameter: js.Any = ???): js.Dynamic = ???
   def arcTo(through: Point, to: Point): js.Dynamic = ???
-  def arcTo(to: Point, clockwise: js.Boolean = ???): js.Dynamic = ???
+  def arcTo(to: Point, clockwise: Boolean = ???): js.Dynamic = ???
   def closePath(): js.Dynamic = ???
   def moveBy(point: Point): js.Dynamic = ???
-  def moveBy(x: js.Number, y: js.Number): js.Dynamic = ???
+  def moveBy(x: Double, y: Double): js.Dynamic = ???
   def lineBy(vector: Point): js.Dynamic = ???
-  def lineBy(x: js.Number, y: js.Number): js.Dynamic = ???
+  def lineBy(x: Double, y: Double): js.Dynamic = ???
   def curveBy(throughVector: Point, toVector: Point, parameter: js.Any = ???): js.Dynamic = ???
   def arcBy(throughVector: Point, toVector: Point): js.Dynamic = ???
 }
@@ -381,25 +381,25 @@ class Path extends PathItem {
   var curves: js.Array[Curve] = ???
   var firstCurve: Curve = ???
   var lastCurve: Curve = ???
-  var closed: js.Boolean = ???
-  var fullySelected: js.Boolean = ???
-  var clockwise: js.Boolean = ???
-  var length: js.Number = ???
+  var closed: Boolean = ???
+  var fullySelected: Boolean = ???
+  var clockwise: Boolean = ???
+  var length: Double = ???
   def add(segment: Segment): Segment = ???
-  def insert(index: js.Number, segment: Segment): Segment = ???
+  def insert(index: Double, segment: Segment): Segment = ???
   def addSegments(segments: js.Array[Segment]): js.Array[Segment] = ???
-  def insertSegments(index: js.Number, segments: js.Array[Segment]): js.Array[Segment] = ???
-  def removeSegment(index: js.Number): Segment = ???
+  def insertSegments(index: Double, segments: js.Array[Segment]): js.Array[Segment] = ???
+  def removeSegment(index: Double): Segment = ???
   def removeSegments(): js.Array[Segment] = ???
-  def removeSegments(from: js.Number, to: js.Number = ???): js.Array[Segment] = ???
-  def flatten(maxDistance: js.Number): js.Dynamic = ???
-  def simplify(tolerance: js.Number = ???): js.Dynamic = ???
+  def removeSegments(from: Double, to: Double = ???): js.Array[Segment] = ???
+  def flatten(maxDistance: Double): js.Dynamic = ???
+  def simplify(tolerance: Double = ???): js.Dynamic = ???
   def reverse(): js.Dynamic = ???
   def join(path: Path): js.Dynamic = ???
-  def getLocationAt(offset: js.Number, isParameter: js.Boolean = ???): CurveLocation = ???
-  def getPointAt(offset: js.Number, isParameter: js.Boolean = ???): Point = ???
-  def getTangentAt(offset: js.Number, isParameter: js.Boolean = ???): Point = ???
-  def getNormalAt(offset: js.Number, isParameter: js.Boolean = ???): Point = ???
+  def getLocationAt(offset: Double, isParameter: Boolean = ???): CurveLocation = ???
+  def getPointAt(offset: Double, isParameter: Boolean = ???): Point = ???
+  def getTangentAt(offset: Double, isParameter: Boolean = ???): Point = ???
+  def getNormalAt(offset: Double, isParameter: Boolean = ???): Point = ???
   def getNearestLocation(point: Point): CurveLocation = ???
   def getNearestPoint(point: Point): Point = ???
   @JSName("clone") def clonePath(insert: Boolean = ???): Path = ???
@@ -412,11 +412,11 @@ object Path extends js.Object {
   def Rectangle(point1: Point, point2: Point): Path = ???
   def Rectangle(rect: Rectangle): Path = ???
   def RoundRectangle(rect: Rectangle, size: Size): Path = ???
-  def Oval(rect: Rectangle, circumscribed: js.Boolean = ???): Path = ???
-  def Circle(center: Point, radius: js.Number): Path = ???
+  def Oval(rect: Rectangle, circumscribed: Boolean = ???): Path = ???
+  def Circle(center: Point, radius: Double): Path = ???
   def Arc(from: Point, through: Point, to: Point): Path = ???
-  def RegularPolygon(center: Point, numSides: js.Number, radius: js.Number): Path = ???
-  def Star(center: Point, numPoints: js.Number, radius1: js.Number, radius2: js.Number): Path = ???
+  def RegularPolygon(center: Point, numSides: Double, radius: Double): Path = ???
+  def Star(center: Point, numPoints: Double, radius1: Double, radius2: Double): Path = ???
 }
 
 @JSName("paper.CompoundPath")
@@ -431,8 +431,8 @@ class Segment protected () extends js.Object {
   var point: Point = ???
   var handleIn: Point = ???
   var handleOut: Point = ???
-  var selected: js.Boolean = ???
-  var index: js.Number = ???
+  var selected: Boolean = ???
+  var index: Double = ???
   var path: Path = ???
   var curve: Curve = ???
   var next: Segment = ???
@@ -444,14 +444,14 @@ class Segment protected () extends js.Object {
 
 @JSName("paper.SegmentPoint")
 class SegmentPoint extends Point {
-  def set(x: js.Number, y: js.Number): SegmentPoint = ???
-  def getX(): js.Number = ???
-  def setX(x: js.Number): js.Dynamic = ???
-  def getY(): js.Number = ???
-  def setY(y: js.Number): js.Dynamic = ???
-  override def isZero(): js.Boolean = ???
-  def setSelected(selected: js.Boolean): js.Dynamic = ???
-  def isSelected(): js.Boolean = ???
+  def set(x: Double, y: Double): SegmentPoint = ???
+  def getX(): Double = ???
+  def setX(x: Double): js.Dynamic = ???
+  def getY(): Double = ???
+  def setY(y: Double): js.Dynamic = ???
+  override def isZero(): Boolean = ???
+  def setSelected(selected: Boolean): js.Dynamic = ???
+  def isSelected(): Boolean = ???
 }
 
 @JSName("paper.Curve")
@@ -464,17 +464,17 @@ class Curve protected () extends js.Object {
   var segment1: Segment = ???
   var segment2: Segment = ???
   var path: Path = ???
-  var index: js.Number = ???
+  var index: Double = ???
   var next: Curve = ???
   var previous: Curve = ???
-  var selected: js.Boolean = ???
-  var length: js.Number = ???
-  def isLinear(): js.Boolean = ???
-  def getParameterAt(offset: js.Number, start: js.Number = ???): js.Number = ???
-  def getPoint(parameter: js.Number): Point = ???
-  def getTangent(parameter: js.Number): Point = ???
-  def getNormal(parameter: js.Number): Point = ???
-  def getParameter(point: Point): js.Number = ???
+  var selected: Boolean = ???
+  var length: Double = ???
+  def isLinear(): Boolean = ???
+  def getParameterAt(offset: Double, start: Double = ???): Double = ???
+  def getPoint(parameter: Double): Point = ???
+  def getTangent(parameter: Double): Point = ???
+  def getNormal(parameter: Double): Point = ???
+  def getParameter(point: Point): Double = ???
   def reverse(): Curve = ???
   @JSName("clone") def cloneCurve(insert: Boolean = ???): Curve = ???
   override def toString(): String = ???
@@ -483,36 +483,36 @@ class Curve protected () extends js.Object {
 @JSName("paper.PathStyle")
 class PathStyle extends js.Object {
   var strokeColor: js.Any = ???
-  var strokeWidth: js.Number = ???
-  var strokeCap: js.String = ???
-  var strokeJoin: js.String = ???
-  var dashOffset: js.Number = ???
-  var dashArray: js.Array[js.Number] = ???
-  var miterLimit: js.Number = ???
+  var strokeWidth: Double = ???
+  var strokeCap: String = ???
+  var strokeJoin: String = ???
+  var dashOffset: Double = ???
+  var dashArray: js.Array[Double] = ???
+  var miterLimit: Double = ???
   var fillColor: Color = ???
 }
 
 @JSName("paper.CurveLocation")
 class CurveLocation protected () extends js.Object {
-  def this(curve: Curve, parameter: js.Number, point: Point, distance: js.Number) = this()
+  def this(curve: Curve, parameter: Double, point: Point, distance: Double) = this()
   var segment: Segment = ???
   var curve: Curve = ???
   var path: Path = ???
-  var index: js.Number = ???
-  var offset: js.Number = ???
-  var curveOffset: js.Number = ???
-  var parameter: js.Number = ???
+  var index: Double = ???
+  var offset: Double = ???
+  var curveOffset: Double = ???
+  var parameter: Double = ???
   var point: Point = ???
   var tangent: Point = ???
   var normal: Point = ???
-  var distance: js.Number = ???
+  var distance: Double = ???
   override def toString(): String = ???
 }
 
 @JSName("paper.Project")
 class Project extends js.Object {
   var currentStyle: PathStyle = ???
-  var index: js.Number = ???
+  var index: Double = ???
   var selectedItems: js.Array[Item] = ???
   var layers: js.Array[Layer] = ???
   var activeLayer: Layer = ???
@@ -537,67 +537,67 @@ class Symbol protected () extends js.Object {
 
 @JSName("paper.Color")
 class Color extends js.Object {
-  def this(s: js.String) = this()
-  def this(r: js.Number, g: js.Number, b: js.Number) = this()
-  def this(r: js.Number, g: js.Number, b: js.Number, a: js.Number) = this()
-  var `type`: js.String = ???
-  var alpha: js.Number = ???
-  var red: js.Number = ???
-  var green: js.Number = ???
-  var blue: js.Number = ???
-  var gray: js.Number = ???
-  var hue: js.Number = ???
-  var saturation: js.Number = ???
-  var brightness: js.Number = ???
-  var lightness: js.Number = ???
+  def this(s: String) = this()
+  def this(r: Double, g: Double, b: Double) = this()
+  def this(r: Double, g: Double, b: Double, a: Double) = this()
+  var `type`: String = ???
+  var alpha: Double = ???
+  var red: Double = ???
+  var green: Double = ???
+  var blue: Double = ???
+  var gray: Double = ???
+  var hue: Double = ???
+  var saturation: Double = ???
+  var brightness: Double = ???
+  var lightness: Double = ???
   @JSName("clone") def cloneColor(insert: Boolean = ???): Color = ???
-  def hasAlpha(): js.Boolean = ???
+  def hasAlpha(): Boolean = ???
   override def toString(): String = ???
-  def toCssString(): js.String = ???
+  def toCssString(): String = ???
 }
 
 @JSName("paper.GrayColor")
 class GrayColor protected () extends Color {
-  def this(gray: js.Number, alpha: js.Number = ???) = this()
+  def this(gray: Double, alpha: Double = ???) = this()
 }
 
 @JSName("paper.RgbColor")
 class RgbColor protected () extends Color {
-  def this(red: js.Number, green: js.Number, blue: js.Number, alpha: js.Number = ???) = this()
+  def this(red: Double, green: Double, blue: Double, alpha: Double = ???) = this()
 }
 
 @JSName("paper.HsbColor")
 class HsbColor protected () extends Color {
-  def this(hue: js.Number, saturation: js.Number, brightness: js.Number, alpha: js.Number = ???) = this()
+  def this(hue: Double, saturation: Double, brightness: Double, alpha: Double = ???) = this()
 }
 
 @JSName("paper.HlsColor")
 class HlsColor protected () extends Color {
-  def this(hue: js.Number, saturation: js.Number, lightness: js.Number, alpha: js.Number = ???) = this()
+  def this(hue: Double, saturation: Double, lightness: Double, alpha: Double = ???) = this()
 }
 
 @JSName("paper.GradientColor")
 class GradientColor protected () extends Color {
-  def this(gradient: Gradient, origin: Point, destination: Point, hilight: js.Boolean) = this()
+  def this(gradient: Gradient, origin: Point, destination: Point, hilight: Boolean) = this()
   var origin: Point = ???
   var destination: Point = ???
-  var hilite: js.Boolean = ???
+  var hilite: Boolean = ???
   @JSName("clone") def cloneGradientColor(insert: Boolean = ???): GradientColor = ???
-  def equals(color: GradientColor): js.Boolean = ???
+  def equals(color: GradientColor): Boolean = ???
   def transform(matrix: js.Any): js.Dynamic = ???
 }
 
 @JSName("paper.Gradient")
 class Gradient protected () extends js.Object {
-  def this(stops: js.Array[GradientStop], `type`: js.String = ???) = this()
+  def this(stops: js.Array[GradientStop], `type`: String = ???) = this()
   var stops: js.Array[GradientStop] = ???
   @JSName("clone") def cloneGradient(insert: Boolean = ???): Gradient = ???
 }
 
 @JSName("paper.GradientStop")
 class GradientStop protected () extends js.Object {
-  def this(color: Color = ???, rampPoint: js.Number = ???) = this()
-  var rampPoint: js.Number = ???
+  def this(color: Color = ???, rampPoint: Double = ???) = this()
+  var rampPoint: Double = ???
   var color: Color = ???
   @JSName("clone") def cloneGradientStop(insert: Boolean = ???): GradientStop = ???
 }
@@ -610,13 +610,13 @@ class View protected () extends js.Object {
   var bounds: Rectangle = ???
   var size: Size = ???
   var center: Point = ???
-  var zoom: js.Number = ???
+  var zoom: Double = ???
   def activate(): js.Dynamic = ???
   def remove(): js.Dynamic = ???
-  def isVisible(): js.Boolean = ???
+  def isVisible(): Boolean = ???
   def scrollBy(point: Point): js.Dynamic = ???
-  def scrollBy(x: js.Number, y: js.Number): js.Dynamic = ???
-  def setViewSize(width: js.Number, height: js.Number): js.Dynamic = ???
+  def scrollBy(x: Double, y: Double): js.Dynamic = ???
+  def setViewSize(width: Double, height: Double): js.Dynamic = ???
   def draw(): js.Dynamic = ???
   var onFrame: js.Function1[js.Any, Any] = ???
   var onResize: js.Function1[js.Any, Any] = ???
@@ -626,10 +626,10 @@ class View protected () extends js.Object {
 
 @JSName("paper.Tool")
 class Tool extends js.Object {
-  var eventInterval: js.Number = ???
-  var minDistance: js.Number = ???
-  var maxDistance: js.Number = ???
-  var fixedDistance: js.Number = ???
+  var eventInterval: Double = ???
+  var minDistance: Double = ???
+  var maxDistance: Double = ???
+  var fixedDistance: Double = ???
   def activate(): js.Dynamic = ???
   def remove(): js.Dynamic = ???
   var onMouseDown: js.Function1[ToolEvent, Unit] = ???
@@ -642,13 +642,13 @@ class Tool extends js.Object {
 
 @JSName("paper.ToolEvent")
 class ToolEvent extends js.Object {
-  var `type`: js.String = ???
+  var `type`: String = ???
   var point: Point = ???
   var lastPoint: Point = ???
   var downPoint: Point = ???
   var middlePoint: Point = ???
   var delta: Point = ???
-  var count: js.Number = ???
+  var count: Double = ???
   var item: Item = ???
   override def toString(): String = ???
 }
@@ -659,20 +659,20 @@ class Key extends js.Object {
 
 @JSName("paper.Key")
 object Key extends js.Object {
-  def isDown(key: js.String): js.Boolean = ???
+  def isDown(key: String): Boolean = ???
 }
 
 @JSName("paper.KeyEvent")
 class KeyEvent extends js.Object {
-  var `type`: js.String = ???
-  var character: js.String = ???
-  var key: js.String = ???
+  var `type`: String = ???
+  var character: String = ???
+  var key: String = ???
   override def toString(): String = ???
 }
 
 @JSName("paper.TextItem")
 class TextItem extends Item {
-  var content: js.String = ???
+  var content: String = ???
   var characterStyle: CharacterStyle = ???
   var paragraphStyle: ParagraphStyle = ???
 }
@@ -685,13 +685,13 @@ class PointText protected () extends TextItem {
 
 @JSName("paper.CharacterStyle")
 class CharacterStyle extends js.Object {
-  var font: js.String = ???
-  var fontSize: js.Number = ???
+  var font: String = ???
+  var fontSize: Double = ???
 }
 
 @JSName("paper.ParagraphStyle")
 class ParagraphStyle extends js.Object {
-  var justification: js.String = ???
+  var justification: String = ???
 }
 
 }
