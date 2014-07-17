@@ -1,5 +1,6 @@
 package za.jwatson.glycanoweb.render
 
+import importedjs.paper.{PointText, Point}
 import importedjs.{paper => p}
 import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => jQ}
@@ -23,6 +24,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val scope = new p.PaperScope()
   scope.setup(canvas)
   val convention = rx.Var[Convention](new UCT(scope))
+  implicit def _convention = convention()
   val o = rx.Obs(convention, skipInitial = true) {
     //todo: conversion between uct/cfg/oxford
   }
@@ -51,6 +53,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val bondLayer = scope.project.layers(0)
   val residueLayer = scope.project.layers(1)
   scope.project.activeLayer = residueLayer
+
+  scope.tool = new p.Tool()
+  scope.tool.onMouseDown = (e: p.ToolEvent) => {
+    println("rrr")
+  }
+
 
   canvas.onmousedown = mouseDown _
   canvas.onmouseup = mouseUp _
@@ -112,55 +120,88 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   var hitHandle: Boolean = false
-  val tempBonds = Var[Seq[TempBond]](Seq.empty)
+  
+  val tempBond: ItemSeqMod[p.Path, TempBond] = new ItemSeqMod[p.Path, TempBond] {
+    override val updateWhenCreating = false
+    override def create(s: TempBond): p.Path = {
+      val line = p.Path.Line(s.p1, s.p2)
+      line.strokeWidth = 10
+      line.strokeColor = "#AAAAAA"
+      line.dashArray = js.Array(1, 15)
+      line.strokeCap = "round"
+      line
+    }
+    override def update(t: p.Path, s: TempBond): Unit = {
+      t.segments(0).point = s.p1
+      t.segments(1).point = s.p2
+    }
+    override def remove(t: p.Path, s: TempBond): Unit = t.remove()
+  }
 
-  Obs(tempBonds) {
-    val tbs = tempBonds()
-    convention() tempBond (if(tbs.isEmpty) None else Some(tbs))
+  val tempLink: ItemSeqMod[p.PointText, Link] = new ItemSeqMod[p.PointText, Link] {
+    override val updateWhenCreating: Boolean = true
+    override def create(source: Link): PointText = {
+      val num = new p.PointText(convention().linkPosition(source))
+      num.content = s"${source.position}"
+      num.fillColor = new p.Color("white")
+      num.strokeColor = new p.Color("black")
+      num.strokeWidth = 1
+      num.asInstanceOf[js.Dynamic].fontSize = 30
+      num
+    }
+    override def update(item: PointText, source: Link): Unit = {
+      item.position = convention().linkPosition(source)
+    }
+    override def remove(item: PointText, source: Link): Unit = item.remove()
   }
 
   def beginBond(residue: Residue, point: p.Point): Unit = {
     for(link @ Link(p, i) <- residue.parent) {
-      graph() -= link
+      graph() -= Link(residue, 1)
       convention().removeBond(residue)
-      if(i == 1) convention().removeBond(p)
-    }
-    tempBonds() = Seq(TempBond(Link(residue, 1), point, None, None))
-  }
-  
-  def updateBondSource(point: p.Point): Unit = {
-    for(TempBond(Link(from, i), to, _, _) <- tempBonds()) {
       if(i == 1) {
-
+        graph() -= link
+        convention().removeBond(p)
       }
-      convention().getClosestLinkAny(point, parent = true, angle = 0)
     }
-    tempBonds() = tempBonds()
+    tempLink(Link(residue, 1))
+    tempBond(TempBond.LinkToPoint(Link(residue, 1), point))
   }
 
-  def updateBondTarget(point: p.Point): Unit = {
-    tempBonds() = tempBonds().map(_.copy(to = point))
+  def updateBondTarget(point: p.Point, angle: Double): Unit = {
+    for(from <- tempBond.items.keys.headOption collect {
+      case TempBond.LinkToPoint(link, _) => link
+      case TempBond.LinkToLink(link, _) => link
+    }) {
+      val closestLink = convention().getClosestLinkAny(point, angle = angle)
+      closestLink.fold {
+        tempLink(from)
+        tempBond(TempBond.LinkToPoint(from, point))
+      } { to =>
+        tempLink(Set(from, to))
+        tempBond(TempBond.LinkToLink(from, to))
+      }
+    }
   }
 
   def endBond(): Unit = {
-    for {
-      TempBond(fromLink @ Link(from, fromP), toPoint, _, _) <- tempBonds()
-      toLink @ Link(to, p) <- convention().finishBond(fromLink, toPoint)
-      if from != to
-    } {
-      for(parent <- to.parent) convention().removeBond(to)
-      for(c <- to.child(p)) convention().removeBond(c)
-      graph() -= toLink
-      for(old <- to.parent if old.position == 1) {
-        graph() -= old
-        convention().removeBond(old.residue)
-      }
+    tempBond.items.keys foreach {
+      case TempBond.LinkToLink(Link(from, 1), toLink @ Link(to, i)) if from != to =>
+        if(i == 1) {
+          for (parent <- to.parent) {
+            graph() -= toLink
+            convention().removeBond(to)
+          }
+        }
+        for (child <- to.child(i)) {
+          graph() -= Link(child, 1)
+          convention().removeBond(child)
+        }
 
-      graph() += Bond(from, toLink)
-      convention().addBond(from, to, p)
+        graph() += Bond(from, toLink)
+        convention().addBond(from, to, i)
+      case _ =>
     }
-
-    tempBonds() = Seq.empty
   }
 
   val residueTemplate = Rx {
@@ -215,7 +256,8 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   def cancelPlace(): Unit = {
-    tempBonds() = Seq.empty
+    tempBond(Set.empty[TempBond])
+    tempLink(Set.empty[Link])
     GlycanoWeb.residueType() = None
   }
 
@@ -231,19 +273,11 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       val (right, left) = ris.partition {
         case (r, i) => convention().onRightOf(point, i.position, angle)
       }
-      val rrss = for {
-        rightPt <- convention().residueTemplateLinkPosition(1).toSeq
-        (rr, rri) <- right
-        rrlink <- convention().getClosestLink(rightPt, rr, parent = true, angle)
-        rrpos = convention().linkPosition(rrlink)
-        if convention().linkValid(rightPt, rrpos, parent = true, angle)
-        rrdist = rightPt.getDistance(rrpos, squared = true)
-        if rrdist < 500 * 500
-      } yield (rrlink, rrdist, rrpos)
-      val rightTB = if(rrss.isEmpty) List() else {
-        val rrmin = rrss.minBy(_._2)
-        List(TempBond(null, rrmin._3, None, Some(rrmin._1)))
-      }
+      val rightTB = for {
+        point <- convention().residueTemplateLinkPosition(1)
+        link <- convention().getClosestLinkAny(point, parent = Some(true), angle, 200 * 200) //todo: allow right as argument
+      } yield TempBond.LinkToTemplate(link, 1)
+      
       val validLefts = for {
         (r, i) <- left.toSeq if !r.hasParent
         link = Link(r, 1)
@@ -257,15 +291,17 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         pt <- convention().residueTemplateLinkPosition(i)
       } yield i -> pt
 
-      def slotAll(lefts: List[Link], slots: Set[(Int, p.Point)]): List[TempBond] =
+      def slotAll(lefts: List[Link], slots: Set[(Int, p.Point)]): List[TempBond.LinkToTemplate] =
         lefts match {
           case Nil => Nil
           case x :: xs =>
             val lp = convention().linkPosition(x)
             val min = slots.minBy(_._2.getDistance(lp, squared = true))
-            TempBond(x, min._2, Some(min._1), None) :: slotAll(xs, slots - min)
+            TempBond.LinkToTemplate(x, min._1) :: slotAll(xs, slots - min)
         }
-      tempBonds() = slotAll(leftSorted.map(_._1).toList, slots) ++ rightTB
+      val leftTBs = slotAll(leftSorted.map(_._1).toList, slots)
+      tempLink(leftTBs.map(_.link) ++ rightTB.map(_.link))
+      tempBond(leftTBs ++ rightTB)
     }
   }
 
@@ -302,19 +338,14 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           case 0 =>
             for(t <- residueTemplate()) {
               val added = addResidue(t.anomer, t.absolute, t.rt, point)
-              for {
-                tb <- tempBonds().filter(_.toPos.isDefined)
-                leftPos <- tb.toPos
-              } {
-                graph() += Bond(tb.from.residue, Link(added, leftPos))
-                convention().addBond(tb.from.residue, added, leftPos)
-              }
-              for {
-                tb <- tempBonds()
-                rightLink <- tb.toLink
-              } {
-                graph() += Bond(added, rightLink)
-                convention().addBond(added, rightLink.residue, rightLink.position)
+              tempBond.items.keys foreach {
+                case TempBond.LinkToTemplate(Link(from, 1), i) =>
+                  graph() += Bond(from, Link(added, i))
+                  convention().addBond(from, added, i)
+                case TempBond.LinkToTemplate(toLink @ Link(to, i), 1) =>
+                  graph() += Bond(added, toLink)
+                  convention().addBond(added, to, i)
+                case _ =>
               }
             }
           case 2 =>
@@ -323,10 +354,11 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case BoxSelect(_) =>
       case Drag(_) =>
       case CreateBond =>
-        if(e.button != 0) {
-          convention() tempBond None
+        if(e.button == 0) {
+          endBond()
         }
-        endBond()
+        tempBond(Set.empty[TempBond])
+        tempLink(Set.empty[Link])
         state() = PostCreateBond
       case PostCreateBond =>
       case Hit(_, _) =>
@@ -345,7 +377,6 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case CreateBond =>
         convention().handlePress(None)
       case PostCreateBond =>
-        convention().highlightLink(Seq.empty)
         state() = Default
       case Hit(_, item) =>
         for(r <- item.getResidue) {
@@ -369,7 +400,6 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case PlaceResidue =>
         convention().showResidueTemplate(residueTemplate(), point)
         showPlaceTempBonds(point, angle = 0.0)
-        updateBondTarget(point)
       case BoxSelect(down) =>
         updateBoxSelect(down, point)
       case Drag(last) =>
@@ -378,11 +408,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         updateSelectionBonds()
         state() = Drag(point)
       case CreateBond =>
-        updateBondTarget(point)
-        convention().highlightLink(for {
-          tb <- tempBonds()
-          link <- convention().getClosestLinkAny(tb.to, parent = true)
-        } yield link)
+        updateBondTarget(point, angle = 0.0)
       case PostCreateBond =>
       case Hit(down, _) =>
         state() = Drag(down)
@@ -391,6 +417,25 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 }
 
 object GlycanoCanvas {
-  case class TempBond(from: Link, to: p.Point, toPos: Option[Int], toLink: Option[Link])
+  sealed trait TempBond {
+    def p1: p.Point
+    def p2: p.Point
+  }
+  object TempBond {
+    case class LinkToPoint(link: Link, point: p.Point)(implicit c: Convention) extends TempBond {
+      override def p1: Point = c.linkPosition(link)
+      override def p2: Point = point
+    }
+    case class LinkToLink(link1: Link, link2: Link)(implicit c: Convention) extends TempBond {
+      override def p1: Point = c.linkPosition(link1)
+      override def p2: Point = c.linkPosition(link2)
+    }
+    case class PointToPoint(p1: p.Point, p2: p.Point) extends TempBond
+    case class LinkToTemplate(link: Link, i: Int)(implicit c: Convention) extends TempBond  {
+      override def p1: Point = c.linkPosition(link)
+      override def p2: Point = c.residueTemplateLinkPosition(i).getOrElse(p.Point(0, 0))
+    }
+  }
+//  case class TempBond(from: Link, to: p.Point, toPos: Option[Int], toLink: Option[Link])
   case class Selected(residue: Residue, offset: p.Point)
 }

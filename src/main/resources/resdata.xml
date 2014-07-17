@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<glycano>
+    <convention name="UCT">
+        <!-- backgrounds -->
+        <rule priority="1" residue="Glycero"><svg width="40px" height="70px">
+            <polygon points="40,35 0,70 0,0" class="primary"/>
+        </svg></rule>
+        <rule priority="1" residue="Erythro,Threo"><svg width="80px" height="80px">
+            <polygon points="80,40 40,80 0,40 40,0" class="primary"/>
+        </svg></rule>
+        <rule priority="1" residue="Ara,Lyx,Rib,Xyl"><svg width="90px" height="60px">
+            <polygon points="90,30 60,60 0,60 0,0 60,0" class="primary"/>
+        </svg></rule>
+        <rule priority="1" residue="Ido,All,Alt,Gal,Glc,Gul,Man,Tal"><svg width="90px" height="80px">
+            <polygon points="90,40 65,80 25,80 0,40 25,0 65,0" class="primary"/>
+        </svg></rule>
+
+        <!-- details -->
+        <rule priority="2" residue="Ara"><svg>
+            <polygon points="0,0 0,60 30,60 30,0" class="secondary"/>
+        </svg></rule>
+        <rule priority="2" residue="Rib"><svg>
+            <polygon points="0,0 0,30 90,30 60,0" class="secondary"/>
+        </svg></rule>
+        <rule priority="2" residue="Ido"><svg>
+            <polygon points="25,0 65,0 25,80 65,80" class="secondary"/>
+        </svg></rule>
+        <rule priority="2" residue="All"><svg>
+            <polygon points="0,40 25,0 65,80 25,80" class="secondary"/>
+        </svg></rule>
+        <rule priority="2" residue="Alt"><svg>
+            <polygon points="45,0 65,0 90,40 45,40" class="secondary"/>
+        </svg></rule>
+        <rule priority="2" residue="Gal"><svg>
+            <polygon points="0,40 90,40 65,80 25,80" class="secondary"/>
+        </svg></rule>
+        <rule priority="2" residue="Gul"><svg>
+            <polygon points="25,0 65,0 25,80 0,40 90,40 65,80" class="secondary"/>
+        </svg></rule>
+        <rule priority="2" residue="Man"><svg>
+            <polygon points="0,40 25,0 45,0 45,80 25,80" class="secondary"/>
+        </svg></rule>
+
+        <!-- outlines -->
+        <rule priority="3" residue="Glycero"><svg width="40" height="70">
+            <polygon points="40,35 0,70 0,0" class="outline"/>
+        </svg></rule>
+        <rule priority="3" residue="Erythro,Threo"><svg width="80" height="80">
+            <polygon points="80,40 40,80 0,40 40,0" class="outline"/>
+        </svg></rule>
+        <rule priority="3" residue="Ara,Lyx,Rib,Xyl"><svg width="90" height="60">
+            <polygon points="90,30 60,60 0,60 0,0 60,0" class="outline"/>
+            <!--<path d="M90,30 L60,60 L0,60 L0,0 L60,0 Z" class="outline"/>-->
+        </svg></rule>
+        <rule priority="3" residue="Ido,All,Alt,Gal,Glc,Gul,Man,Tal"><svg width="90" height="80" viewBox="0 0 90 80">
+            <polygon points="90,40 65,80 25,80 0,40 25,0 65,0" class="outline"/>
+            <!--<path x="45" y="40" d="M90,40 L65,80 L25,80 L0,40 L25,0 L65,0 Z" class="outline"/>-->
+        </svg></rule>
+        <rule priority="3" residue="Glycero"><svg width="40" height="70">
+            <polygon points="40,35 0,70 0,0" class="links" style="fill: none;"/>
+        </svg></rule>
+        <rule priority="3" residue="Erythro,Threo"><svg width="80" height="80">
+            <polygon points="80,40 40,80 0,40 40,0" class="links" style="fill: none;"/>
+        </svg></rule>
+        <rule priority="3" residue="Ara,Lyx,Rib,Xyl"><svg width="90" height="60">
+            <polygon points="90,30 60,60 0,60 0,0 60,0" class="links" style="fill: none;"/>
+            <!--<path d="M90,30 L60,60 L0,60 L0,0 L60,0 Z" class="outline"/>-->
+        </svg></rule>
+        <rule priority="3" residue="Ido,All,Alt,Gal,Glc,Gul,Man,Tal"><svg width="90" height="80" viewBox="0 0 90 80">
+            <polygon points="90,40 65,80 25,80 0,40 25,0 65,0" class="links" style="fill: none;"/>
+            <!--<path x="45" y="40" d="M90,40 L65,80 L25,80 L0,40 L25,0 L65,0 Z" class="outline"/>-->
+        </svg></rule>
+
+        <rule priority="4" absolute="L" residue="Glycero"><svg>
+            <polygon points="22,18 22,62 58,62 58,58 26,58 26,18" style="fill:black;stroke:white;"/>
+        </svg></rule>
+        <rule priority="4" absolute="L" residue="Erythro,Threo"><svg>
+            <polygon points="22,18 22,62 58,62 58,58 26,58 26,18" style="fill:black;stroke:white;"/>
+        </svg></rule>
+        <rule priority="4" absolute="L" residue="Ara,Lyx,Rib,Xyl"><svg>
+            <polygon points="22,18 22,62 58,62 58,58 26,58 26,18" style="fill:black;stroke:white;"/>
+        </svg></rule>
+        <rule priority="4" absolute="L" residue="Ido,All,Alt,Gal,Glc,Gul,Man,Tal"><svg>
+            <polygon points="22,18 22,62 58,62 58,58 26,58 26,18" style="fill:black;stroke:white;"/>
+        </svg></rule>
+
+        <!-- handles -->
+        <rule priority="3" residue="Glycero"><svg>
+            <rect x="30" y="25" width="20" height="20" rx="5" ry="5" class="handle"/>
+        </svg></rule>
+        <rule priority="3" residue="Erythro,Threo"><svg>
+            <rect x="60" y="20" width="20" height="20" rx="5" ry="5" class="handle"/>
+        </svg></rule>
+        <rule priority="3" residue="Ara,Lyx,Rib,Xyl"><svg>
+            <rect x="70" y="10" width="20" height="20" rx="5" ry="5" class="handle"/>
+        </svg></rule>
+        <rule priority="3" residue="Ido,All,Alt,Gal,Glc,Gul,Man,Tal"><svg>
+            <rect x="70" y="20" width="20" height="20" rx="5" ry="5" class="handle"/>
+        </svg></rule>
+
+        <!-- outline styles -->
+        <rule><style type="text/css">
+            .outline { fill: none; stroke: black; stroke-width: 3px;}
+        </style></rule>
+
+        <!-- handle styles -->
+        <rule anomer="a"><style type="text/css">
+            .handle { fill: white; stroke: black; stroke-width: 1px; }
+        </style></rule>
+        <rule anomer="b"><style type="text/css">
+            .handle { fill: white; stroke: black; stroke-width: 1px; }
+        </style></rule>
+
+        <!-- residue styles -->
+        <rule residue="Glycero"><style type="text/css">
+            .primary { fill: white; }
+        </style></rule>
+        <rule residue="Erythro"><style type="text/css">
+            .primary { fill: white; }
+        </style></rule>
+        <rule residue="Threo"><style type="text/css">
+            .primary { fill: black; }
+        </style></rule>
+        <rule residue="Ara" absolute="D"><style type="text/css">
+            .primary { fill: white; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="Ara" absolute="L"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: white; }
+        </style></rule>
+        <rule residue="Lyx"><style type="text/css">
+            .primary { fill: black; }
+        </style></rule>
+        <rule residue="Rib" absolute="D"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: white; }
+        </style></rule>
+        <rule residue="Rib" absolute="L"><style type="text/css">
+            .primary { fill: white; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="Xyl"><style type="text/css">
+            .primary { fill: #FFA0A0; }
+        </style></rule>
+        <rule residue="Ido" absolute="D"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: #BF6000; }
+        </style></rule>
+        <rule residue="Ido" absolute="L"><style type="text/css">
+            .primary { fill: #BF6000; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="All" absolute="D"><style type="text/css">
+            .primary { fill: white; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="All" absolute="L"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: white; }
+        </style></rule>
+        <rule residue="Alt" absolute="D"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: white; }
+        </style></rule>
+        <rule residue="Alt" absolute="L"><style type="text/css">
+            .primary { fill: white; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="Gal" absolute="D"><style type="text/css">
+            .primary { fill: yellow; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="Gal" absolute="L"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: yellw; }
+        </style></rule>
+        <rule residue="Glc"><style type="text/css">
+            .primary { fill: blue; }
+        </style></rule>
+        <rule residue="Gul" absolute="D"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: white; }
+        </style></rule>
+        <rule residue="Gul" absolute="L"><style type="text/css">
+            .primary { fill: white; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="Man"><style type="text/css">
+            .primary { fill: lime; }
+            .secondary { fill: black; }
+        </style></rule>
+        <rule residue="Man"><style type="text/css">
+            .primary { fill: black; }
+            .secondary { fill: lime; }
+        </style></rule>
+        <rule residue="Tal"><style type="text/css">
+            .primary { fill: black; }
+        </style></rule>
+    </convention>
+</glycano>

@@ -13,7 +13,7 @@ object Paper extends PaperScope {
   
 package paper {
 
-import org.scalajs.dom.{HTMLImageElement, SVGElement}
+import org.scalajs.dom.{MouseEvent, HTMLImageElement, SVGElement}
 
 object Implicits {
   import scala.language.implicitConversions
@@ -642,6 +642,7 @@ class Tool extends js.Object {
 
 @JSName("paper.ToolEvent")
 class ToolEvent extends js.Object {
+  var event: MouseEvent = ???
   var `type`: String = ???
   var point: Point = ???
   var lastPoint: Point = ???

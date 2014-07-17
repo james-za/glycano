@@ -1,5 +1,7 @@
 package za.jwatson.glycanoweb
 
+import shapeless.HNil
+
 import scalatags.JsDom._
 import scalatags.JsDom.all._
 import org.scalajs.dom._
@@ -47,8 +49,11 @@ object BootstrapScalatags {
   def panelBody(classes: String = ""): TypedTag[HTMLDivElement] = div(cls:=s"panel-body $classes")
   def panelFooter: TypedTag[HTMLDivElement] = div(cls:="panel-footer")
 
-  def btn(style: Style, size: Size, block: Boolean): TypedTag[HTMLButtonElement] = button(cls:=s"btn btn-${style.name} btn-${size.name}${if(block) " btn-block" else ""}")
-  def btn(style: Style = Default): TypedTag[HTMLButtonElement] = button(cls:=s"btn btn-${style.name}")
+  def btn(style: Style = Default, size: Size = Md, block: Boolean = false): TypedTag[HTMLButtonElement] =
+    button(cls:=s"btn btn-${style.name} btn-${size.name}${if(block) " btn-block" else ""}")
+  def navBtn(style: Style = Default, size: Size = Md, block: Boolean = false): TypedTag[HTMLButtonElement] =
+    button(cls:=s"btn btn-${style.name} btn-${size.name}${if(block) " btn-block" else ""} navbar-btn")
+  //def btn(style: Style = Default): TypedTag[HTMLButtonElement] = button(cls:=s"btn btn-${style.name}")
 
   def radioButton(style: Style = Default, inputName: String, classes: String = "", innerMods: Seq[Modifier] = Seq.empty): TypedTag[HTMLLabelElement] =
     label(cls:=s"btn btn-${style.name} $classes")(
@@ -64,4 +69,29 @@ object BootstrapScalatags {
 
   val btnToolbar = div(cls:="btn-toolbar", "role".attr:="toolbar")
   def glyphIcon(icon: String): TypedTag[HTMLSpanElement] = span(cls:=s"glyphicon glyphicon-$icon")
+
+  def modal(modalId: String, header: Option[Frag] = None, body: Option[Frag] = None, footer: Option[Frag] = None): TypedTag[HTMLDivElement] = {
+    val titleId = modalId + "Title"
+    val modalContent =
+      header.map(modalHeader(titleId, _)) ++
+      body.map(modalBody) ++
+      footer.map(modalFooter)
+    div(
+      cls:="modal fade", id:=modalId, tabindex:=(-1), "role".attr:="dialog",
+      "aria-labelledby".attr:=titleId, "aria-hidden".attr:="true"
+    )(
+      div(cls:="modal-dialog")(div(cls:="modal-content")(modalContent.toSeq))
+    )
+  }
+  def modalHeader(titleId: String, headerTag: Frag): TypedTag[HTMLDivElement] = {
+    div(cls := "modal-header")(
+      button(tpe := "button", cls := "close", "data-dismiss".attr := "modal")(
+        span("aria-hidden".attr := "true")("×"), span(cls := "sr-only")("Close")),
+      h4(cls := "modal-title", id := titleId)(headerTag)
+    )
+  }
+  def modalBody(bodyTag: Frag): TypedTag[HTMLDivElement] = div(cls:="modal-body")(bodyTag)
+  def modalFooter(footerTag: Frag): TypedTag[HTMLDivElement] = div(cls:="modal-footer")(footerTag)
+
+  val formGroup = div(cls:="form-group")
 }

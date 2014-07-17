@@ -25,10 +25,8 @@ object GlycanoBuild extends Build {
       Resolver.sonatypeRepo("snapshots"),
       Resolver.sonatypeRepo("releases"),
       Resolver.defaultLocal,
-      Resolver.url(
-        "bintray-scala-js-releases",
-        url("http://dl.bintray.com/scala-js/scala-js-releases")
-      )(Resolver.ivyStylePatterns)
+      Resolver.url("sjs-release", url("http://dl.bintray.com/scala-js/scala-js-releases"))(Resolver.ivyStylePatterns),
+      "myltsev" at "http://dl.bintray.com/alexander-myltsev/maven"
     ),
     javaOptions += "-Xmx6G",
     libraryDependencies ++= Seq(
@@ -38,7 +36,8 @@ object GlycanoBuild extends Build {
       "com.scalarx"                    %%% "scalarx"           % "0.2.5",
       "org.scalaz"                     %%% "scalaz-core"       % "7.0.6",
       "com.chuusai"                    %%% "shapeless"         % "2.0.0",
-      "org.typelevel"                  %%% "shapeless-scalaz"  % "0.3-SNAPSHOT"
+      "org.typelevel"                  %%% "shapeless-scalaz"  % "0.3-SNAPSHOT",
+      "name.myltsev"                   %%% "parboiled"         % "2.0.0"
     )
   )
 

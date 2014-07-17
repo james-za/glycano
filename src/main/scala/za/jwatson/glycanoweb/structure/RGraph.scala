@@ -65,6 +65,7 @@ object RGraph {
     def parent(implicit g: RGraph): Option[Link] = getParentL(r) get g
     def children(implicit g: RGraph): Option[Map[Int, Residue]] = entryL(r) >=> ~childrenMapL get g
     def child(i: Int)(implicit g: RGraph): Option[Residue] = getChildL(r, i) get g
+    def bond(implicit g: RGraph): Option[Bond] = getParentL(r) get g map (Bond(r, _))
 
     def hasParent(implicit g: RGraph): Boolean = g.entries.get(r).fold(false)(_.parent.nonEmpty)
     def hasChildren(implicit g: RGraph): Boolean = g.entries.get(r).fold(false)(_.children.nonEmpty)

@@ -1,0 +1,47 @@
+convention "UCT" {
+    def Triangle = Polygon(points="40,35 0,70 0,0")
+    def Diamond = Polygon(points="80,40 40,80 0,40 40,0")
+    def Arrow = Polygon(points="90,30 60,60 0,60 0,0 60,0")
+    def Hexagon = Polygon(points="90,40 65,80 25,80 0,40 25,0 65,0")
+
+    def LShape = Polygon(points="0,0 0,44 36,44 36,40 4,40 4,0")
+
+    (Glycero)
+    -> #1 [primary] Triangle
+    -> #3 [outline, links] Triangle
+    (Erythro, Threo)
+    -> #1 [primary] Diamond
+    -> #3 [outline, links] Diamond
+    (Ara, Lyx, Rib, Xyl)
+    -> #1 [primary] Arrow
+    -> #3 [outline, links] Arrow
+    (Ido, All, Alt, Gal, Glc, Gul, Man, Tal)
+    -> #1 [primary] Hexagon
+    -> #3 [outline, links] Hexagon
+    
+    (Ara) -> #2 [secondary] Polygon(points="0,0 0,60 30,60 30,0")
+    (Rib) -> #2 [secondary] Polygon(points="0,0 0,30 90,30 60,0")
+    (Ido) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 65,80")
+    (All) -> #2 [secondary] Polygon(points="0,40 25,0 65,80 25,80")
+    (Alt) -> #2 [secondary] Polygon(points="45,0 65,0 90,40 45,40")
+    (Gal) -> #2 [secondary] Polygon(points="0,40 90,40 65,80 25,80")
+    (Gul) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 0,40 90,40 65,80")
+    (Man) -> #2 [secondary] Polygon(points="0,40 25,0 45,0 45,80 25,80")
+    
+    L (Glycero)                                -> #4 [lshape] LShape(x="22", y="18")
+    L (Erythro, Threo)                         -> #4 [lshape] LShape(x="22", y="18")
+    L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape(x="22", y="18")
+    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape(x="22", y="18")
+    
+    (*) -> #5 [handle] Rect(width="20", height="20, rx="5", ry="5")
+    
+    (*) -> style [outline] {
+        fill: none;
+        stroke: black;
+        stroke-width: 3px;
+    }
+    
+    
+    
+    
+}

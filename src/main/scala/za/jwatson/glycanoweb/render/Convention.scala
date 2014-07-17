@@ -5,7 +5,6 @@ import importedjs.paper._
 import importedjs.{paper => p}
 import org.scalajs.dom.SVGElement
 import za.jwatson.glycanoweb.render.Convention.CanvasItemMod
-import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
 import za.jwatson.glycanoweb.structure.Residue.Link
@@ -20,8 +19,6 @@ abstract class Convention(scope: p.PaperScope) {
   def finishBond(from: Link, to: p.Point): Option[Link]
 
   def hitHandle(residue: Residue, point: Point): Boolean
-
-  val tempBond: CanvasItemMod[Seq[p.Path], Seq[TempBond]]
 
   def showResidueTemplate(residue: Option[Residue], pos: p.Point): Unit
 
@@ -45,9 +42,9 @@ abstract class Convention(scope: p.PaperScope) {
   
   def items: Iterable[p.Item]
   
-  def getClosestLinkAny(point: p.Point, parent: Boolean, angle: Double = 0, threshold: Double = 50 * 50): Option[Link]
+  def getClosestLinkAny(point: p.Point, parent: Option[Boolean] = None, angle: Double = 0, threshold: Double = 50 * 50): Option[Link]
   def getClosestLink(from: p.Point, to: Residue, parent: Boolean, angle: Double = 0): Option[Link]
-  def highlightLink(link: Seq[Link]): Unit
+
   def linkPosition(link: Link): p.Point
 
   def createIcon(rt: ResidueType, abs: Absolute, ano: Anomer, bounds: p.Rectangle): SVGElement
@@ -285,11 +282,11 @@ object Convention {
       p.Point(1, 0).rotate(angle, p.Point(0, 0)).dot(to subtract from) > 0
     }
 
-    override def getClosestLinkAny(from: p.Point, parent: Boolean = false, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] = {
+    override def getClosestLinkAny(from: p.Point, parent: Option[Boolean] = None, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] = {
       val points = for {
         residueShape <- residueResidueShapes.values
         segment <- residueShape.outline.segments.toSeq
-        if linkValid(from, segment.point, parent, angle)
+        if parent.fold(true)(linkValid(from, segment.point, _, angle))
         distsq = segment.point.getDistance(from, squared = true)
         if distsq < threshold
       } yield (segment, distsq)
@@ -323,30 +320,6 @@ object Convention {
     }
 
     val threshold = 50 * 50
-
-    var highlightedLink: Seq[Link] = Seq.empty
-    var linkHighlight: Seq[p.Item] = Seq.empty
-
-    override def highlightLink(link: Seq[Link]): Unit = {
-      if(highlightedLink != link) {
-        linkHighlight.map(_.remove())
-        linkHighlight = Seq.empty
-        highlightedLink = link
-        linkHighlight = link.map { l =>
-          val num = new p.PointText(linkPosition(l))
-          num.content = s"${l.position}"
-          num.fillColor = new p.Color("white")
-          num.strokeColor = new p.Color("black")
-          num.strokeWidth = 1
-          num.asInstanceOf[js.Dynamic].fontSize = 30
-          num
-        }
-      }
-      for {
-        lh <- linkHighlight
-        l <- link
-      } lh.position = linkPosition(l)
-    }
 
     var selectionBox: Option[p.Path] = None
 
@@ -388,37 +361,12 @@ object Convention {
       residueTemplate.map(_._2.segments(i - 1).point)
     }
 
-    override val tempBond = new CanvasItemMod[Seq[p.Path], Seq[TempBond]] {
-      override def create(ss: Seq[TempBond]): Seq[p.Path] = {
-        for(s <- ss) yield {
-          //todo: broken beyond all hope -- refactor to a TempBond case class tree later
-          val line = if(s.from == null) {
-            p.Path.Line(residueTemplateLinkPosition(1).get, s.to)
-          } else p.Path.Line(linkPosition(s.from), s.to)
-
-          line.strokeWidth = 10
-          line.strokeColor = "#AAAAAA"
-          line.dashArray = js.Array(1, 15)
-          line.strokeCap = "round"
-          line
-        }
-      }
-      override def update(ts: Seq[p.Path], ss: Seq[TempBond]): Unit = {
-        for((t, s) <- ts.zip(ss)) {
-          t.segments(1).point = s.to
-        }
-      }
-      override def revert(ts: Seq[p.Path], ss: Seq[TempBond]): Unit = {
-        for(t <- ts) t.remove()
-      }
-    }
-
     override def hitHandle(residue: Residue, point: P): Boolean = {
       residue.getHandle.exists(_.contains(point))
     }
 
     override def finishBond(from: Link, to: p.Point): Option[Link] = {
-      getClosestLinkAny(to, parent = true)
+      getClosestLinkAny(to, parent = Some(true))
     }
 
     override val handleHL = new CanvasItemMod[p.Path, Residue] {

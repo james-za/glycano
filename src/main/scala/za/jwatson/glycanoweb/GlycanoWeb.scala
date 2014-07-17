@@ -33,6 +33,8 @@ object GlycanoWeb {
   val absolute = rx.Var[Absolute](D)
   val residueType = rx.Var[Option[ResidueType]](None)
 
+  val conventionEditor = new ConventionEditor("conventionEditor")
+
   @JSExport
   def main(): Unit = {
 
@@ -110,7 +112,8 @@ object GlycanoWeb {
         ),
         div(cls:="collapse navbar-collapse", id:="glycano-navbar-collapse")(
           ul(cls:="nav navbar-nav")(
-            li(a(href:="#")("ASDF"))
+            li(a(href:="#")("ASDF")),
+            li(conventionEditor.createNavButton)
           )
         )
       ))
@@ -142,7 +145,9 @@ object GlycanoWeb {
         col(xs=3)(overviewPanel)
       )
     )
+
     dom.document.body.appendChild(mainContainer.render)
+    dom.document.body.appendChild(conventionEditor.renderModal)
 
     val cv = canvas(display.`inline-block`, verticalAlign:="top", id:="stage", tabindex:=1).render
     dom.document.getElementById("stage-panel").appendChild(cv)
