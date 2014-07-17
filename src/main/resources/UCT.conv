@@ -33,15 +33,7 @@ convention "UCT" {
     L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape(x="22", y="18")
     L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape(x="22", y="18")
     
-    (*) -> #5 [handle] Rect(width="20", height="20, rx="5", ry="5")
+    (*) -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
     
-    (*) -> style [outline] {
-        fill: none;
-        stroke: black;
-        stroke-width: 3px;
-    }
-    
-    
-    
-    
+    (*) -> style [outline] {}
 }
