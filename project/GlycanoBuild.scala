@@ -35,9 +35,9 @@ object GlycanoBuild extends Build {
       "com.scalatags"                  %%% "scalatags"         % "0.3.8",
       "com.scalarx"                    %%% "scalarx"           % "0.2.5",
       "org.scalaz"                     %%% "scalaz-core"       % "7.0.6",
-      "com.chuusai"                    %%% "shapeless"         % "2.0.0",
-      "org.typelevel"                  %%% "shapeless-scalaz"  % "0.3-SNAPSHOT",
-      "name.myltsev"                   %%% "parboiled"         % "2.0.0"
+      "name.myltsev"                   %%% "shapeless"         % "2.0.0",
+      "name.myltsev"                   %%% "parboiled"         % "2.0.0",
+      "org.scala-lang"                 %   "scala-reflect"     % "2.11.1" // temp fix for parboiled2 issue #81
     )
   )
 

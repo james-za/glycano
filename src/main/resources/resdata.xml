@@ -173,7 +173,7 @@
         </style></rule>
         <rule residue="Gal" absolute="L"><style type="text/css">
             .primary { fill: black; }
-            .secondary { fill: yellw; }
+            .secondary { fill: yellow; }
         </style></rule>
         <rule residue="Glc"><style type="text/css">
             .primary { fill: blue; }

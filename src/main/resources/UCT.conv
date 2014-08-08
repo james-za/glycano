@@ -28,12 +28,12 @@ convention "UCT" {
     (Gul) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 0,40 90,40 65,80")
     (Man) -> #2 [secondary] Polygon(points="0,40 25,0 45,0 45,80 25,80")
     
-    L (Glycero)                                -> #4 [lshape] LShape(x="22", y="18")
-    L (Erythro, Threo)                         -> #4 [lshape] LShape(x="22", y="18")
-    L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape(x="22", y="18")
-    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape(x="22", y="18")
+    L (Glycero)                                -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
+    L (Erythro, Threo)                         -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
+    L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
+    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
     
-    (*) -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
+    * -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
     
-    (*) -> style [outline] {}
+    * -> style [outline] {}
 }

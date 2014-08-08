@@ -3,10 +3,13 @@ package za.jwatson.glycanoweb
 import org.parboiled2.{ParseError, Rule0, Parser, ParserInput}
 import rx._
 import shapeless.HNil
+import za.jwatson.glycanoweb.ConventionEditor.RuleCond.{SubCond, ResCond, AbsCond, AnoCond}
 import za.jwatson.glycanoweb.render.Convention
 import za.jwatson.glycanoweb.structure.Absolute.{L, D}
-import za.jwatson.glycanoweb.structure.{ResidueType, Absolute, Anomer}
+import za.jwatson.glycanoweb.structure.{Residue, ResidueType, Absolute, Anomer}
 import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
+import scala.collection.mutable
+import scala.reflect.ClassTag
 import scala.util.{Success, Failure}
 import scalajs.js
 import scalatags.JsDom._
@@ -41,7 +44,7 @@ class ConventionEditor(val modalId: String) {
     val inText = jQ("#" + textAreaId).`val`().asInstanceOf[String]
     println("parsing: " + inText.take(20) + "...")
     val parser = new ConventionParser(inText)
-    val result = parser.Conventions.run() match {
+    val result = parser.conventions.run() match {
       case Success(c)             ⇒ "Expression is valid\n" + c.mkString("\n")
       case Failure(e: ParseError) ⇒ "Expression is not valid: " + parser.formatError(e)
       case Failure(e)             ⇒ "Unexpected error during parsing run: " + e
@@ -61,11 +64,20 @@ object ConventionEditor {
 
   import org.parboiled2._
 
-  case class Conv(name: String, shapeDefs: Map[String, Shape] = Map.empty, rules: Map[ConvCond, ConvRule] = Map.empty)
-  case class ShapeDef(name: String, shape: Shape)
-  case class ConvCond(anomers: Seq[Anomer], absolutes: Seq[Absolute], residueTypes: Seq[String], substituents: Seq[String])
-  case class ConvRule(shapes: Seq[ShapeRule] = Seq.empty, styles: Map[String, String] = Map.empty)
-  case class ShapeRule(priority: Int, classes: Seq[String], shape: Shape)
+  case class Conv(name: String, shapeDefs: Map[String, Shape] = Map.empty, rules: Seq[ConvRule] = Seq.empty)
+
+  case class ConvRule(conds: Seq[RuleCond], mods: Seq[RuleMod])
+  sealed trait RuleCond { def matches(r: Residue): Boolean }
+  object RuleCond {
+    case class AnoCond(allowed: Anomer) extends RuleCond { def matches(r: Residue) = allowed == r.anomer }
+    case class AbsCond(allowed: Absolute) extends RuleCond { def matches(r: Residue) = allowed == r.absolute }
+    case class ResCond(allowed: Seq[String]) extends RuleCond { def matches(r: Residue) = allowed contains r.rt }
+    case class SubCond(allowed: Seq[String]) extends RuleCond { def matches(r: Residue) = allowed contains "" }
+  }
+  sealed trait RuleMod
+  case class ShapeMod(priority: Int, classes: Seq[String], shape: Shape) extends RuleMod
+  case class StyleMod(style: String, content: Map[String, String]) extends RuleMod
+
   sealed trait Shape
   case class DummyShape(name: String) extends Shape
   case class Polygon(points: String) extends Shape
@@ -77,79 +89,84 @@ object ConventionEditor {
       map.getOrElse("rx", "0"), map.getOrElse("ry", "0")
     )
   }
+  class ConvBuilder(name: String) {
+    val shapeDefs = Map.newBuilder[String, Shape]
+    val rules = Seq.newBuilder[ConvRule]
+    def +=(sd: (String, Shape)): ConvBuilder = { shapeDefs += sd; this }
+    def +=(cr: ConvRule): ConvBuilder = { rules += cr; this }
+    def result(): Conv = Conv(name, shapeDefs.result(), rules.result())
+  }
 
   class ConventionParser(val input: ParserInput) extends Parser {
     import shapeless._
-
-    val convShapeDefsL: Lens[Conv, Map[String, Shape]] = lens[Conv] >> 'shapeDefs
-    val convRulesL: Lens[Conv, Map[ConvCond, ConvRule]] = lens[Conv] >> 'rules
-
-    val convRuleShapesL: Lens[ConvRule, Seq[ShapeRule]] = lens[ConvRule] >> 'shapes
-    val convRuleStylesL: Lens[ConvRule, Map[String, String]] = lens[ConvRule] >> 'styles
+    import scalaz.syntax.std.option._
+    import scalaz.syntax.monoid._
 
     val WhiteSpaceChar = CharPredicate(" \n\r\t\f")
     def ws: Rule0 = rule { zeroOrMore(WhiteSpaceChar) }
     def ws(c: Char): Rule0 = rule { c ~ ws }
     def ws(s: String): Rule0 = rule { str(s) ~ ws }
-    def Conventions = rule { ws ~ oneOrMore(ConventionOuter) ~ EOI }
-    def ConventionOuter = rule { ws("convention") ~ StringLiteral ~> (Conv(_)) ~ ws('{') ~ ConventionInner ~ ws('}') }
-    def ConventionInner: Rule[Conv :: HNil, Conv :: HNil] = rule {
-      zeroOrMore(
-        (CShapeDef ~> ((c: Conv, sd: (String, Shape)) => convShapeDefsL.modify(c)(_ + sd))) |
-        CRule ~> ((c: Conv, rule: (ConvCond, ConvRule)) => convRulesL.modify(c)(_ + rule))
-      )
+    def conventions = rule { ws ~ oneOrMore(convention) ~ EOI }
+    def convention = rule {
+      conventionName ~> (new ConvBuilder(_)) ~ ws('{') ~ conventionInner ~ ws('}') ~> (_.result())
+    }
+    def conventionName = rule { ws("convention") ~ stringLiteral }
+    def conventionInner: Rule[ConvBuilder :: HNil, ConvBuilder :: HNil] = rule { zeroOrMore(shapeDef | convRule) }
+
+    def shapeDef = rule { ws("def ") ~ identifier ~ ws('=') ~ shape ~> ((_: ConvBuilder) += _ -> _) }
+    def convRule = rule { ruleCond ~ modifiers ~> ConvRule ~> ((_: ConvBuilder) += _) }
+    type RuleCondBuilder = mutable.Builder[RuleCond, Seq[RuleCond]]
+    def ruleCond = rule {
+      push(Seq.newBuilder[RuleCond]) ~
+      anoCond ~> ruleCondBuild ~
+      absCond ~> ruleCondBuild ~
+      resCond ~> ruleCondBuild ~
+      subCond ~> ruleCondBuild ~> (_.result())
+    }
+    val ruleCondBuild = (b: RuleCondBuilder, co: Option[RuleCond]) => {
+      for (c <- co) b += c; b
     }
 
-    def CShapeDef = rule { ws("def ") ~ Identifier ~ ws('=') ~ CShape ~> (_ -> _) }
-    def CRule = rule { CCond ~ push(ConvRule()) ~ oneOrMore(ws("->") ~ CMod) ~> (_ -> _) }
-    def CCond: Rule1[ConvCond] = rule {
-      optional(CAnomer) ~> (_.fold(Seq[Anomer](Alpha, Beta))(Seq(_))) ~
-      optional(CAbsolute) ~> (_.fold(Seq[Absolute](D, L))(Seq(_))) ~
-      ResidueTypeList ~
-      push(Seq("")) ~>
-      (ConvCond(_, _, _, _))
-    }
+    def modifiers: Rule1[Seq[RuleMod]] = rule { oneOrMore(ws("->") ~ (shapeMod | styleMod)) }
+
+    def shapeMod: Rule1[ShapeMod] = rule { priority ~ classList ~ shape ~> ShapeMod }
+    def priority = rule { optional('#' ~ intLiteral) ~> (_.getOrElse(0)) }
+    def classList = rule { optional(ws('[') ~ oneOrMore(identifier).separatedBy(ws(',')) ~ ws(']')) ~> (_.toSeq.flatten) }
+
+    def styleMod: Rule1[StyleMod] = rule { styleName ~ ws('{') ~ styleRules ~ ws('}') ~> StyleMod }
+    def styleName = rule { ws("style") ~ ws('[') ~ identifier ~ ws(']') }
+    def styleRules = rule { zeroOrMore(cssIdent ~ ws(':') ~ cssValue ~> (_ -> _) ~ optional(ws(';'))) ~> (_.toMap) }
+    def cssIdent = rule { capture(oneOrMore(CharPredicate.AlphaNum | ch('-'))) ~ ws }
+    def cssValue = rule { capture(oneOrMore(CharPredicate.from(c => c != ';' && c != '}' && c != '{'))) }
+
+    def anoCond = rule { optional(anomer ~> AnoCond) }
+    def absCond = rule { optional(absolute ~> AbsCond) }
+    def resCond = rule { (residueTypeList ~> (ResCond(_).some)) | (ws('*') ~ push(None)) }
+    def subCond = rule { optional(ws('<') ~ oneOrMore(identifier).separatedBy(ws(',')) ~ ws('>') ~> SubCond) }
     
-    def ResidueTypeList = rule {
-      ws('(') ~ (
-        (ws('*') ~ push(ResidueType.ResidueTypes.map(_.symbol))) |
-        oneOrMore(Identifier).separatedBy(ws(','))
-      ) ~ ws(')')
+    def residueTypeList = rule { ws('(') ~ oneOrMore(identifier).separatedBy(ws(',')) ~ ws(')') }
+
+    def anomer: Rule1[Anomer] = rule { ano(Alpha, "a", "alpha", "α") | ano(Beta, "b", "beta", "ß") }
+    def ano(anomer: Anomer, short: String, long: String, unicode: String) = rule {
+      (ignoreCase(short) | ignoreCase(long) | unicode) ~ ws ~ push(anomer)
     }
 
-    def CAnomer = rule { CAlpha | CBeta }
-    def CAlpha = rule { (ignoreCase("a") | ignoreCase("alpha") | "α") ~ push(Alpha: Anomer) ~ ws }
-    def CBeta = rule { (ignoreCase("b") | ignoreCase("beta") | "ß") ~ push(Beta: Anomer) ~ ws }
-
-    def CAbsolute = rule { CD | CL }
-    def CD = rule { (ignoreCase("d") | "ᴅ") ~ push(D: Absolute) ~ ws }
-    def CL = rule { (ignoreCase("l") | "ʟ") ~ push(L: Absolute) ~ ws }
-
-    def CMod: Rule[ConvRule :: HNil, ConvRule :: HNil] = rule {
-      StyleMod ~> ((cr: ConvRule, style: (String, String)) => {println(style); convRuleStylesL.modify(cr)(_ + style)}) |
-      ShapeMod ~> ((cr: ConvRule, sr: ShapeRule) => {println(sr); convRuleShapesL.modify(cr)(_ :+ sr)})
+    def absolute = rule { abs(D, "d", "ᴅ") | abs(L, "l", "ʟ") }
+    def abs(abs: Absolute, char: String, unicode: String) = rule {
+      (ignoreCase(char) | unicode) ~ push(abs) ~ ws
     }
 
-    def CShape = rule { SPolygon | SRect | SDummy }
-    def ShapeMod: Rule1[ShapeRule] = rule {
-      optional('#' ~ IntLiteral) ~> (_.getOrElse(0)) ~
-      optional(ws('[') ~ oneOrMore(Identifier).separatedBy(ws(',')) ~ ws(']')) ~> (_.toSeq.flatten) ~
-      CShape ~>
-      (ShapeRule(_, _, _))
-    }
-    def StyleMod = rule { ws("style") ~ ws('[') ~ Identifier ~ ws(']') ~ '{' ~ ws('}') ~> (_ -> "tempstyle") }
+    def shape = rule { polygon | rect | dummyShape }
+    def namedShape(name: String) = rule { ws(name) ~ ws('(') ~ namedArgList ~ ws(')') }
+    def polygon: Rule1[Shape] = rule { namedShape("Polygon") ~> ((map: Map[String, String]) => Polygon(map("points"))) }
+    def rect: Rule1[Shape] = rule { namedShape("Rect") ~> Rect.fromMap }
+    def dummyShape = rule { ((identifier ~ ws('(') ~ namedArgList ~> (_ => ()) ~ ws(')')) | identifier) ~> DummyShape }
+    
+    def namedArgList = rule { zeroOrMore(namedArg).separatedBy(ws(',')) ~> (_.toMap) }
+    def namedArg = rule { identifier ~ ws('=') ~ stringLiteral ~> (_ -> _) }
 
-    def SDummy = rule { ((Identifier ~ ws('(') ~ NamedArgList ~> (_ => ()) ~ ws(')')) | Identifier) ~> DummyShape }
-
-    def shape(name: String) = rule { ws(name) ~ ws('(') ~ NamedArgList ~ ws(')') }
-    def SPolygon: Rule1[Shape] = rule { shape("Polygon") ~> ((map: Map[String, String]) => Polygon(map("points"))) }
-    def SRect: Rule1[Shape] = rule { shape("Rect") ~> Rect.fromMap }
-
-    def NamedArgList = rule { zeroOrMore(NamedArg).separatedBy(ws(',')) ~> (_.toMap) }
-    def NamedArg = rule { Identifier ~ ws('=') ~ StringLiteral ~> (_ -> _) }
-
-    def Identifier: Rule1[String] = rule { capture(oneOrMore(CharPredicate.AlphaNum)) ~ ws }
-    def StringLiteral = rule { '"' ~ capture(zeroOrMore(noneOf("\""))) ~ '"' ~ ws }
-    def IntLiteral = rule { capture(optional(ch('+')|'-') ~ oneOrMore(CharPredicate.Digit)) ~> (_.toInt) ~ ws }
+    def identifier: Rule1[String] = rule { capture(oneOrMore(CharPredicate.AlphaNum)) ~ ws }
+    def stringLiteral = rule { '"' ~ capture(zeroOrMore(noneOf("\""))) ~ '"' ~ ws }
+    def intLiteral = rule { capture(optional(ch('+')|'-') ~ oneOrMore(CharPredicate.Digit)) ~> (_.toInt) ~ ws }
   }
 }
