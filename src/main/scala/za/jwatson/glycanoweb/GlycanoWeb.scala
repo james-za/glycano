@@ -79,7 +79,7 @@ object GlycanoWeb {
     val substituentPanel =
       panel(Default)(
         panelHeading("Substituents"),
-        panelBody("")
+        panelBody("")(id:="subst")
       )
 
     /** Displaying and parsing CASPER text format */
@@ -177,6 +177,20 @@ object GlycanoWeb {
       val g = glycanoCanvas.convention().createIcon(rt, abs, ano, iconBounds)
       (ano, abs, rt) -> svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
     }).toMap
+
+    val substIconMap = (for (st <- SubstituentType.substituentTypes) yield {
+      val g = glycanoCanvas.convention().createIcon(st, iconBounds)
+      st -> svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
+    }).toMap
+
+    val substPage = div(for ((st, icon) <- substIconMap.toSeq) yield span(
+      checkboxButton(inputName = "rt", classes = "residue", innerMods = Seq(display.none))(id := "st-" + st.symbol, title := st.name, padding := "2px")(
+        div(icon)
+      )
+    ))
+
+    dom.document.getElementById("subst").appendChild(substPage.render)
+
 
     val rtPageId = rx.Rx {
       (anomeric(), absolute())

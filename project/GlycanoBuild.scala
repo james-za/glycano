@@ -30,14 +30,14 @@ object GlycanoBuild extends Build {
     ),
     javaOptions += "-Xmx6G",
     libraryDependencies ++= Seq(
-      "org.scala-lang.modules.scalajs" %%% "scalajs-dom"       % "0.6",
-      "org.scala-lang.modules.scalajs" %%% "scalajs-jquery"    % "0.6",
-      "com.scalatags"                  %%% "scalatags"         % "0.3.8",
-      "com.scalarx"                    %%% "scalarx"           % "0.2.5",
-      "org.scalaz"                     %%% "scalaz-core"       % "7.0.6",
-      "name.myltsev"                   %%% "shapeless"         % "2.0.0",
-      "name.myltsev"                   %%% "parboiled"         % "2.0.0",
-      "org.scala-lang"                 %   "scala-reflect"     % "2.11.1" // temp fix for parboiled2 issue #81
+      "org.scala-lang.modules.scalajs"  %%% "scalajs-dom"       % "0.6",
+      "org.scala-lang.modules.scalajs"  %%% "scalajs-jquery"    % "0.6",
+      "com.scalatags"                   %%% "scalatags"         % "0.3.8",
+      "com.scalarx"                     %%% "scalarx"           % "0.2.5",
+      "com.github.japgolly.fork.scalaz" %%% "scalaz-core"       % "7.1.0",
+      "name.myltsev"                    %%% "shapeless"         % "2.0.0",
+      "name.myltsev"                    %%% "parboiled"         % "2.0.0",
+      "org.scala-lang"                  %   "scala-reflect"     % "2.11.1" // temp fix for parboiled2 issue #81
     )
   )
 

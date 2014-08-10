@@ -8,9 +8,6 @@ case class Residue private[Residue](
   anomer: Anomer,
   absolute: Absolute
 ) {
-  val substituents: Map[Int, ListBuffer[Substituent]] =
-    (1 to rt.linkage).map(_ -> ListBuffer[Substituent]())(collection.breakOut)
-
   def symbol: String = anomer.symbol + absolute.symbol + rt.symbol
   def desc: String = s"${anomer.desc}-${absolute.desc}-${rt.desc}"
   

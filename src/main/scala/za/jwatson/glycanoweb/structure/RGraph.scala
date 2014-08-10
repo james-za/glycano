@@ -11,7 +11,11 @@ case class RGraph(entries: Map[Residue, GraphEntry] = Map.empty)
 object RGraph {
   def apply(xs: Seq[Residue]): RGraph = RGraph(xs.map(_ -> GraphEntry()).toMap)
 
-  case class GraphEntry(children: Map[Int, Residue] = Map.empty, parent: Option[Link] = None) {
+  case class GraphEntry(
+    children: Map[Int, Residue] = Map.empty,
+    parent: Option[Link] = None,
+    subs: Map[Int, Seq[Substituent]] = Map.empty.withDefaultValue(Seq.empty[Substituent])
+  ) {
     def +(ce: (Int, Residue)) = this.copy(children = children + ce)
     def -(ci: Int) = this.copy(children = children - ci)
   }
@@ -23,6 +27,9 @@ object RGraph {
   private def childL(i: Int): GraphEntry @?> Residue = ~childrenMapL >=> PLens.mapVPLens(i)
 
   private val parentL: GraphEntry @> Option[Link] = Lens.lensg(ge => p2 => ge.copy(parent = p2), ge => ge.parent)
+
+  private val subsL: GraphEntry @> Map[Int, Seq[Substituent]] = Lens.lensg(ge => s2 => ge.copy(subs = s2), ge => ge.subs)
+  private def linkSubsL(l: Link): GraphEntry @?> Seq[Substituent] = ~subsL >=> PLens.mapVPLens(l.position)
 
   private def getParentL(r: Residue): RGraph @?> Link = entryL(r) >=> ~parentL >=> somePLens
   private def getChildL(r: Residue, i: Int): RGraph @?> Residue = entryL(r) >=> childL(i)

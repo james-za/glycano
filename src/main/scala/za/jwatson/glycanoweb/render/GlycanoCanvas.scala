@@ -6,7 +6,6 @@ import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => jQ}
 import rx._
 import za.jwatson.glycanoweb.GlycanoWeb
-import za.jwatson.glycanoweb.render.Convention.UCT
 import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure.Residue.Link
@@ -23,7 +22,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   val scope = new p.PaperScope()
   scope.setup(canvas)
-  val convention = rx.Var[Convention](new UCT(scope))
+  val convention = rx.Var[Convention](new Convention(scope))
   implicit def _convention = convention()
   val o = rx.Obs(convention, skipInitial = true) {
     //todo: conversion between uct/cfg/oxford

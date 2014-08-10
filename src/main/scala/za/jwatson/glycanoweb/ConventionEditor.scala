@@ -79,7 +79,7 @@ object ConventionEditor {
   case class StyleMod(style: String, content: Map[String, String]) extends RuleMod
 
   sealed trait Shape
-  case class DummyShape(name: String) extends Shape
+  case class DefinedShape(name: String) extends Shape
   case class Polygon(points: String) extends Shape
   case class Rect(x: String = "0", y: String = "0", width: String, height: String, rx: String = "0", ry: String = "0") extends Shape
   object Rect {
@@ -124,10 +124,11 @@ object ConventionEditor {
       subCond ~> ruleCondBuild ~> (_.result())
     }
     val ruleCondBuild = (b: RuleCondBuilder, co: Option[RuleCond]) => {
-      for (c <- co) b += c; b
+      for (c <- co) b += c
+      b
     }
 
-    def modifiers: Rule1[Seq[RuleMod]] = rule { oneOrMore(ws("->") ~ (shapeMod | styleMod)) }
+    def modifiers: Rule1[Seq[RuleMod]] = rule { oneOrMore(ws("->") ~ (styleMod | shapeMod)) }
 
     def shapeMod: Rule1[ShapeMod] = rule { priority ~ classList ~ shape ~> ShapeMod }
     def priority = rule { optional('#' ~ intLiteral) ~> (_.getOrElse(0)) }
@@ -160,7 +161,8 @@ object ConventionEditor {
     def namedShape(name: String) = rule { ws(name) ~ ws('(') ~ namedArgList ~ ws(')') }
     def polygon: Rule1[Shape] = rule { namedShape("Polygon") ~> ((map: Map[String, String]) => Polygon(map("points"))) }
     def rect: Rule1[Shape] = rule { namedShape("Rect") ~> Rect.fromMap }
-    def dummyShape = rule { ((identifier ~ ws('(') ~ namedArgList ~> (_ => ()) ~ ws(')')) | identifier) ~> DummyShape }
+    def dummyShape = rule { ((identifier ~ ws('(') ~ namedArgList ~> (_ => ()) ~ ws(')')) | identifier) ~> DefinedShape }
+    def definedShape = rule { identifier ~> DefinedShape }
     
     def namedArgList = rule { zeroOrMore(namedArg).separatedBy(ws(',')) ~> (_.toMap) }
     def namedArg = rule { identifier ~ ws('=') ~ stringLiteral ~> (_ -> _) }

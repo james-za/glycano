@@ -676,6 +676,8 @@ class TextItem extends Item {
   var content: String = ???
   var characterStyle: CharacterStyle = ???
   var paragraphStyle: ParagraphStyle = ???
+  var fontSize: Double = ???
+  var fontWeight: String = ???
 }
 
 @JSName("paper.PointText")
