@@ -312,7 +312,10 @@ object GlycanoWeb {
     }
     Obs(overviewTitle)($("#overview-title").html(overviewTitle()))
 
-    def filename = $("#filename").value()
+    def filename = {
+      val fn = $("#filename").value().asInstanceOf[String]
+      fn.isEmpty ? "glycano" | fn
+    }
 
     $("#save-png").click(null, (eo: JQueryEventObject) => {
       val dataUrl = cv.toDataURL("PNG")
