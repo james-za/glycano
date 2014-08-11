@@ -18,6 +18,10 @@ import scala.scalajs.js.annotation.JSExport
 import scalatags.JsDom._
 import scalatags.JsDom.all._
 
+import scalaz.syntax.std.boolean._
+import scalaz.std.option._
+import scalaz.syntax.std.option._
+
 @JSExport
 object GlycanoWeb {
 
@@ -32,8 +36,26 @@ object GlycanoWeb {
   val anomeric = rx.Var[Anomer](Alpha)
   val absolute = rx.Var[Absolute](D)
   val residueType = rx.Var[Option[ResidueType]](None)
+  val substituentType = rx.Var[Option[SubstituentType]](None)
+  val showModeSelect = Rx((residueType() orElse substituentType()).isDefined)
 
   val conventionEditor = new ConventionEditor("conventionEditor")
+
+  def setResidueType(rt: Option[ResidueType], skipToggle: Boolean = false): Unit = {
+    val old = residueType()
+    for (o <- old if !skipToggle && rt != old)
+      $("#rt-" + o.desc).button("toggle")
+    residueType() = rt
+    if (substituentType().isDefined) setSubstituentType(none)
+  }
+
+  def setSubstituentType(st: Option[SubstituentType], skipToggle: Boolean = false): Unit = {
+    val old = substituentType()
+    for (o <- old if !skipToggle && st != old)
+      $("#st-" + o.symbol).button("toggle")
+    substituentType() = st
+    if (residueType().isDefined) setResidueType(none)
+  }
 
   @JSExport
   def main(): Unit = {
@@ -59,9 +81,9 @@ object GlycanoWeb {
     /** Selection of residue type to create */
     val residuePages = btnGroup(id:="aldoses")(
       for (rt <- ResidueType.Aldoses) yield span(
-        checkboxButton(inputName = "rt", classes = "residue", innerMods = Seq(display.none))(id:=rt.desc, title:=rt.desc, padding:="2px")(
-          div(cls:="svg")
-        )
+        checkboxButton(inputName = "rt-" + rt.desc, classes = "residue", innerMods = Seq(display.none))
+          (id := "rt-" + rt.desc, title := rt.desc, padding := "2px")
+          (div(cls := "svg"))
       )
     )
 
@@ -75,11 +97,22 @@ object GlycanoWeb {
         )
       )
 
+    /** Selection of substituent type to add to residues */
+    val substituentPages = btnGroup(id:="substituents")(
+      for (st <- SubstituentType.SubstituentTypes) yield span(
+        checkboxButton(inputName = "st-" + st.symbol, classes = "substituent", innerMods = Seq(display.none))
+          (id := "st-" + st.symbol, title := st.name, padding := "2px")
+          (div(cls := "svg"))
+      )
+    )
+
     /** Selection of substituent to add to residues */
     val substituentPanel =
       panel(Default)(
         panelHeading("Substituents"),
-        panelBody("")(id:="subst")
+        panelBody(classes = "text-center")(
+          row(col(xs=12)(substituentPages))
+        )
       )
 
     /** Displaying and parsing CASPER text format */
@@ -101,6 +134,16 @@ object GlycanoWeb {
         panelBody()(id:="overview-body")
       )
 
+    val saveDropdown = li(cls:="dropdown")(
+      a(href:="#", cls:="dropdown-toggle", "data-toggle".attr:="dropdown", "Save", span(cls:="caret")),
+      ul(cls:="dropdown-menu", "role".attr:="menu")(
+        li(a(href:="#", "Glycano (gly)", id:="save-gly")),
+        li(cls:="divider"),
+        li(a(href:="#", "Image (png)", id:="save-png")),
+        li(a(href:="#", "Vector (svg)", id:="save-svg"))
+      )
+    )
+
     /** Page header and common operations */
     val glycanoNavbar =
       navbar(Default)(containerFluid(
@@ -112,8 +155,12 @@ object GlycanoWeb {
         ),
         div(cls:="collapse navbar-collapse", id:="glycano-navbar-collapse")(
           ul(cls:="nav navbar-nav")(
-            li(a(href:="#")("ASDF")),
-            li(conventionEditor.createNavButton)
+            form(cls:="navbar-form navbar-left")(
+              formGroup(input(id:="filename", tpe:="text", cls:="form-control", placeholder:="Filename"))
+            ),
+            saveDropdown/*,
+            li(a(href:="#")("")),
+            li(conventionEditor.createNavButton)*/
           )
         )
       ))
@@ -126,7 +173,10 @@ object GlycanoWeb {
 //      }))
     val modeSelect =
       col(xs=12)(btn(Primary, Lg, block = true)(glyphIcon("hand-up")(marginRight:=15.px), "Selection Mode")(id:="mode-select", onclick:={() =>
-        if(residueType().isDefined) residueType() = None
+        if(showModeSelect()) {
+          setResidueType(none)
+          setSubstituentType(none)
+        }
       }))
 
     /** Main container */
@@ -178,27 +228,21 @@ object GlycanoWeb {
       (ano, abs, rt) -> svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
     }).toMap
 
-    val substIconMap = (for (st <- SubstituentType.substituentTypes) yield {
+    val substIconMap = (for (st <- SubstituentType.SubstituentTypes) yield {
       val g = glycanoCanvas.convention().createIcon(st, iconBounds)
       st -> svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
     }).toMap
 
-    val substPage = div(for ((st, icon) <- substIconMap.toSeq) yield span(
-      checkboxButton(inputName = "rt", classes = "residue", innerMods = Seq(display.none))(id := "st-" + st.symbol, title := st.name, padding := "2px")(
-        div(icon)
-      )
-    ))
-
-    dom.document.getElementById("subst").appendChild(substPage.render)
-
-
-    val rtPageId = rx.Rx {
-      (anomeric(), absolute())
+    for ((st, icon) <- substIconMap.toSeq) {
+      $("#st-" + st.symbol + " .svg").html(icon.toString())
     }
+
+
+    val rtPageId = rx.Rx { (anomeric(), absolute()) }
     rx.Obs(rtPageId) {
       val (abs, ano) = rtPageId()
       for(rt <- ResidueType.ResidueTypes) {
-        $("#" + rt.desc + " .svg").html(iconMap((abs, ano, rt)).toString())
+        $("#rt-" + rt.desc + " .svg").html(iconMap((abs, ano, rt)).toString())
       }
     }
 
@@ -212,56 +256,44 @@ object GlycanoWeb {
       speed = 250: js.Any
     )
     $(".residue").tooltipster(tooltipsterConfig)
+    $(".substituent").tooltipster(tooltipsterConfig)
     $("#" + D.symbol).click(() => absolute() = D)
     $("#" + L.symbol).click(() => absolute() = L)
     $("#" + Alpha.symbol).click(() => anomeric() = Alpha)
     $("#" + Beta.symbol).click(() => anomeric() = Beta)
-    for(rt <- ResidueType.ResidueTypes) {
-      val rtElem = dom.document.getElementById(rt.desc)
-      rtElem.onclick = (e: MouseEvent) => {
-        residueType() = if($(rtElem).hasClass("active")) None else Some(rt)
-      }
+    for (rt <- ResidueType.ResidueTypes) {
+      val rtElem = dom.document.getElementById("rt-" + rt.desc)
+      $(rtElem).click(null, (eo: JQueryEventObject) => {
+        val rtOld = residueType()
+        if (rtOld.contains(rt)) {
+          setResidueType(none, skipToggle = true)
+        } else {
+          setResidueType(rt.some)
+        }
+      }: js.Any)
+    }
+    for (st <- SubstituentType.SubstituentTypes) {
+      val stElem = dom.document.getElementById("st-" + st.symbol)
+      $(stElem).click(null, (eo: JQueryEventObject) => {
+        val stOld = substituentType()
+        if (stOld.contains(st)) {
+          setSubstituentType(none, skipToggle = true)
+        } else {
+          setSubstituentType(st.some)
+        }
+      }: js.Any)
     }
 
-    Obs(residueType) {
-      residueType().fold {
+
+    Obs(showModeSelect) {
+      showModeSelect() ?
+        dom.document.getElementById("mode-select").removeAttribute("disabled") |
         dom.document.getElementById("mode-select").setAttribute("disabled", "disabled")
-        $(".residue.active").removeClass("active").button("reset")
-      } { rt =>
-        dom.document.getElementById("mode-select").removeAttribute("disabled")
-        val elem = dom.document.getElementById(rt.desc)
-        $(".residue.active").not(elem).removeClass("active").button("reset")
-        //$(elem).button("toggle")
-      }
     }
 
     $("body").on("contextmenu", "#stage", null, (eo: JQueryEventObject) => {
       false
     }: js.Any)
-
-//    val r1 = Residue(ResidueType.Gal, Alpha, D)
-//    val r2 = Residue(ResidueType.Gal, Beta, D)
-//    val r3 = Residue(ResidueType.Gal, Alpha, L)
-//    val r4 = Residue(ResidueType.Xyl, Beta, L)
-//    val r5 = Residue(ResidueType.Rib, Beta, L)
-//
-//    glycanoCanvas.residues ++= Seq(r1, r2, r3, r4, r5)
-//
-//    glycanoCanvas.bonds ++= Seq(
-//      r4.bond(r2, 1),
-//      r3.bond(r2, 2),
-//      r2.bond(r1, 1),
-//      r5.bond(r1, 2)
-//    )
-//
-//    for(r <- residues) {
-//      glycanoCanvas.addResidue(r, randomPoint(glycanoCanvas.scope.view.bounds))
-//      println(r)
-//    }
-//
-//    for(b <- bonds) {
-//      glycanoCanvas.addBond(b)
-//    }
 
     resizeCanvas()
 
@@ -279,6 +311,21 @@ object GlycanoWeb {
       }
     }
     Obs(overviewTitle)($("#overview-title").html(overviewTitle()))
+
+    def filename = $("#filename").value()
+
+    $("#save-png").click(null, (eo: JQueryEventObject) => {
+      val dataUrl = cv.toDataURL("PNG")
+      glycanoCanvas.scope.view.draw()
+      $("#save-png").attr("href", dataUrl).attr("download", filename + ".png")
+    }: js.Any)
+
+    $("#save-svg").click(null, (eo: JQueryEventObject) => {
+      val svg = glycanoCanvas.scope.project.exportSVG(js.Dynamic.literal(asString = true: js.Any))
+      val base64 = dom.window.btoa(svg.asInstanceOf[String])
+      val dataUrl = "data:image/svg+xml;base64," + base64
+      $("#save-svg").attr("href", dataUrl).attr("download", filename + ".svg")
+    }: js.Any)
 
     val casperText = Rx {
       glycanoCanvas.residues()

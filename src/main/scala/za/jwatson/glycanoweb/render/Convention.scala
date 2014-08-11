@@ -11,7 +11,8 @@ import za.jwatson.glycanoweb.structure.Residue.Link
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
-import scalaz.Alpha.P
+import scalaz.syntax.std.option._
+import scalaz.syntax.std.boolean._
 
 class Convention(scope: p.PaperScope) {
 
@@ -36,8 +37,8 @@ class Convention(scope: p.PaperScope) {
   }
 
   def createIcon(st: SubstituentType, bounds: p.Rectangle): SVGElement = {
-    val ss = SubstituentShape(st)
-    val group = ss.sub
+    val ss = SubstituentShape(Substituent(st))
+    val group = ss.item
     group.remove()
 
     val sx = bounds.width / group.bounds.width
@@ -62,6 +63,7 @@ class Convention(scope: p.PaperScope) {
   def closedPathScaled(scale: Double, pts: p.Segment*): p.Path = {
     val path = new p.Path(js.Array[p.Segment](pts: _*))
     path.closePath()
+    path.scale(scale, scale)
     path
   }
 
@@ -78,7 +80,7 @@ class Convention(scope: p.PaperScope) {
       Threo -> (diamond, "black", "black", new p.Path()),
       Ara -> (arrow, "white", "black", closedPath(P(0,-30),P(0,30),P(30,30),P(30,-30))),
       Lyx -> (arrow, "black", "black", new p.Path()),
-      Rib -> (arrow, "black", "white", closedPath(P(0,-30),P(0,30),P(30,30),P(30,-30))),
+      Rib -> (arrow, "black", "white", closedPath(P(0,-30),P(0,0),P(90,0),P(60,-30))),
       Xyl -> (arrow, "#FFA0A0", "#FFA0A0", new p.Path()),
       Ido -> (hexagon, "black", "#BF6000", closedPath(P(25,-40), P(65,-40), P(25,40), P(65,40))),
       All -> (hexagon, "white", "black", closedPath(P(0,0), P(25,-40), P(65,40), P(25,40))),
@@ -158,73 +160,89 @@ class Convention(scope: p.PaperScope) {
 //    )
 //  }
 
-  val substs = SubstituentType.substituentTypes.map(st => st -> subst(st)).toMap
+  //val substs = SubstituentType.substituentTypes.map(st => st -> subst(st)).toMap
 
   for ((a, _, _, b) <- details.values) {
     a.remove()
     b.remove()
   }
-  for (a <- substs.values) a.remove()
+  //for (a <- substs.values) a.remove()
 
   def subst(st: SubstituentType): p.Item = {
     import za.jwatson.glycanoweb.structure.{SubstituentType => ST}
     def pt(s: Int, c: String, t: String) = {
-      val d = new p.PointText(new p.Point())
+      val d = new p.PointText(P(0, 0))
       d.fontSize = s
-      d.fillColorString = c
+      d.fillColor = new p.Color(c)
       d.content = t
       d.position = P(0, 0)
       d
     }
-    def rrb(i: p.Item, s: Double, r: Double, fill: String, stroke: String) = {
-      val db = i.bounds
+    def rrb(db: p.Rectangle, s: Double, r: Double, fill: String, stroke: String) = {
       val rect = new p.Rectangle(db.x - s, db.y - s, db.width + s * 2, db.height + s * 2)
       val b = p.Path.RoundRectangle(rect, new p.Size(r, r))
-      b.fillColorString = fill
+      b.fillColor = new p.Color(fill)
       b.strokeColor = stroke
       b
     }
-    def cb(i: p.Item, s: Double, fill: String, stroke: String) = {
-      val db = i.bounds
-      val b = p.Path.Circle(i.bounds.center, math.max(db.width, db.height) / 2 + s)
-      b.fillColorString = fill
+    def cb(db: p.Rectangle, s: Double, fill: String, stroke: String) = {
+      val b = p.Path.Circle(db.center, math.max(db.width, db.height) / 2 + s)
+      b.fillColor = new p.Color(fill)
       b.strokeColor = stroke
       b
     }
-    def tb(i: p.Item, fill: String, stroke: String) = {
-      val c = i.bounds.center
-      val b = closedPath(P(c.x, c.y + 20), P(c.x - 20, c.y + 20), P(c.x + 20, c.y + 20))
-      b.fillColorString = fill
+    def tb(db: p.Rectangle, fill: String, stroke: String) = {
+      val c = db.center
+      val b = closedPath(P(c.x, c.y - 30), P(c.x - 25, c.y + 15), P(c.x + 25, c.y + 15))
+      b.fillColor = new p.Color(fill)
       b.strokeColor = stroke
       b
     }
     val d = st match {
       case ST.n => pt(30, "black", "N")
-      case ST.cooh => pt(60, "black", "*")
-      case ST.methyl => closedPathScaled(scale = 22, P(0, 0), P(-0.25, 1), new p.Segment(P(0.25, 1), P(-0.375, 1.5), P(0.375, 1.5)))
-      case ST.deoxy => pt(30, "black", "×")
+      case ST.cooh =>
+        val path = new p.Path("""M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469""")
+        path.fillColor = new p.Color("black")
+        path
+      case ST.methyl =>
+        //val path1 = closedPathScaled(scale = 22, P(0, 0), P(-0.25, 1), new p.Segment(P(0.25, 1), P(-0.375, 1.5), P(0.375, 1.5)))
+        val path = new p.Path("""M0,0 L-0.25,1 C-0.375,1.5 0.375,1.5 0.25,1 Z""")
+        path.fillColor = new p.Color("black")
+        path.scale(22, 22)
+        path
+      case ST.deoxy =>
+        val path = new p.Path("""M 476.82,418.45 L 486.73,428.41 C 487.28,428.96 487.38,429.06 487.38,429.46 C 487.38,430.01 486.93,430.46 486.39,430.46 C 485.99,430.46 485.79,430.26 485.34,429.81 L 475.38,419.85 L 465.36,429.81 C 464.82,430.36 464.72,430.46 464.32,430.46 C 463.82,430.46 463.32,430.01 463.32,429.46 C 463.32,429.06 463.52,428.86 463.97,428.41 L 473.88,418.45 L 463.97,408.54 C 463.47,408.04 463.32,407.74 463.32,407.45 C 463.32,406.9 463.82,406.45 464.32,406.45 C 464.72,406.45 464.82,406.55 465.36,407.1 L 475.33,417.06 L 485.29,407.1 C 485.79,406.6 486.09,406.45 486.39,406.45 C 486.98,406.45 487.38,406.9 487.38,407.45 C 487.38,407.84 487.28,407.94 486.73,408.49 L 476.82,418.45 z """)
+        path.fillColor = new p.Color("black")
+//        path.strokeWidth = 12
+//        path.strokeCap = "square"
+        path
       case ST.s => pt(30, "black", "S")
       case ST.p => pt(30, "white", "P")
       case ST.ac => pt(24, "black", "Ac")
     }
+    val db = d.strokeBounds
     val b = st match {
-      case ST.n => rrb(d, 5, 5, fill = "#86CEFF", stroke = "black")
-      case ST.cooh => cb(d, 5, fill = "white", stroke = "")
-      case ST.methyl => rrb(d, 5, 5, fill = "white", stroke = "")
-      case ST.deoxy => cb(d, 2, fill = "white", stroke = "black")
-      case ST.s => cb(d, 5, fill = "#FFFF00", stroke = "black")
-      case ST.p => cb(d, 5, fill = "#8E008E", stroke = "black")
-      case ST.ac => tb(d, "white", "black")
+      case ST.n => rrb(db, 5, 5, fill = "#86CEFF", stroke = "black")
+      case ST.cooh => cb(db, 5, fill = "white", stroke = "")
+      case ST.methyl => rrb(db, 5, 5, fill = "white", stroke = "")
+      case ST.deoxy => cb(db, 6, fill = "white", stroke = "black")
+      case ST.s => cb(db, 5, fill = "#FFFF00", stroke = "black")
+      case ST.p => cb(db, 5, fill = "#8E008E", stroke = "black")
+      case ST.ac => tb(db, fill = "white", stroke = "black")
     }
-    new p.Group(js.Array(b, d))
+    new p.Group(js.Array[p.Item](b, d))
   }
 
-  case class SubstituentShape(st: SubstituentType) {
-    val sub = substs(st).cloneItem()
+  case class SubstituentShape(s: Substituent) {
+    val item = subst(s.st)
+    item.scale(0.7, 0.7)
   }
 
   val itemResidueShapes = collection.mutable.Map[js.Number, ResidueShape]()
   val residueResidueShapes = collection.mutable.Map[Residue, ResidueShape]()
+
+  val itemSubstShapes = collection.mutable.Map[js.Number, SubstituentShape]()
+  val substSubstShapes = collection.mutable.Map[Substituent, SubstituentShape]()
 
   def items = residueResidueShapes.values.map(_.group)
 
@@ -243,9 +261,19 @@ class Convention(scope: p.PaperScope) {
     def getHandle: Option[p.Path] = getResidueShape.map(_.handle)
     def getGroup: Option[p.Group] = getResidueShape.map(_.group)
   }
+  implicit class RichSubstituent(substituent: Substituent) {
+    def substituentShape: SubstituentShape = substSubstShapes(substituent)
+    def group: p.Item = substituentShape.item
+
+    def getSubstituentShape: Option[SubstituentShape] = substSubstShapes.get(substituent)
+    def getGroup: Option[p.Item] = getSubstituentShape.map(_.item)
+  }
   implicit class RichItem(item: p.Item) {
     def residueShape: ResidueShape = itemResidueShapes(item.id)
     def residue: Residue = residueShape.residue
+
+    def substituentShape: SubstituentShape = itemSubstShapes(item.id)
+    def substituent: Substituent = substituentShape.s
 
     def getResidueShape: Option[ResidueShape] = itemResidueShapes.get(item.id)
     def getResidue: Option[Residue] = getResidueShape.map(_.residue)
@@ -253,6 +281,7 @@ class Convention(scope: p.PaperScope) {
 
   def getResidue(item: Item): Option[Residue] = item.getResidue
   def getItem(residue: Residue): Option[Item] = residue.getGroup
+  def getItem(substituent: Substituent): Option[Item] = substituent.getGroup
 
   val bonds = collection.mutable.Map[js.Number, Residue]()
   val bondItems = collection.mutable.Map[Residue, p.Path]()
@@ -269,13 +298,43 @@ class Convention(scope: p.PaperScope) {
 
   def removeResidue(residue: Residue): Unit = {
     val rs = residueResidueShapes(residue)
+    for (item <- rs.group.children) {
+      itemSubstShapes.remove(item.id)
+    }
     itemResidueShapes.remove(rs.group.id)
-    itemResidueShapes.remove(rs.handle.id)
-    itemResidueShapes.remove(rs.outline.id)
-    itemResidueShapes.remove(rs.base.id)
-    itemResidueShapes.remove(rs.detail.id)
     residueResidueShapes.remove(residue)
     rs.group.remove()
+  }
+
+  def addSubstituent(subst: Substituent, pos: p.Point, mid: Boolean): Unit = {
+    val ss = SubstituentShape(subst)
+    substSubstShapes(subst) = ss
+    itemSubstShapes(ss.item.id) = ss
+    for (item <- ss.item.children) {
+      itemSubstShapes(item.id) = ss
+    }
+    ss.item.position = if(mid) pos else pos.add(0, ss.item.bounds.height / 2)
+  }
+
+  def removeSubstituent(subst: Substituent): Unit = {
+    val ss = substSubstShapes(subst)
+    for (item <- ss.item.children) {
+      itemSubstShapes.remove(item.id)
+    }
+    itemSubstShapes.remove(ss.item.id)
+    substSubstShapes.remove(subst)
+    ss.item.remove()
+  }
+
+  lazy val x = {
+    val x = new p.Path("""M 476.82,418.45 L 486.73,428.41 C 487.28,428.96 487.38,429.06 487.38,429.46 C 487.38,430.01 486.93,430.46 486.39,430.46 C 485.99,430.46 485.79,430.26 485.34,429.81 L 475.38,419.85 L 465.36,429.81 C 464.82,430.36 464.72,430.46 464.32,430.46 C 463.82,430.46 463.32,430.01 463.32,429.46 C 463.32,429.06 463.52,428.86 463.97,428.41 L 473.88,418.45 L 463.97,408.54 C 463.47,408.04 463.32,407.74 463.32,407.45 C 463.32,406.9 463.82,406.45 464.32,406.45 C 464.72,406.45 464.82,406.55 465.36,407.1 L 475.33,417.06 L 485.29,407.1 C 485.79,406.6 486.09,406.45 486.39,406.45 C 486.98,406.45 487.38,406.9 487.38,407.45 C 487.38,407.84 487.28,407.94 486.73,408.49 L 476.82,418.45 z """)
+    x.scale(0.45, 0.45)
+    x.fillColor = new p.Color(0.2, 0.2, 0.2)
+    x.name = "delete"
+    x.strokeColor = new p.Color(0.2, 0.2, 0.2)
+    x.strokeWidth = 4
+    x.remove()
+    x
   }
 
   def highlightResidue(residue: Residue): Unit = {
@@ -284,10 +343,21 @@ class Convention(scope: p.PaperScope) {
     val rct = new p.Rectangle(rc.x - 5, rc.y - 5, rc.width + 10, rc.height + 10)
     val hl = p.Path.RoundRectangle(rct, new p.Size(5, 5))
     hl.strokeWidth = 1
-    hl.name = "highlight"
     hl.strokeColor = new p.Color(0, 0, 0, 1)
     hl.fillColor = new p.Color(0.5, 0.5, 1, 0.5)
-    residue.group.insertChild(0, hl)
+
+    val box = p.Path.RoundRectangle(new p.Rectangle(hl.bounds.topRight.subtract(10, 10), new p.Size(20, 20)), new p.Size(6, 6))
+    box.name = "delete"
+    box.fillColor = new p.Color("white")
+    box.strokeColor = new p.Color("black")
+    box.strokeWidth = 2
+
+    val x2 = x.clonePath()
+    x2.position = hl.bounds.topRight
+
+    val gr = new p.Group(js.Array(hl, box, x2))
+    gr.name = "highlight"
+    residue.group.insertChild(0, gr)
     //residue.group.addChild(hl)
   }
 
@@ -334,19 +404,29 @@ class Convention(scope: p.PaperScope) {
     p.Point(1, 0).rotate(angle, p.Point(0, 0)).dot(to subtract from) > 0
   }
 
-  def getClosestLinkAny(from: p.Point, parent: Option[Boolean] = None, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] = {
+  def getClosestLinkAnyFilter(resShapes: Iterable[ResidueShape] = residueResidueShapes.values, linkFilter: Link => Boolean, from: p.Point, parent: Option[Boolean] = None, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] = {
     val points = for {
-      residueShape <- residueResidueShapes.values
+      residueShape <- resShapes
       segment <- residueShape.outline.segments.toSeq
+      link <- getLink(segment)
+      if linkFilter(link)
       if parent.fold(true)(linkValid(from, segment.point, _, angle))
       distsq = segment.point.getDistance(from, squared = true)
       if distsq < threshold
-    } yield (segment, distsq)
+    } yield (link, distsq)
 
-    val segment = if(points.nonEmpty) Some(points.minBy(_._2.doubleValue())._1) else None
-
-    segment flatMap getLink
+    if(points.nonEmpty) Some(points.minBy(_._2.doubleValue())._1) else None
   }
+
+  def getClosestLinkAnyFilterFrom(resShapes: Iterable[Residue], linkFilter: Link => Boolean, from: p.Point, parent: Option[Boolean] = None, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] =
+  getClosestLinkAnyFilter(resShapes.map(_.residueShape), linkFilter, from, parent, angle, threshold)
+
+
+  def getClosestLinkAnyFrom(residues: Iterable[Residue], from: p.Point, parent: Option[Boolean] = None, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] =
+    getClosestLinkAnyFilter(residues.map(_.residueShape), _ => true, from, parent, angle, threshold)
+
+  def getClosestLinkAny(from: p.Point, parent: Option[Boolean] = None, angle: Double = 0, threshold: Double = 50 * 50): Option[Link] =
+    getClosestLinkAnyFilter(residueResidueShapes.values, _ => true, from, parent, angle, threshold)
 
   def getClosestLink(from: p.Point, to: Residue, parent: Boolean, angle: Double = 0): Option[Link] = {
     val points = for {
@@ -392,16 +472,15 @@ class Convention(scope: p.PaperScope) {
   var residueTemplate: Option[(p.Item, p.Path)] = None
 
   def showResidueTemplate(residue: Option[Residue], pos: p.Point): Unit = {
-    residue match {
-      case Some(r) =>
-        if(residueTemplate.isEmpty) {
-          val rs = ResidueShape(r)
-          residueTemplate = Some((rs.group, rs.outline))
-        }
-        residueTemplate.map(_._1.position = pos)
-      case None =>
-        residueTemplate.map(_._1.remove())
-        residueTemplate = None
+    residue.fold {
+      for ((item, _) <- residueTemplate) item.remove()
+      residueTemplate = None
+    } { r =>
+      if (residueTemplate.isEmpty) {
+        val rs = ResidueShape(r)
+        residueTemplate = (rs.group, rs.outline).some
+      }
+      for ((item, _) <- residueTemplate) item.position = pos
     }
   }
 
@@ -413,6 +492,21 @@ class Convention(scope: p.PaperScope) {
     residueTemplate.map(_._2.segments(i - 1).point)
   }
 
+  var substituentTemplate: Option[p.Item] = None
+
+  def showSubstituentTemplate(stOpt: Option[SubstituentType], pos: p.Point, mid: Boolean = true): Unit = {
+    stOpt.fold {
+      for (item <- substituentTemplate) item.remove()
+      substituentTemplate = None
+    } { st =>
+      if (substituentTemplate.isEmpty)
+        substituentTemplate = SubstituentShape(Substituent(st)).item.some
+      for (item <- substituentTemplate) {
+        item.position = if(mid) pos else pos.add(0, item.bounds.height / 2)
+      }
+    }
+  }
+
   def hitHandle(residue: Residue, point: P): Boolean = {
     residue.getHandle.exists(_.contains(point))
   }
@@ -421,16 +515,16 @@ class Convention(scope: p.PaperScope) {
     getClosestLinkAny(to, parent = Some(true))
   }
 
-  val handleHL = new CanvasItemMod[p.Path, Residue] {
+  val handleHL: CanvasItemMod[p.Path, Residue] = new CanvasItemMod[p.Path, Residue] {
     override def create(r: Residue): p.Path = r.handle
-    override def update(h: p.Path, r: Residue) = h.strokeColor = "blue"
-    override def revert(h: p.Path, r: Residue) = h.strokeColor = "black"
+    override def update(h: p.Path, r: Residue): Unit = {h.strokeColor = "blue"}
+    override def revert(h: p.Path, r: Residue): Unit = {h.strokeColor = "black"}
   }
 
-  val handlePress = new CanvasItemMod[p.Path, Residue] {
+  val handlePress: CanvasItemMod[p.Path, Residue] = new CanvasItemMod[p.Path, Residue] {
     override def create(r: Residue): p.Path = r.handle
-    override def update(h: p.Path, r: Residue) = h.strokeWidth = 2
-    override def revert(h: p.Path, r: Residue) = h.strokeWidth = 1
+    override def update(h: p.Path, r: Residue): Unit = {h.strokeWidth = 2}
+    override def revert(h: p.Path, r: Residue): Unit = {h.strokeWidth = 1}
   }
 }
 

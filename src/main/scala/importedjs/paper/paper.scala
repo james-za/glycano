@@ -374,6 +374,7 @@ class PathItem extends Item {
 @JSName("paper.Path")
 class Path extends PathItem {
   def this(segments: js.Array[Segment]) = this()
+  def this(pathData: String) = this()
   //def this(points: js.Array[Point]) = this()
   var segments: js.Array[Segment] = ???
   var firstSegment: Segment = ???
@@ -524,6 +525,7 @@ class Project extends js.Object {
   def selectAll(): js.Dynamic = ???
   def deselectAll(): js.Dynamic = ???
   def hitTest(point: Point, options: js.Any = ???): HitResult = ???
+  def exportSVG(options: js.Dynamic = ???): SVGElement = ???
 }
 
 @JSName("paper.Symbol")

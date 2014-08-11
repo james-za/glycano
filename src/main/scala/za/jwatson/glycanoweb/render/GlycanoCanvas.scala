@@ -13,6 +13,9 @@ import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
 
+import scalaz.syntax.std.option._
+import scalaz.std.option._
+
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val graph = Var(RGraph())
   implicit def _graph = graph()
@@ -41,8 +44,24 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     convention().removeResidue(residue)
   }
 
+  def addSubstituent(link: Link, st: SubstituentType): Substituent = {
+    val substituent = Substituent(st)
+    val (pos, mid) = nextSubstPos(link)
+    graph() += link -> substituent
+    convention().addSubstituent(substituent, pos, mid)
+    substituent
+  }
+
+  def removeSubstituent(subst: Substituent): Unit = {
+    graph() -= subst
+    convention().removeSubstituent(subst)
+  }
+
   implicit class RichResidue(residue: Residue) {
     def getItem: Option[p.Item] = convention().getItem(residue)
+  }
+  implicit class RichSubstituent(substituent: Substituent) {
+    def getItem: Option[p.Item] = convention().getItem(substituent)
   }
   implicit class RichItem(item: p.Item) {
     def getResidue: Option[Residue] = convention().getResidue(item)
@@ -55,7 +74,6 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   scope.tool = new p.Tool()
   scope.tool.onMouseDown = (e: p.ToolEvent) => {
-    println("rrr")
   }
 
 
@@ -67,6 +85,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   object InputState {
     case object Default extends InputState
     case object PlaceResidue extends InputState
+    case object AddSubstituent extends InputState
     case class BoxSelect(down: p.Point) extends InputState
     case class Drag(last: p.Point) extends InputState
     case object CreateBond extends InputState
@@ -172,7 +191,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case TempBond.LinkToPoint(link, _) => link
       case TempBond.LinkToLink(link, _) => link
     }) {
-      val closestLink = convention().getClosestLinkAny(point, angle = angle)
+      val closestLink = convention().getClosestLinkAnyFilter(linkFilter = _.residue != from.residue, from = point, angle = angle)
       closestLink.fold {
         tempLink(from)
         tempBond(TempBond.LinkToPoint(from, point))
@@ -204,17 +223,36 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   val residueTemplate = Rx {
-    GlycanoWeb.residueType().map(
-      Residue(_, GlycanoWeb.anomeric(), GlycanoWeb.absolute())
-    )
+    GlycanoWeb.residueType().map { rt =>
+      convention().showResidueTemplate(none, null)
+      Residue(rt, GlycanoWeb.anomeric(), GlycanoWeb.absolute())
+    }
   }
 
   val clearOldTemplate = Obs(residueTemplate) {
-    state() = residueTemplate() match {
-      case Some(r) => canvas.style.cursor = "none"; PlaceResidue
-      case None => canvas.style.cursor = "default"; Default
+    for (rTemp <- residueTemplate()) {
+      canvas.style.cursor = "none"
+      state() = PlaceResidue
+    }
+    scope.view.draw()
+  }
+
+  Obs(GlycanoWeb.substituentType) {
+    convention().showSubstituentTemplate(None, null)
+    for (st <- GlycanoWeb.substituentType()) {
+      canvas.style.cursor = "default"
+      state() = AddSubstituent
+    }
+    scope.view.draw()
+  }
+
+  Obs(GlycanoWeb.showModeSelect) {
+    if(!GlycanoWeb.showModeSelect()) {
+      canvas.style.cursor = "default"
+      state() = Default
     }
     convention().showResidueTemplate(None, null)
+    convention().showSubstituentTemplate(None, null)
     scope.view.draw()
   }
 
@@ -235,8 +273,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     for {
       residue <- selection()
       item <- residue.getItem
+      _ = item.position = item.position add delta
+      (i, substs) <- residue.substituents
+      subst <- substs
+      substItem <- subst.getItem
     } {
-      item.position = item.position add delta
+      substItem.position = substItem.position add delta
     }
   }
 
@@ -257,7 +299,16 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def cancelPlace(): Unit = {
     tempBond(Set.empty[TempBond])
     tempLink(Set.empty[Link])
-    GlycanoWeb.residueType() = None
+    GlycanoWeb.setResidueType(None)
+  }
+
+  def cancelSubst(): Unit = {
+    GlycanoWeb.setSubstituentType(None)
+  }
+
+  def linkFilter(link: Link): Boolean = {
+    val bondOk = if (link.position == 1) !link.residue.hasParent else true
+    link.residue.child(link.position).isEmpty && bondOk
   }
 
   def showPlaceTempBonds(point: p.Point, angle: Double): Unit = {
@@ -274,7 +325,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       }
       val rightTB = for {
         point <- convention().residueTemplateLinkPosition(1)
-        link <- convention().getClosestLinkAny(point, parent = Some(true), angle, 200 * 200) //todo: allow right as argument
+        link <- convention().getClosestLinkAnyFilterFrom(right.map(_._1), linkFilter, point, Some(true), angle, 200 * 200)
       } yield TempBond.LinkToTemplate(link, 1)
       
       val validLefts = for {
@@ -314,9 +365,33 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           val hitTest = scope.project.hitTest(point)
           Option(hitTest) match {
             case Some(hit) =>
-              for (r <- hit.item.getResidue) {
+              if (hit.item matches js.Dynamic.literal(name = "delete": js.Any)) {
+                val deleted = selection()
+                updateSelection(Set.empty)
+                for (r <- deleted) {
+                  for {
+                    (i, ss) <- r.substituents
+                    s <- ss
+                  } {
+                    convention().removeSubstituent(s)
+                  }
+                  for (b <- r.bond) {
+                    graph() -= b
+                    convention().removeBond(r)
+                  }
+                  for {
+                    m <- r.children
+                    (i, c) <- m
+                  } {
+                    graph() -= Link(r, i)
+                    convention().removeBond(c)
+                  }
+                  graph() -= r
+                  convention().removeResidue(r)
+                }
+              } else for (r <- hit.item.getResidue) {
                 if (convention().hitHandle(r, point)) {
-                  convention().handlePress(Some(r))
+                  convention().handlePress(r.some)
                   beginBond(r, point)
                   convention().handleHL(None)
                   state() = CreateBond
@@ -350,6 +425,18 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           case 2 =>
             cancelPlace()
         }
+      case AddSubstituent =>
+        e.button match {
+          case 0 =>
+            for {
+              st <- GlycanoWeb.substituentType()
+              link <- convention().getClosestLinkAny(point, None)
+            } {
+              val added = addSubstituent(link, st)
+            }
+          case 2 =>
+            cancelPlace()
+        }
       case BoxSelect(_) =>
       case Drag(_) =>
       case CreateBond =>
@@ -368,6 +455,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     state() match {
       case Default =>
       case PlaceResidue =>
+      case AddSubstituent =>
       case BoxSelect(_) =>
         endBoxSelect()
         state() = Default
@@ -385,6 +473,23 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     }
   }
 
+  def stackOffset(stack: Vector[Substituent]): Double = {
+    stack match {
+      case x +: xs =>
+        val first = x.getItem.map(_.bounds.height / 2).getOrElse(0.0)
+        val rest = xs.flatMap(_.getItem).map(_.bounds.height).sum
+        first + rest
+      case _ => 0
+    }
+  }
+
+  def nextSubstPos(link: Link): (p.Point, Boolean) = {
+    val stack = link.substituents
+    val top = convention().linkPosition(link)
+    val offset = stackOffset(stack)
+    (top.add(0, offset), stack.isEmpty)
+  }
+
   def mouseMove(e: MouseEvent): Unit = {
     val point = clientToProject(e)
     state() match {
@@ -399,6 +504,13 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case PlaceResidue =>
         convention().showResidueTemplate(residueTemplate(), point)
         showPlaceTempBonds(point, angle = 0.0)
+      case AddSubstituent =>
+        convention().getClosestLinkAny(point, None).fold {
+          convention().showSubstituentTemplate(GlycanoWeb.substituentType(), point, mid = true)
+        } { link =>
+          val (pos, mid) = nextSubstPos(link)
+          convention().showSubstituentTemplate(GlycanoWeb.substituentType(), pos, mid)
+        }
       case BoxSelect(down) =>
         updateBoxSelect(down, point)
       case Drag(last) =>

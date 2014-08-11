@@ -1,11 +1,12 @@
 package za.jwatson.glycanoweb
 
-import za.jwatson.glycanoweb.structure.{RGraph, Graph, Residue}
+import za.jwatson.glycanoweb.structure.{RGraph, Residue}
 import za.jwatson.glycanoweb.structure.Residue.Link
 
 import scala.annotation.tailrec
-import scalaz.Scalaz._
-import scalaz._
+import scalaz.std.option._
+import scalaz.syntax.std.option._
+import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
 import RGraph._
 
 object CASPER {
@@ -27,23 +28,24 @@ object CASPER {
 
   def getString(graph: RGraph, root: Residue): String = {
     implicit val rg = graph
-    val tree = residueTree(root)
-    val strTree = tree.map({ r =>
-      val mod = for {
-        Link(t, p) <- r.parent
-        children <- r.children
-      } yield {
-        val left = children.exists(_._1 < p) ? "]" | ""
-        val right = children.exists(_._1 > p) ? "[" | ""
-        s"(1->$p)$left$right"
-      }
-      r.symbol + (mod | "")
-    })
-    strTree.flatten.reverseIterator.mkString
+    val strs = rec(root)
+    strs.mkString
   }
 
-  def residueTree(root: Residue)(implicit graph: RGraph): Tree[Residue] = {
-    val leaves = root.children.toSeq.flatten.sortBy(-_._1).map(c => residueTree(c._2))
-    root.node(leaves: _*)
+  def rec(r: Residue, tail: Boolean = false)(implicit g: RGraph): Vector[String] = {
+    val substs = for {
+      (i, stack) <- r.substituents
+      subst <- stack
+    } yield i + subst.st.symbol
+    val link = r.bond.map("(1->" + _.to.position + ")").getOrElse("")
+    val str = r.symbol + substs.mkString + link
+    val children = for {
+      children <- r.children.to[Vector]
+      (_, c) <- children.toSeq.sortBy(_._1)
+    } yield c
+    val first = children.headOption.to[Vector].flatMap(rec(_))
+    val rest = if (children.isEmpty) Vector.empty else children.tail.flatMap(rec(_, tail = true))
+
+    (tail ? "[" | "") +: (first ++ rest) :+ str :+ (tail ? "]" | "")
   }
 }

@@ -10794,7 +10794,9 @@ var CanvasView = View.extend({
 			return false;
 		var ctx = this._context,
 			size = this._viewSize;
-		ctx.clearRect(0, 0, size.width + 1, size.height + 1);
+        ctx.fillStyle = "rgb(255,255,255)";
+        ctx.fillRect(0, 0, size.width + 1, size.height + 1);
+//		ctx.clearRect(0, 0, size.width + 1, size.height + 1);
 		project.draw(ctx, this._matrix, this._pixelRatio);
 		project._needsUpdate = false;
 		return true;
@@ -11377,8 +11379,11 @@ var CanvasProvider = {
 		}
 		var ctx = canvas.getContext('2d');
 		if (canvas.width === width && canvas.height === height) {
-			if (clear)
-				ctx.clearRect(0, 0, width + 1, height + 1);
+			if (clear) {
+                ctx.fillStyle = "rgb(255,255,255)";
+                ctx.fillRect(0, 0, width + 1, height + 1);
+//				ctx.clearRect(0, 0, width + 1, height + 1);
+			}
 		} else {
 			canvas.width = width;
 			canvas.height = height;

@@ -16,15 +16,15 @@ object Substituent {
 object SubstituentType {
   private def st(s: String, n: String) = new SubstituentType(s, n)
   private def st(t: String) = new SubstituentType(t, t)
-  val p = st("P")
+  val p = st("P", "Phosphorus")
   val s = st("S", "Sulphur")
   val n = st("N", "N-linkage")
   val ac = st("Ac", "Acetyl")
   val deoxy = st("Deoxy")
   val methyl = st("Methyl")
-  val cooh = st("COOH")
+  val cooh = st("COOH", "Carboxylic acid")
 
 
-  val substituentTypes = Seq(p, s, n, ac, deoxy, methyl, cooh)
-  val substituentsMap = (for (st <- substituentTypes) yield st.symbol -> st).toMap
+  val SubstituentTypes = Seq(p, s, n, ac, deoxy, methyl, cooh)
+  val SubstituentsMap = (for (st <- SubstituentTypes) yield st.symbol -> st).toMap
 }
