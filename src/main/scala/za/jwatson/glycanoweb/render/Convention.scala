@@ -6,8 +6,7 @@ import importedjs.{paper => p}
 import org.scalajs.dom.SVGElement
 import za.jwatson.glycanoweb.render.Convention.CanvasItemMod
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
-import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
-import za.jwatson.glycanoweb.structure.Residue.Link
+import za.jwatson.glycanoweb.structure.Anomer._
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
@@ -19,7 +18,7 @@ class Convention(scope: p.PaperScope) {
   import importedjs.paper.{Point => P}
 
   def createIcon(rt: ResidueType, abs: Absolute, ano: Anomer, bounds: p.Rectangle): SVGElement = {
-    val rs = ResidueShape(Residue(rt, ano, abs))
+    val rs = ResidueShape(Residue.next(rt, ano, abs))
     val group = rs.group
     group.remove()
 
@@ -37,7 +36,7 @@ class Convention(scope: p.PaperScope) {
   }
 
   def createIcon(st: SubstituentType, bounds: p.Rectangle): SVGElement = {
-    val ss = SubstituentShape(Substituent(st))
+    val ss = SubstituentShape(Substituent.next(st))
     val group = ss.item
     group.remove()
 
@@ -89,7 +88,10 @@ class Convention(scope: p.PaperScope) {
       Glc -> (hexagon, "blue", "blue", new p.Path()),
       Gul -> (hexagon, "black", "white", closedPath(P(25,-40), P(65,-40), P(25,40), P(0,0), P(90,0), P(65,40))),
       Man -> (hexagon, "lime", "black", closedPath(P(0,0), P(25,-40), P(45,-40), P(45,40), P(25,40))),
-      Tal -> (hexagon, "black", "black", new p.Path()))
+      Tal -> (hexagon, "black", "black", new p.Path())
+    ) withDefault {
+      case _ => (hexagon, "red", "red", new p.Path())
+    }
   }
 
   val handleRect = new p.Rectangle(-10, -10, 20, 20)
@@ -500,7 +502,7 @@ class Convention(scope: p.PaperScope) {
       substituentTemplate = None
     } { st =>
       if (substituentTemplate.isEmpty)
-        substituentTemplate = SubstituentShape(Substituent(st)).item.some
+        substituentTemplate = SubstituentShape(Substituent.next(st)).item.some
       for (item <- substituentTemplate) {
         item.position = if(mid) pos else pos.add(0, item.bounds.height / 2)
       }

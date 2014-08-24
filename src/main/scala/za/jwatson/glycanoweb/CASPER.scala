@@ -1,7 +1,7 @@
 package za.jwatson.glycanoweb
 
-import za.jwatson.glycanoweb.structure.{RGraph, Residue}
-import za.jwatson.glycanoweb.structure.Residue.Link
+import za.jwatson.glycanoweb.structure.{Residue, RGraph}
+import za.jwatson.glycanoweb.structure.Link
 
 import scala.annotation.tailrec
 import scalaz.std.option._

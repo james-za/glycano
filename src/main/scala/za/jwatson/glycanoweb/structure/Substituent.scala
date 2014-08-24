@@ -7,7 +7,7 @@ case class SubstituentType(symbol: String, name: String)
 object Substituent {
   var nextId: Int = 0
 
-  def apply(st: SubstituentType) = {
+  def next(st: SubstituentType): Substituent = {
     nextId += 1
     new Substituent(nextId, st)
   }

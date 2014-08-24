@@ -37,7 +37,8 @@ object GlycanoBuild extends Build {
       "com.github.japgolly.fork.scalaz" %%% "scalaz-core"       % "7.1.0",
       "name.myltsev"                    %%% "shapeless"         % "2.0.0",
       "name.myltsev"                    %%% "parboiled"         % "2.0.0",
-      "org.scala-lang"                  %   "scala-reflect"     % "2.11.1" // temp fix for parboiled2 issue #81
+      "org.scala-lang"                  %   "scala-reflect"     % glycanoScalaVersion, // temp fix for parboiled2 issue #81
+      "com.lihaoyi"                     %%% "upickle"           % "0.2.2"
     )
   )
 

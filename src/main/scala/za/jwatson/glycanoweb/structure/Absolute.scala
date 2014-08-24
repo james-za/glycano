@@ -1,8 +1,5 @@
 package za.jwatson.glycanoweb.structure
 
-/**
- * Created by James on 2014/06/21.
- */
 sealed trait Absolute {
   val symbol: String
   val desc: String

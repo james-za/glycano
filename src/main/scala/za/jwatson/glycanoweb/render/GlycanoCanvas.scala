@@ -5,10 +5,9 @@ import importedjs.{paper => p}
 import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => jQ}
 import rx._
-import za.jwatson.glycanoweb.GlycanoWeb
+import za.jwatson.glycanoweb.{Gly, GlycanoWeb}
 import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
 import za.jwatson.glycanoweb.structure.RGraph._
-import za.jwatson.glycanoweb.structure.Residue.Link
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
@@ -17,6 +16,34 @@ import scalaz.syntax.std.option._
 import scalaz.std.option._
 
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
+  def loadGly(gly: Gly): Unit = {
+    clearAllItems()
+    graph() = gly.graph
+    for {
+      r <- residues()
+      (x, y) <- gly.positions.get(r)
+    } convention().addResidue(r, p.Point(x, y))
+    for {
+      from <- bonds()
+      to <- from.parent
+    } convention().addBond(from, to.residue, to.position)
+    for (sub <- graph().substs.keys) graph() -= sub
+    for ((sub, se) <- gly.graph.substs) {
+      addSubstituent(se.link, sub)
+    }
+    scope.view.draw()
+  }
+
+  def clearAllItems(): Unit = {
+    for {
+      r <- residues()
+      (_, subs) <- r.substituents
+      sub <- subs
+    } convention().removeSubstituent(sub)
+    bonds() foreach convention().removeBond
+    residues() foreach convention().removeResidue
+  }
+
   val graph = Var(RGraph())
   implicit def _graph = graph()
   val residues = Rx { graph().entries.keySet }
@@ -31,9 +58,11 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     //todo: conversion between uct/cfg/oxford
   }
 
+  //todo: val conv = Var[DisplayConv](UCT)
+
 
   def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, pos: p.Point): Residue = {
-    val residue = Residue(rt, ano, abs)
+    val residue = Residue.next(rt, ano, abs)
     graph() += residue
     convention().addResidue(residue, pos)
     residue
@@ -45,11 +74,15 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   def addSubstituent(link: Link, st: SubstituentType): Substituent = {
-    val substituent = Substituent(st)
+    val substituent = Substituent.next(st)
+    addSubstituent(link, substituent)
+    substituent
+  }
+
+  def addSubstituent(link: Link, substituent: Substituent): Unit = {
     val (pos, mid) = nextSubstPos(link)
     graph() += link -> substituent
     convention().addSubstituent(substituent, pos, mid)
-    substituent
   }
 
   def removeSubstituent(subst: Substituent): Unit = {
@@ -225,7 +258,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val residueTemplate = Rx {
     GlycanoWeb.residueType().map { rt =>
       convention().showResidueTemplate(none, null)
-      Residue(rt, GlycanoWeb.anomeric(), GlycanoWeb.absolute())
+      Residue.next(rt, GlycanoWeb.anomeric(), GlycanoWeb.absolute())
     }
   }
 

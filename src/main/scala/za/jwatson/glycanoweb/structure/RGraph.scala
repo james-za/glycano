@@ -1,7 +1,6 @@
 package za.jwatson.glycanoweb.structure
 
-import za.jwatson.glycanoweb.structure.RGraph.{SubstEntry, GraphEntry}
-import za.jwatson.glycanoweb.structure.Residue.Link
+import RGraph._
 
 import scalaz.{Lens, PLens}
 import scalaz.{@>, @?>}
@@ -12,7 +11,7 @@ import scalaz.std.option._
 case class RGraph(entries: Map[Residue, GraphEntry] = Map.empty, substs: Map[Substituent, SubstEntry] = Map.empty)
 
 object RGraph {
-  def apply(xs: Seq[Residue]): RGraph = RGraph(xs.map(_ -> GraphEntry()).toMap)
+  def of(xs: Seq[Residue]): RGraph = RGraph(xs.map(_ -> GraphEntry()).toMap)
 
   case class GraphEntry(
     children: Map[Int, Residue] = Map.empty,
@@ -111,6 +110,8 @@ object RGraph {
 //    def ++(residues: Seq[Residue]): RGraph = entriesL.mod(_ ++ residues.map(_ -> GraphEntry()), g)
 
     def roots: Set[Residue] = g.entries.filter(_._2.parent.isEmpty).keySet
+
+    def residues: Set[Residue] = g.entries.keySet
   }
 
   implicit class ResidueOps(r: Residue) {

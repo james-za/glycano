@@ -1,14 +1,15 @@
 package za.jwatson.glycanoweb
 
+import importedjs.filereaderjs.{Opts, FileReaderJS}
 import importedjs.paper
 import org.scalajs.dom
-import org.scalajs.dom.MouseEvent
+import org.scalajs.dom.HTMLInputElement
 import org.scalajs.jquery.{jQuery => $, _}
 import rx._
 import za.jwatson.glycanoweb.render.GlycanoCanvas
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
-import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
-import za.jwatson.glycanoweb.structure.Residue.Link
+import za.jwatson.glycanoweb.structure.Anomer._
+import za.jwatson.glycanoweb.structure.ResidueCategory.Aldose
 import za.jwatson.glycanoweb.structure._
 import za.jwatson.glycanoweb.structure.RGraph._
 
@@ -21,6 +22,8 @@ import scalatags.JsDom.all._
 import scalaz.syntax.std.boolean._
 import scalaz.std.option._
 import scalaz.syntax.std.option._
+
+import upickle._
 
 @JSExport
 object GlycanoWeb {
@@ -35,6 +38,7 @@ object GlycanoWeb {
 
   val anomeric = rx.Var[Anomer](Alpha)
   val absolute = rx.Var[Absolute](D)
+  val residueCategory = rx.Var[ResidueCategory](Aldose)
   val residueType = rx.Var[Option[ResidueType]](None)
   val substituentType = rx.Var[Option[SubstituentType]](None)
   val showModeSelect = Rx((residueType() orElse substituentType()).isDefined)
@@ -155,8 +159,13 @@ object GlycanoWeb {
         ),
         div(cls:="collapse navbar-collapse", id:="glycano-navbar-collapse")(
           ul(cls:="nav navbar-nav")(
+            li(p(cls:="navbar-text", "Load:")),
             form(cls:="navbar-form navbar-left")(
-              formGroup(input(id:="filename", tpe:="text", cls:="form-control", placeholder:="Filename"))
+              formGroup(input(tpe:="file", cls:="form-control", id:="upload-file"))
+            ),
+            li(p(cls:="navbar-text", "Filename:")),
+            form(cls:="navbar-form navbar-left")(
+              formGroup(input(id:="filename", tpe:="text", cls:="form-control", placeholder:="Filename", value:="glycano"))
             ),
             saveDropdown/*,
             li(a(href:="#")("")),
@@ -179,11 +188,24 @@ object GlycanoWeb {
         }
       }))
 
+    val conventionPanel =
+      panel(Default)(
+        panelHeading("Convention"),
+        panelBody(classes = "text-center")(
+          btnGroup(
+            radioButton(Default, "conv-uct")("UCT"),
+            radioButton(Default, "conv-cfg")("CFG"),
+            radioButton(Default, "conv-oxford")("Oxford")
+          )
+        )
+      )
+
     /** Main container */
     val mainContainer = containerFluid(
       row(glycanoNavbar),
       row(
         col(xs=3)(
+          row(col(xs=12)(conventionPanel)),
           row(col(xs=12)(residuePanel)),
           row(col(xs=12)(substituentPanel))
         ),
@@ -238,15 +260,16 @@ object GlycanoWeb {
     }
 
 
-    val rtPageId = rx.Rx { (anomeric(), absolute()) }
+    val rtPageId = rx.Rx { (anomeric(), absolute(), residueCategory()) }
     rx.Obs(rtPageId) {
-      val (abs, ano) = rtPageId()
+      val (abs, ano, cat) = rtPageId()
       for(rt <- ResidueType.ResidueTypes) {
         $("#rt-" + rt.desc + " .svg").html(iconMap((abs, ano, rt)).toString())
       }
     }
 
     $(".btn").button()
+    $("input[name=conv-uct]").click()
 
     val tooltipsterConfig = js.Dynamic.literal(
       theme = "tooltipster-glycano": js.Any,
@@ -317,6 +340,14 @@ object GlycanoWeb {
       fn.isEmpty ? "glycano" | fn
     }
 
+    $("#save-gly").click(null, (eo: JQueryEventObject) => {
+      val gly = write(Gly.from(glycanoCanvas))
+      val base64 = dom.window.btoa(gly)
+      val dataUrl = "data:text/plain;base64," + base64
+      glycanoCanvas.scope.view.draw()
+      $("#save-gly").attr("href", dataUrl).attr("download", filename + ".gly")
+    }: js.Any)
+
     $("#save-png").click(null, (eo: JQueryEventObject) => {
       val dataUrl = cv.toDataURL("PNG")
       glycanoCanvas.scope.view.draw()
@@ -329,6 +360,16 @@ object GlycanoWeb {
       val dataUrl = "data:image/svg+xml;base64," + base64
       $("#save-svg").attr("href", dataUrl).attr("download", filename + ".svg")
     }: js.Any)
+
+    val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
+      val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
+      val gly = read[Gly](str)
+
+      glycanoCanvas.loadGly(gly)
+      $("#filename").value(file.name)
+    })
+    fileReaderOpts.readAsDefault = "Text"
+    FileReaderJS.setupInput($("#upload-file").get(0).asInstanceOf[HTMLInputElement], fileReaderOpts)
 
     val casperText = Rx {
       glycanoCanvas.residues()
