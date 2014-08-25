@@ -3,13 +3,17 @@ package za.jwatson.glycanoweb.render
 import importedjs.paper.Implicits._
 import importedjs.paper._
 import importedjs.{paper => p}
+import org.parboiled2.ParseError
 import org.scalajs.dom.SVGElement
+import za.jwatson.glycanoweb.ConventionEditor
+import za.jwatson.glycanoweb.ConventionEditor.{Conv, ConventionParser}
 import za.jwatson.glycanoweb.render.Convention.CanvasItemMod
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer._
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
+import scala.util.{Failure, Success}
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.boolean._
 
@@ -109,7 +113,27 @@ class Convention(scope: p.PaperScope) {
   handleBase.strokeColor = "black"
   handleBase.remove()
 
+//  val parser = new ConventionParser(ConventionEditor.testText)
+//  val convs = parser.conventions.run()
+//  val result = convs match {
+//    case Success(c)             ⇒ "Expression is valid\n" + c.mkString("\n\n")
+//    case Failure(e: ParseError) ⇒ "Expression is not valid: " + parser.formatError(e)
+//    case Failure(e)             ⇒ "Unexpected error during parsing run: " + e
+//  }
+//  println(result)
+//  val dcOpt = convs.getOrElse(Seq.empty).headOption.map(new DisplayConv(_))
+//  val dc = dcOpt getOrElse new DisplayConv(Conv("Empty Conv"))
+
   case class ResidueShape(residue: Residue) {
+//    val group = dc.group(residue)
+//    val outline = group.getItem(js.Dynamic.literal(name = "outline": js.Any)).asInstanceOf[p.Path]
+//    val handle = group.getItem(js.Dynamic.literal(name = "handle": js.Any)).asInstanceOf[p.Path]
+//    if (outline == null) {
+//      println(js.JSON.stringify(group, space = 2: js.Any))
+//      println(residue)
+//    }
+//    handle.position = outline.firstSegment.point
+    
     private val (o, b, f, d) = details(residue.rt)
     val (back, fill) = residue.absolute match {
       case D => (b, f)
@@ -250,15 +274,11 @@ class Convention(scope: p.PaperScope) {
 
   implicit class RichResidue(residue: Residue) {
     def residueShape: ResidueShape = residueResidueShapes(residue)
-    def base: p.Path = residueShape.base
-    def detail: p.Path = residueShape.detail
     def outline: p.Path = residueShape.outline
     def handle: p.Path = residueShape.handle
     def group: p.Group = residueShape.group
 
     def getResidueShape: Option[ResidueShape] = residueResidueShapes.get(residue)
-    def getBase: Option[p.Path] = getResidueShape.map(_.base)
-    def getDetail: Option[p.Path] = getResidueShape.map(_.detail)
     def getOutline: Option[p.Path] = getResidueShape.map(_.outline)
     def getHandle: Option[p.Path] = getResidueShape.map(_.handle)
     def getGroup: Option[p.Group] = getResidueShape.map(_.group)

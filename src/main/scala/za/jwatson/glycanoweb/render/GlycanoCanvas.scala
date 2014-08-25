@@ -5,7 +5,7 @@ import importedjs.{paper => p}
 import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => jQ}
 import rx._
-import za.jwatson.glycanoweb.{Gly, GlycanoWeb}
+import za.jwatson.glycanoweb.{GlyRes, Gly, GlycanoWeb}
 import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
@@ -17,24 +17,25 @@ import scalaz.std.option._
 
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def loadGly(gly: Gly): Unit = {
-    clearAllItems()
-    graph() = gly.graph
-    for {
-      r <- residues()
-      (x, y) <- gly.positions.get(r)
-    } convention().addResidue(r, p.Point(x, y))
-    for {
-      from <- bonds()
-      to <- from.parent
-    } convention().addBond(from, to.residue, to.position)
-    for (sub <- graph().substs.keys) graph() -= sub
-    for ((sub, se) <- gly.graph.substs) {
-      addSubstituent(se.link, sub)
+    clearAll()
+
+    val pr = gly.residues.keys.toIndexedSeq
+    println(pr.map(r => s"id=${r.id}: $r"))
+    for ((r, GlyRes(x, y, _, _, subs)) <- gly.residues) {
+      addResidue(r, p.Point(x, y))
+      for {
+        (pos, sts) <- subs
+        st <- sts
+      } addSubstituent(Link(r, pos), st)
+    }
+    for ((r, GlyRes(_, _, tr, tp, _)) <- gly.residues if tr != -1) {
+      graph() += Bond(r, Link(pr(tr), tp))
+      convention().addBond(r, pr(tr), tp)
     }
     scope.view.draw()
   }
 
-  def clearAllItems(): Unit = {
+  def clearAll(): Unit = {
     for {
       r <- residues()
       (_, subs) <- r.substituents
@@ -42,6 +43,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     } convention().removeSubstituent(sub)
     bonds() foreach convention().removeBond
     residues() foreach convention().removeResidue
+    graph() = RGraph()
   }
 
   val graph = Var(RGraph())
@@ -63,6 +65,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, pos: p.Point): Residue = {
     val residue = Residue.next(rt, ano, abs)
+    graph() += residue
+    convention().addResidue(residue, pos)
+    residue
+  }
+
+  def addResidue(residue: Residue, pos: p.Point): Residue = {
     graph() += residue
     convention().addResidue(residue, pos)
     residue
@@ -249,7 +257,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           convention().removeBond(child)
         }
 
-        graph() += Bond(from, toLink)
+        graph() += Bond(from, toLink) // todo: adding cyclic bond sometimes freezes (during state.exec?)
         convention().addBond(from, to, i)
       case _ =>
     }

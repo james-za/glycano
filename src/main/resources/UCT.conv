@@ -27,13 +27,40 @@ convention "UCT" {
     (Gal) -> #2 [secondary] Polygon(points="0,40 90,40 65,80 25,80")
     (Gul) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 0,40 90,40 65,80")
     (Man) -> #2 [secondary] Polygon(points="0,40 25,0 45,0 45,80 25,80")
+
+    (Glycero) -> style [primary] { fill: white }
+    (Erythro) -> style [primary] { fill: white }
+    (Threo) -> style [primary] { fill: black }
+    D (Ara) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+    L (Ara) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+      (Lyx) -> style [primary] { fill: black }
+    D (Rib) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+    L (Rib) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+      (Xyl) -> style [primary] { fill: #FFA0A0 }
+    D (Ido) -> style [primary] { fill: black } -> style [secondary] { fill: #BF6000 }
+    L (Ido) -> style [primary] { fill: #BF6000 } -> style [secondary] { fill: black }
+    D (All) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+    L (All) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+    D (Alt) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+    L (Alt) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+    D (Gal) -> style [primary] { fill: yellow } -> style [secondary] { fill: black }
+    L (Gal) -> style [primary] { fill: black } -> style [secondary] { fill: yellow }
+      (Glc) -> style [primary] { fill: blue }
+    D (Gul) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+    L (Gul) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+    D (Man) -> style [primary] { fill: lime } -> style [secondary] { fill: black }
+    L (Man) -> style [primary] { fill: black } -> style [secondary] { fill: lime }
+    (Tal) -> style [primary] { fill: black }
     
-    L (Glycero)                                -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
-    L (Erythro, Threo)                         -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
-    L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
-    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape -> style [lshape] { x: 22, y: 18 }
+    L (Glycero)                                -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+    L (Erythro, Threo)                         -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+    L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
     
     * -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
+    a * -> style [handle] { fill: white; stroke: black; stroke-width: 1 }
+    b * -> style [handle] { fill: black; stroke: black; stroke-width: 1 }
     
-    * -> style [outline] {}
+    * -> style [outline] { fill: none; stroke: black; stroke-width: 3 }
+    * -> style [lshape] { fill: black; stroke: white; stroke-width: 1 }
 }

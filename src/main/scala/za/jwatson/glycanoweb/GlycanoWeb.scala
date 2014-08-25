@@ -167,9 +167,9 @@ object GlycanoWeb {
             form(cls:="navbar-form navbar-left")(
               formGroup(input(id:="filename", tpe:="text", cls:="form-control", placeholder:="Filename", value:="glycano"))
             ),
-            saveDropdown/*,
+            saveDropdown,
             li(a(href:="#")("")),
-            li(conventionEditor.createNavButton)*/
+            li(conventionEditor.createNavButton)
           )
         )
       ))
@@ -244,7 +244,7 @@ object GlycanoWeb {
     val iconMap = (for{
       ano <- Seq[Anomer](Alpha, Beta)
       abs <- Seq[Absolute](D, L)
-      rt <- ResidueType.ResidueTypes
+      rt <- ResidueType.Aldoses
     } yield {
       val g = glycanoCanvas.convention().createIcon(rt, abs, ano, iconBounds)
       (ano, abs, rt) -> svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
@@ -263,7 +263,7 @@ object GlycanoWeb {
     val rtPageId = rx.Rx { (anomeric(), absolute(), residueCategory()) }
     rx.Obs(rtPageId) {
       val (abs, ano, cat) = rtPageId()
-      for(rt <- ResidueType.ResidueTypes) {
+      for(rt <- ResidueType.Aldoses) {
         $("#rt-" + rt.desc + " .svg").html(iconMap((abs, ano, rt)).toString())
       }
     }
@@ -284,7 +284,7 @@ object GlycanoWeb {
     $("#" + L.symbol).click(() => absolute() = L)
     $("#" + Alpha.symbol).click(() => anomeric() = Alpha)
     $("#" + Beta.symbol).click(() => anomeric() = Beta)
-    for (rt <- ResidueType.ResidueTypes) {
+    for (rt <- ResidueType.Aldoses) {
       val rtElem = dom.document.getElementById("rt-" + rt.desc)
       $(rtElem).click(null, (eo: JQueryEventObject) => {
         val rtOld = residueType()
@@ -341,6 +341,8 @@ object GlycanoWeb {
     }
 
     $("#save-gly").click(null, (eo: JQueryEventObject) => {
+      import upickle._
+      import Gly._
       val gly = write(Gly.from(glycanoCanvas))
       val base64 = dom.window.btoa(gly)
       val dataUrl = "data:text/plain;base64," + base64
@@ -362,6 +364,7 @@ object GlycanoWeb {
     }: js.Any)
 
     val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
+      import Gly._
       val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
       val gly = read[Gly](str)
 

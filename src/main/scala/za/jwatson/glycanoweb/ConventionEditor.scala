@@ -54,9 +54,78 @@ class ConventionEditor(val modalId: String) {
     println("...done")
     text() = inText
   }
+  jQ("#" + textAreaId).`val`(testText)
 }
 
 object ConventionEditor {
+  val testText =
+    """
+      |convention "UCT" {
+      |    def Triangle = Polygon(points="40,35 0,70 0,0")
+      |    def Diamond = Polygon(points="80,40 40,80 0,40 40,0")
+      |    def Arrow = Polygon(points="90,30 60,60 0,60 0,0 60,0")
+      |    def Hexagon = Polygon(points="90,40 65,80 25,80 0,40 25,0 65,0")
+      |
+      |    def LShape = Polygon(points="0,0 0,44 36,44 36,40 4,40 4,0")
+      |
+      |    (Glycero)
+      |    -> #1 [primary] Triangle
+      |    -> #3 [outline, links] Triangle
+      |    (Erythro, Threo)
+      |    -> #1 [primary] Diamond
+      |    -> #3 [outline, links] Diamond
+      |    (Ara, Lyx, Rib, Xyl)
+      |    -> #1 [primary] Arrow
+      |    -> #3 [outline, links] Arrow
+      |    (Ido, All, Alt, Gal, Glc, Gul, Man, Tal)
+      |    -> #1 [primary] Hexagon
+      |    -> #3 [outline, links] Hexagon
+      |
+      |    (Ara) -> #2 [secondary] Polygon(points="0,0 0,60 30,60 30,0")
+      |    (Rib) -> #2 [secondary] Polygon(points="0,0 0,30 90,30 60,0")
+      |    (Ido) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 65,80")
+      |    (All) -> #2 [secondary] Polygon(points="0,40 25,0 65,80 25,80")
+      |    (Alt) -> #2 [secondary] Polygon(points="45,0 65,0 90,40 45,40")
+      |    (Gal) -> #2 [secondary] Polygon(points="0,40 90,40 65,80 25,80")
+      |    (Gul) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 0,40 90,40 65,80")
+      |    (Man) -> #2 [secondary] Polygon(points="0,40 25,0 45,0 45,80 25,80")
+      |
+      |    (Glycero) -> style [primary] { fill: white }
+      |    (Erythro) -> style [primary] { fill: white }
+      |    (Threo) -> style [primary] { fill: black }
+      |    D (Ara) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+      |    L (Ara) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+      |      (Lyx) -> style [primary] { fill: black }
+      |    D (Rib) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+      |    L (Rib) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+      |      (Xyl) -> style [primary] { fill: #FFA0A0 }
+      |    D (Ido) -> style [primary] { fill: black } -> style [secondary] { fill: #BF6000 }
+      |    L (Ido) -> style [primary] { fill: #BF6000 } -> style [secondary] { fill: black }
+      |    D (All) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+      |    L (All) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+      |    D (Alt) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+      |    L (Alt) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+      |    D (Gal) -> style [primary] { fill: yellow } -> style [secondary] { fill: black }
+      |    L (Gal) -> style [primary] { fill: black } -> style [secondary] { fill: yellow }
+      |      (Glc) -> style [primary] { fill: blue }
+      |    D (Gul) -> style [primary] { fill: black } -> style [secondary] { fill: white }
+      |    L (Gul) -> style [primary] { fill: white } -> style [secondary] { fill: black }
+      |    D (Man) -> style [primary] { fill: lime } -> style [secondary] { fill: black }
+      |    L (Man) -> style [primary] { fill: black } -> style [secondary] { fill: lime }
+      |    (Tal) -> style [primary] { fill: black }
+      |
+      |    L (Glycero)                                -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+      |    L (Erythro, Threo)                         -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+      |    L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+      |    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+      |
+      |    * -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
+      |    a * -> style [handle] { fill: white; stroke: black; stroke-width: 1 }
+      |    b * -> style [handle] { fill: black; stroke: black; stroke-width: 1 }
+      |
+      |    * -> style [outline] { fill: none; stroke: black; stroke-width: 3 }
+      |}
+    """.stripMargin
   import scala.language.implicitConversions
   implicit def toRichJQuery(jQuery: JQuery): RichJQuery = jQuery.asInstanceOf[RichJQuery]
   trait RichJQuery extends js.Object {
@@ -72,7 +141,7 @@ object ConventionEditor {
   object RuleCond {
     case class AnoCond(allowed: Anomer) extends RuleCond { def matches(r: Residue) = allowed == r.anomer }
     case class AbsCond(allowed: Absolute) extends RuleCond { def matches(r: Residue) = allowed == r.absolute }
-    case class ResCond(allowed: Seq[String]) extends RuleCond { def matches(r: Residue) = allowed contains r.rt }
+    case class ResCond(allowed: Seq[String]) extends RuleCond { def matches(r: Residue) = allowed contains r.rt.symbol }
     case class SubCond(allowed: Seq[String]) extends RuleCond { def matches(r: Residue) = allowed contains "" }
   }
   sealed trait RuleMod
@@ -101,9 +170,8 @@ object ConventionEditor {
   class ConventionParser(val input: ParserInput) extends Parser {
     import shapeless._
     import scalaz.syntax.std.option._
-    import scalaz.syntax.monoid._
 
-    val WhiteSpaceChar = rule { anyOf(" \n\r\t\f") }
+    val WhiteSpaceChar = CharPredicate.from((c: Char) => " \n\r\t\f".contains(c))
     def ws: Rule0 = rule { zeroOrMore(WhiteSpaceChar) }
     def ws(c: Char): Rule0 = rule { c ~ ws }
     def ws(s: String): Rule0 = rule { str(s) ~ ws }

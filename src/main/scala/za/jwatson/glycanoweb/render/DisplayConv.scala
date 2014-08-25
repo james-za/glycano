@@ -10,20 +10,35 @@ import importedjs.{paper => p}
 import scala.util.Try
 
 class DisplayConv(conv: Conv) {
+  def translateColor(color: String): p.Color = color match {
+    case "none" => new p.Color(0, 0, 0, 0)
+//    case "black" => new p.Color("#000000")
+//    case "white" => new p.Color("#FFFFFF")
+//    case "blue" => new p.Color("#0000FF")
+//    case "yellow" => new p.Color("#FFFF00")
+//    case "lime" => new p.Color("#00FF00")
+//    case "red" => new p.Color("#FF0000")
+    case fill => new p.Color(fill)
+  }
   val shapeToItem: Shape => p.Item = {
     case DefinedShape(position, name) =>
       throw new UnsupportedOperationException("ShapeDef cannot refer to another ShapeDef")
     case Polygon(points) =>
-      new p.Path(points)
+      val poly = new p.Path()
+      for (Array(x, y) <- points.split("[,;\\s]").grouped(2)) {
+        poly.add(new p.Segment(p.Point(x.toDouble, y.toDouble)))
+      }
+      poly.closePath()
+      poly
     case Rect(ToDouble(x), ToDouble(y),
-    ToDouble(width), ToDouble(height),
-    ToDouble(rx), ToDouble(ry))
+      ToDouble(width), ToDouble(height),
+      ToDouble(rx), ToDouble(ry))
       if rx > 0 || ry > 0 =>
       p.Path.RoundRectangle(new p.Rectangle(x, y, width, height), new p.Size(rx, ry))
   }
   def name = conv.name
-  val shapeDefs = conv.shapeDefs.mapValues(shapeToItem)
-  def item(r: Residue): p.Item = {
+  //val shapeDefs = conv.shapeDefs.mapValues(shapeToItem)
+  def group(r: Residue): p.Group = {
     val matched = conv.rules.filter(_.conds.forall(_.matches(r)))
     val mods = matched.flatMap(_.mods)
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
@@ -34,23 +49,46 @@ class DisplayConv(conv: Conv) {
     val shapes = mods.collect {
       case ShapeMod(priority, classes, shape) =>
         val item = shape match {
-          case DefinedShape(_, name) => shapeDefs(name)
+          case DefinedShape(_, name) => shapeToItem(conv.shapeDefs(name))
           case _ => shapeToItem(shape)
         }
-        item.name = classes.mkString(" ")
+        if (classes contains "links") item.name = "outline"
+        if (classes contains "handle") item.name = "handle"
         val stylePairs = styles.foldLeft(Map[String, String]()) {
           case (z, (style, pairs)) if classes contains style =>
             z ++ pairs
+          case (z, _) =>
+            z
         }
         stylePairs foreach {
-          case ("fill", "none") => item.fillColor = new p.Color(0, 0, 0, 0)
-          case ("fill", fill) => item.fillColor = new p.Color(fill)
-          case ("stroke", stroke) => item.strokeColor = new p.Color(stroke)
+          case ("fill", fill) =>
+            val c = translateColor(fill)
+            if (r.rt == ResidueType.Glc && r.anomer == Anomer.Alpha && r.absolute == Absolute.D) {
+              println(c)
+            }
+            item.fillColor = c
+          case ("stroke", stroke) => item.strokeColor = translateColor(stroke)
           case ("stroke-width", sw) => item.strokeWidth = sw.toDouble
+          case ("x", x) => item.position.x = x.toDouble
+          case ("y", y) => item.position.y = y.toDouble
           case (attr, value) => throw new IllegalArgumentException(s"""Unsupported attribute "$attr" with value "$value"""")
         }
         priority -> item
     }.sortBy(_._1).map(_._2)
+//    if (r.rt == ResidueType.Glc && r.anomer == Anomer.Alpha && r.absolute == Absolute.D) {
+//      println(r)
+////      println(conv.rules)
+////      println(conv.shapeDefs)
+//      println("MATCHED=============")
+//      println(matched.mkString("\n"))
+//      println("MODS================")
+//      println(mods.mkString("\n"))
+//      println("ITEMS===============")
+//      println(shapes.map(s =>
+//        js.JSON.stringify(s, space = 2: js.Any)
+//      ).mkString("\n"))
+//      show = false
+//    }
     new p.Group(js.Array(shapes: _*))
   }
 }
