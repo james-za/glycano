@@ -92,7 +92,10 @@ class Convention(scope: p.PaperScope) {
       Glc -> (hexagon, "blue", "blue", new p.Path()),
       Gul -> (hexagon, "black", "white", closedPath(P(25,-40), P(65,-40), P(25,40), P(0,0), P(90,0), P(65,40))),
       Man -> (hexagon, "lime", "black", closedPath(P(0,0), P(25,-40), P(45,-40), P(45,40), P(25,40))),
-      Tal -> (hexagon, "black", "black", new p.Path())
+      Tal -> (hexagon, "black", "black", new p.Path()),
+
+      Rul -> (arrow, "white", "white", new p.Path()),
+      Fru -> (hexagon, "white", "white", new p.Path())
     ) withDefault {
       case _ => (hexagon, "red", "red", new p.Path())
     }
@@ -150,7 +153,18 @@ class Convention(scope: p.PaperScope) {
     }
     handle.name = "handle"
     handle.position = outline.firstSegment.point
-    val group = new p.Group(js.Array(base, detail, outline, handle))
+    val group = residue.rt.category match {
+      case ResidueCategory.Ketose =>
+        val border1 = o.clonePath(insert = false)
+        val border2 = o.clonePath(insert = false)
+        border1.strokeColor = new p.Color("black")
+        border1.strokeWidth = 10.5
+        border2.strokeColor = new p.Color("white")
+        border2.strokeWidth = 8.5
+        new p.Group(js.Array(base, detail, outline, border1, border2, handle))
+      case _ =>
+        new p.Group(js.Array(base, detail, outline, handle))
+    }
     if(residue.absolute == L) {
       val text = new p.PointText(P(0,0))
       text.content = "L"

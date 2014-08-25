@@ -7,6 +7,7 @@ case class ResidueType(symbol: String, desc: String, linkage: Int, category: Res
 
 object ResidueType extends Aldoses with Ketoses with Alditols {
   val ResidueTypes = Aldoses ++ Ketoses ++ Alditols
+  val ResidueTypeCategories = ResidueTypes.groupBy(_.category) + (Repeat -> Seq.empty)
   val ResidueTypeMap = ResidueTypes.map(rt => rt.symbol -> rt).toMap
 
   def aldose(symbol: String, desc: String, linkage: Int) =

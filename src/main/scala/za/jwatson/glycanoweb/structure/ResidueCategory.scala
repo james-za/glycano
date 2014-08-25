@@ -6,10 +6,10 @@ sealed trait ResidueCategory {
 }
 
 object ResidueCategory {
-  case object Aldose extends ResidueCategory { def name = "Aldose" }
-  case object Ketose extends ResidueCategory { def name = "Ketose" }
-  case object Alditol extends ResidueCategory { def name = "Alditol" }
+  case object Aldose extends ResidueCategory { def name = "Aldoses" }
+  case object Ketose extends ResidueCategory { def name = "Ketoses" }
+  case object Alditol extends ResidueCategory { def name = "Alditols" }
   case object Repeat extends ResidueCategory { def name = "Repeat" }
-  val ResidueCategories = Seq(Aldose, Ketose, Alditol, Repeat)
+  val ResidueCategories = Seq[ResidueCategory](Aldose, Ketose, Alditol, Repeat)
   val ResidueCategoryMap = ResidueCategories.map(rc => rc.name -> rc).toMap
 }

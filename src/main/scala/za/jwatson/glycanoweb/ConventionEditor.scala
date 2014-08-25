@@ -23,15 +23,15 @@ import ConventionEditor._
 class ConventionEditor(val modalId: String) {
   val text = Var("")
   val textAreaId = modalId + "Text"
-  def createNavButton = navBtn(size = Lg)(onclick:=(() => jQ("#" + modalId).modal("show")))("Convention Editor")
+  def createNavButton = navBtn(size = Md)(onclick:=(() => jQ("#" + modalId).modal("show")))("Convention Editor")
   def renderModal = {
-    modal(modalId,
+    val r = modal(modalId,
       header = span("Convention Editor").some,
       body = div(
         form("role".attr:="form")(
           formGroup(
             label(`for`:=textAreaId),
-            textarea(cls:="form-control", rows:=3, id:=textAreaId)
+            textarea(cls:="form-control", rows:=30, id:=textAreaId)
           )
         )
       ).some,
@@ -40,6 +40,7 @@ class ConventionEditor(val modalId: String) {
         btn(Primary)(onclick:=(() => parseText()))("Save")
       ).some
     ).render
+    r
   }
   def parseText(): Unit = {
     val inText = jQ("#" + textAreaId).`val`().asInstanceOf[String]
@@ -54,7 +55,6 @@ class ConventionEditor(val modalId: String) {
     println("...done")
     text() = inText
   }
-  jQ("#" + textAreaId).`val`(testText)
 }
 
 object ConventionEditor {
@@ -114,16 +114,25 @@ object ConventionEditor {
       |    L (Man) -> style [primary] { fill: black } -> style [secondary] { fill: lime }
       |    (Tal) -> style [primary] { fill: black }
       |
-      |    L (Glycero)                                -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
-      |    L (Erythro, Threo)                         -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
-      |    L (Ara, Lyx, Rib, Xyl)                     -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
-      |    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal) -> #4 [lshape] LShape -> style [lshape] { x: 22; y: 18 }
+      |    L (Glycero)
+      |      -> #4 [lshape] LShape
+      |      -> style [lshape] { x: 22; y: 18 }
+      |    L (Erythro, Threo)
+      |      -> #4 [lshape] LShape
+      |      -> style [lshape] { x: 22; y: 18 }
+      |    L (Ara, Lyx, Rib, Xyl)
+      |      -> #4 [lshape] LShape
+      |      -> style [lshape] { x: 22; y: 18 }
+      |    L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal)
+      |      -> #4 [lshape] LShape
+      |      -> style [lshape] { x: 22; y: 18 }
       |
       |    * -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
       |    a * -> style [handle] { fill: white; stroke: black; stroke-width: 1 }
       |    b * -> style [handle] { fill: black; stroke: black; stroke-width: 1 }
       |
       |    * -> style [outline] { fill: none; stroke: black; stroke-width: 3 }
+      |    * -> style [lshape] { fill: black; stroke: white; stroke-width: 1 }
       |}
     """.stripMargin
   import scala.language.implicitConversions

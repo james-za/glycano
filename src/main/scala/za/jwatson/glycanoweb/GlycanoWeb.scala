@@ -83,11 +83,30 @@ object GlycanoWeb {
       )
 
     /** Selection of residue type to create */
-    val residuePages = btnGroup(id:="aldoses")(
-      for (rt <- ResidueType.Aldoses) yield span(
-        checkboxButton(inputName = "rt-" + rt.desc, classes = "residue", innerMods = Seq(display.none))
-          (id := "rt-" + rt.desc, title := rt.desc, padding := "2px")
-          (div(cls := "svg"))
+//    val residuePages = btnGroup(id:="aldoses")(
+//      for (rt <- ResidueType.Aldoses) yield span(
+//        checkboxButton(inputName = "rt-" + rt.desc, classes = "residue", innerMods = Seq(display.none))
+//          (id := "rt-" + rt.desc, title := rt.desc, padding := "2px")
+//          (div(cls := "svg"))
+//      )
+//    )
+    val residuePages = div(
+      ul(cls:="nav nav-tabs", "role".attr:="tablist", id:="res-tabs")(
+        for (cat <- ResidueCategory.ResidueCategories) yield
+          li(a(href:=("#cat-" + cat.name), "role".attr:="tab", "data-toggle".attr:="tab")(
+            cat.name
+          ))
+      ),
+      btnGroup(id:="aldoses")(
+        div(cls:="tab-content")(
+          for (cat <- ResidueCategory.ResidueCategories) yield div(cls:="tab-pane", id:=("cat-" + cat.name))(
+            for (rt <- ResidueType.ResidueTypeCategories(cat)) yield span(
+              checkboxButton(inputName = "rt-" + rt.desc, classes = "residue", innerMods = Seq(display.none))
+                (id := "rt-" + rt.desc, title := rt.desc, padding := "2px")
+                (div(cls := "svg"))
+            )
+          )
+        )
       )
     )
 
@@ -220,6 +239,7 @@ object GlycanoWeb {
 
     dom.document.body.appendChild(mainContainer.render)
     dom.document.body.appendChild(conventionEditor.renderModal)
+    $("#" + conventionEditor.textAreaId).`val`(ConventionEditor.testText)
 
     val cv = canvas(display.`inline-block`, verticalAlign:="top", id:="stage", tabindex:=1).render
     dom.document.getElementById("stage-panel").appendChild(cv)
@@ -244,7 +264,7 @@ object GlycanoWeb {
     val iconMap = (for{
       ano <- Seq[Anomer](Alpha, Beta)
       abs <- Seq[Absolute](D, L)
-      rt <- ResidueType.Aldoses
+      rt <- ResidueType.ResidueTypes
     } yield {
       val g = glycanoCanvas.convention().createIcon(rt, abs, ano, iconBounds)
       (ano, abs, rt) -> svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
@@ -263,7 +283,7 @@ object GlycanoWeb {
     val rtPageId = rx.Rx { (anomeric(), absolute(), residueCategory()) }
     rx.Obs(rtPageId) {
       val (abs, ano, cat) = rtPageId()
-      for(rt <- ResidueType.Aldoses) {
+      for(rt <- ResidueType.ResidueTypes) {
         $("#rt-" + rt.desc + " .svg").html(iconMap((abs, ano, rt)).toString())
       }
     }
@@ -319,6 +339,8 @@ object GlycanoWeb {
     }: js.Any)
 
     resizeCanvas()
+
+    $("cat-Aldose").addClass("active")
 
     import za.jwatson.glycanoweb.structure.ResidueType._
     glycanoCanvas.addResidue(Alpha, D, Ara, randomPoint(glycanoCanvas.scope.view.bounds))
