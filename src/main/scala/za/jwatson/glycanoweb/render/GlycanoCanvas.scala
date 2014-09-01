@@ -1,6 +1,7 @@
 package za.jwatson.glycanoweb.render
 
 import importedjs.paper.{PointText, Point}
+import importedjs.paper.Implicits._
 import importedjs.{paper => p}
 import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => jQ}
@@ -77,8 +78,35 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   def removeResidue(residue: Residue): Unit = {
+    for {
+      (i, subs) <- residue.substituents
+      sub <- subs
+    } removeSubstituent(sub)
+
+    for (b <- residue.bond) removeBond(b)
+    for {
+      m <- residue.children
+      (i, from) <- m
+    } removeBond(Bond(from, Link(residue, i)))
+
     graph() -= residue
     convention().removeResidue(residue)
+  }
+
+  def addBond(bond: Bond): Unit = {
+    graph() += bond
+    convention().addBond(bond.from, bond.to.residue, bond.to.position)
+  }
+
+  def removeBond(bond: Bond): Unit = {
+    graph() -= bond
+    convention().removeBond(bond.from)
+  }
+
+  def removeChildBond(link: Link): Unit = {
+    graph() -= link
+    for (r <- link.residue.child(link.position))
+      convention().removeBond(r)
   }
 
   def addSubstituent(link: Link, st: SubstituentType): Substituent = {
@@ -396,6 +424,8 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     }
   }
 
+  Obs(state){println(state())}
+
   def mouseDown(e: MouseEvent): Unit = {
     canvas.focus()
     canvas.blur()
@@ -406,42 +436,25 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           val hitTest = scope.project.hitTest(point)
           Option(hitTest) match {
             case Some(hit) =>
-              if (hit.item matches js.Dynamic.literal(name = "delete": js.Any)) {
-                val deleted = selection()
-                updateSelection(Set.empty)
-                for (r <- deleted) {
-                  for {
-                    (i, ss) <- r.substituents
-                    s <- ss
-                  } {
-                    convention().removeSubstituent(s)
+              hit.item.name.orNull match {
+                case "delete" =>
+                  val deleted = selection()
+                  updateSelection(Set.empty)
+                  deleted foreach removeResidue
+                case "handle" =>
+                  for (r <- hit.item.getResidue) {
+                    convention().handlePress(r.some)
+                    beginBond(r, point)
+                    convention().handleHL(None)
+                    state() = CreateBond
                   }
-                  for (b <- r.bond) {
-                    graph() -= b
-                    convention().removeBond(r)
+                case _ =>
+                  for (r <- hit.item.getResidue) {
+                    state() = Hit(point, hit.item)
+                    if(!selection().contains(r)) {
+                      updateSelection(Set(r))
+                    }
                   }
-                  for {
-                    m <- r.children
-                    (i, c) <- m
-                  } {
-                    graph() -= Link(r, i)
-                    convention().removeBond(c)
-                  }
-                  graph() -= r
-                  convention().removeResidue(r)
-                }
-              } else for (r <- hit.item.getResidue) {
-                if (convention().hitHandle(r, point)) {
-                  convention().handlePress(r.some)
-                  beginBond(r, point)
-                  convention().handleHL(None)
-                  state() = CreateBond
-                } else {
-                  state() = Hit(point, hit.item)
-                  if(!selection().contains(r)) {
-                    updateSelection(Set(r))
-                  }
-                }
               }
             case None =>
               updateBoxSelect(point, point)

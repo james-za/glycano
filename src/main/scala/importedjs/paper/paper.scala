@@ -16,8 +16,38 @@ package paper {
 import org.scalajs.dom.{MouseEvent, HTMLImageElement, SVGElement}
 
 object Implicits {
+  //import org.scalajs.dom.extensions.{Color => _, _}
   import scala.language.implicitConversions
-  implicit def pointToSegment(p: Point): Segment = p.asInstanceOf[Segment]
+  implicit def toColor(str: String): Color = new Color(str)
+  implicit def toSegment(p: Point): Segment = p.asInstanceOf[Segment]
+  implicit class AnimateItem[T <: Item](item: T) {
+    def animate(duration: Double)(frame: (T, Double) => Unit): Unit = {
+      Animation.create(item, duration, (i: T, t: Double) => { frame(i, t); true }, frame)
+    }
+    def animate(duration: Double)(frame: (T, Double) => Boolean, done: (T, Double) => Unit): Unit = {
+      Animation.create(item, duration, frame, done)
+    }
+  }
+}
+  
+object Animation {
+  var animations = collection.immutable.Queue[Animation[_]]()
+  class Animation[T <: Item](item: T, duration: Double, frame: (T, Double) => Boolean, done: (T, Double) => _) {
+    var time: Double = 0.0
+    def step(dt: Double): Boolean = {
+      time += dt
+      if (time > duration) {
+        done(item, duration)
+        false
+      } else frame(item, time)
+    }
+  }
+  def create[T <: Item](item: T, duration: Double, frame: (T, Double) => Boolean, done: (T, Double) => Unit): Unit = {
+    animations enqueue new Animation[T](item, duration, frame, done)
+  }
+  def onFrameHandler: js.Function1[FrameEvent, _] = (e: FrameEvent) => {
+    animations = animations.filter(_.step(e.delta))
+  }
 }
 
 trait KeyModifiers extends js.Object {
@@ -222,7 +252,7 @@ object Matrix extends js.Object {
 @JSName("paper.Item")
 class Item extends js.Object {
   var id: Double = ???
-  var name: String = ???
+  var name: js.UndefOr[String] = ???
   var position: Point = ???
   var style: PathStyle = ???
   var visible: Boolean = ???
@@ -243,7 +273,7 @@ class Item extends js.Object {
   var bounds: Rectangle = ???
   var strokeBounds: Rectangle = ???
   var handleBounds: Rectangle = ???
-  var strokeColor: js.Any = ???
+  var strokeColor: Color = ???
   var strokeWidth: Double = ???
   var strokeCap: String = ???
   var strokeJoin: String = ???
@@ -292,6 +322,28 @@ class Item extends js.Object {
   def importSVG(svg: SVGElement): Item = ???
   def exportJSON(options: js.Dynamic = ???): String = ???
   def importJSON(json: String): Item = ???
+
+  var onFrame: js.Function1[FrameEvent, _] = ???
+  var onMouseDown: js.Function1[PaperMouseEvent, _] = ???
+  var onMouseUp: js.Function1[PaperMouseEvent, _] = ???
+  var onClick: js.Function1[PaperMouseEvent, _] = ???
+  var onDoubleClick: js.Function1[PaperMouseEvent, _] = ???
+  var onMouseMove: js.Function1[PaperMouseEvent, _] = ???
+  var onMouseEnter: js.Function1[PaperMouseEvent, _] = ???
+  var onMouseLeave: js.Function1[PaperMouseEvent, _] = ???
+}
+
+trait FrameEvent extends js.Object {
+  def time: Double
+  def delta: Double
+  def count: Int
+}
+
+trait PaperMouseEvent extends js.Object {
+  def `type`: String
+  def point: Point
+  def target: Item
+  def delta: Point
 }
 
 @JSName("paper.Group")
@@ -634,12 +686,12 @@ class Tool extends js.Object {
   var fixedDistance: Double = ???
   def activate(): js.Dynamic = ???
   def remove(): js.Dynamic = ???
-  var onMouseDown: js.Function1[ToolEvent, Unit] = ???
-  var onMouseDrag: js.Function1[ToolEvent, Unit] = ???
-  var onMouseMove: js.Function1[ToolEvent, Unit] = ???
-  var onMouseUp: js.Function1[ToolEvent, Unit] = ???
-  var onKeyDown: js.Function1[ToolEvent, Unit] = ???
-  var onKeyUp: js.Function1[ToolEvent, Unit] = ???
+  var onMouseDown: js.Function1[ToolEvent, _] = ???
+  var onMouseDrag: js.Function1[ToolEvent, _] = ???
+  var onMouseMove: js.Function1[ToolEvent, _] = ???
+  var onMouseUp: js.Function1[ToolEvent, _] = ???
+  var onKeyDown: js.Function1[ToolEvent, _] = ???
+  var onKeyUp: js.Function1[ToolEvent, _] = ???
 }
 
 @JSName("paper.ToolEvent")

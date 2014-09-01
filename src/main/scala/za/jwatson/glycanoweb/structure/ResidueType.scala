@@ -18,6 +18,8 @@ object ResidueType extends Aldoses with Ketoses with Alditols {
     ResidueType(symbol, desc, linkage, Alditol)
   def repeat(symbol: String, desc: String, linkage: Int) =
     ResidueType(symbol, desc, linkage, Repeat)
+
+  def unapply(str: String): Option[ResidueType] = ResidueTypeMap.get(str)
 }
 
 trait Aldoses {

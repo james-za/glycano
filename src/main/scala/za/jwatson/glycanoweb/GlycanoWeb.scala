@@ -256,7 +256,7 @@ object GlycanoWeb {
       glycanoCanvas.scope.view.viewSize = new paper.Size(w, h)
       glycanoCanvas.scope.view.draw()
     }
-    dom.onload = {_: dom.Event => resizeCanvas()}
+    //dom.window.onload = {_: dom.Event => resizeCanvas()}
     $(dom.window).resize((e: JQueryEventObject) => resizeCanvas(): js.Any)
 
     val iconBounds = new paper.Rectangle(0, 0, iconWidth, iconHeight)

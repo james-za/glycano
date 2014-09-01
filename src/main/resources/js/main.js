@@ -1,1 +1,0 @@
-GlycanoWeb().main();

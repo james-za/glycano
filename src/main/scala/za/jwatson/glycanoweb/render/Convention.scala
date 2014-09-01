@@ -187,6 +187,15 @@ class Convention(scope: p.PaperScope) {
     //outline.curves = js.Array[p.Curve]()
   }
 
+  def pulseTime = 0.8
+
+  implicit class PulseItem(item: p.Item) {
+    def pulseDuration_=(t: Double): Unit =
+      item.asInstanceOf[js.Dynamic].pulseDuration = t
+    def pulseDuration: Double =
+      item.asInstanceOf[js.Dynamic].pulseDuration.asInstanceOf[js.UndefOr[Double]].getOrElse(0.0)
+  }
+
 //  val substBacks = {
 //    import za.jwatson.glycanoweb.structure.{SubstituentType => ST}
 //    Map(
@@ -286,7 +295,7 @@ class Convention(scope: p.PaperScope) {
 
   def items = residueResidueShapes.values.map(_.group)
 
-  implicit class RichResidue(residue: Residue) {
+  implicit class RichResidueRS(residue: Residue) {
     def residueShape: ResidueShape = residueResidueShapes(residue)
     def outline: p.Path = residueShape.outline
     def handle: p.Path = residueShape.handle
@@ -297,14 +306,14 @@ class Convention(scope: p.PaperScope) {
     def getHandle: Option[p.Path] = getResidueShape.map(_.handle)
     def getGroup: Option[p.Group] = getResidueShape.map(_.group)
   }
-  implicit class RichSubstituent(substituent: Substituent) {
+  implicit class RichSubstituentRS(substituent: Substituent) {
     def substituentShape: SubstituentShape = substSubstShapes(substituent)
     def group: p.Item = substituentShape.item
 
     def getSubstituentShape: Option[SubstituentShape] = substSubstShapes.get(substituent)
     def getGroup: Option[p.Item] = getSubstituentShape.map(_.item)
   }
-  implicit class RichItem(item: p.Item) {
+  implicit class RichItemRS(item: p.Item) {
     def residueShape: ResidueShape = itemResidueShapes(item.id)
     def residue: Residue = residueShape.residue
 

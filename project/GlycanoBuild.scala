@@ -7,6 +7,7 @@ import sbt._
 
 import scala.scalajs.sbtplugin.ScalaJSPlugin.ScalaJSKeys._
 import scala.scalajs.sbtplugin.ScalaJSPlugin._
+import com.lihaoyi.workbench.Plugin._
 
 object GlycanoBuild extends Build {
   val glycanoScalaVersion = "2.11.1"
@@ -32,8 +33,8 @@ object GlycanoBuild extends Build {
     libraryDependencies ++= Seq(
       "org.scala-lang.modules.scalajs"  %%% "scalajs-dom"       % "0.6",
       "org.scala-lang.modules.scalajs"  %%% "scalajs-jquery"    % "0.6",
-      "com.scalatags"                   %%% "scalatags"         % "0.3.8",
-      "com.scalarx"                     %%% "scalarx"           % "0.2.5",
+      "com.scalatags"                   %%% "scalatags"         % "0.4.0",
+      "com.scalarx"                     %%% "scalarx"           % "0.2.6",
       "com.github.japgolly.fork.scalaz" %%% "scalaz-core"       % "7.1.0",
       "name.myltsev"                    %%% "shapeless"         % "2.0.0",
       "name.myltsev"                    %%% "parboiled"         % "2.0.0",
@@ -43,9 +44,11 @@ object GlycanoBuild extends Build {
   )
 
   lazy val root = project.in(file(".")).settings(
-    gwDefaultSettings ++ scalaJSSettings ++ Seq(
+    gwDefaultSettings ++ scalaJSSettings ++ workbenchSettings ++ Seq(
       name := "GlycanoWeb",
-      nightmareTask
+      nightmareTask,
+      bootSnippet := "GlycanoWeb().main();",
+      refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
     ): _*
   )
 

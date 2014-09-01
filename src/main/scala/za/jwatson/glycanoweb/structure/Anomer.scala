@@ -13,12 +13,9 @@ object Anomer {
     override val symbol = "b"
     override val desc = "\u03B2"
   }
-}
 
-object Anomers {
-  import upickle._
-  sealed trait Anomer1
-  case object Alpha1 extends Anomer1
-  case object Beta1 extends Anomer1
-  write(Alpha1)
+  val Anomers = Seq(Alpha, Beta)
+  val AnomerMap = Anomers.map(ano => ano.symbol -> ano).toMap
+
+  def unapply(str: String): Option[Anomer] = AnomerMap.get(str)
 }
