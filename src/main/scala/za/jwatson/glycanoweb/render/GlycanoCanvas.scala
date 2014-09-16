@@ -1,27 +1,26 @@
 package za.jwatson.glycanoweb.render
 
-import importedjs.paper.{PointText, Point}
 import importedjs.paper.Implicits._
+import importedjs.paper.{Point, PointText}
 import importedjs.{paper => p}
 import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
-import org.scalajs.jquery.{jQuery => jQ}
+import org.scalajs.jquery.{JQueryEventObject, jQuery => jQ}
 import rx._
-import za.jwatson.glycanoweb.{GlyRes, Gly, GlycanoWeb}
 import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
+import za.jwatson.glycanoweb.{Gly, GlyRes, GlycanoWeb}
 
 import scala.scalajs.js
-
-import scalaz.syntax.std.option._
 import scalaz.std.option._
+import scalaz.syntax.std.option._
 
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def loadGly(gly: Gly): Unit = {
     clearAll()
 
     val pr = gly.residues.keys.toIndexedSeq
-    println(pr.map(r => s"id=${r.id}: $r"))
+    //println(pr.map(r => s"id=${r.id}: $r"))
     for ((r, GlyRes(x, y, _, _, subs)) <- gly.residues) {
       addResidue(r, p.Point(x, y))
       for {
@@ -150,6 +149,10 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   canvas.onmouseup = mouseUp _
   canvas.onmousemove = mouseMove _
 
+  jQ(org.scalajs.dom.window).keydown((e: JQueryEventObject) => {
+    keyPress(e.which)
+  })
+
   sealed trait InputState
   object InputState {
     case object Default extends InputState
@@ -160,6 +163,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     case object CreateBond extends InputState
     case object PostCreateBond extends InputState
     case class Hit(down: p.Point, item: p.Item) extends InputState
+    case class Rotate(item: p.Item) extends InputState
   }
   import InputState._
 
@@ -255,12 +259,19 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     tempBond(TempBond.LinkToPoint(Link(residue, 1), point))
   }
 
-  def updateBondTarget(point: p.Point, angle: Double): Unit = {
-    for(from <- tempBond.items.keys.headOption collect {
-      case TempBond.LinkToPoint(link, _) => link
-      case TempBond.LinkToLink(link, _) => link
-    }) {
-      val closestLink = convention().getClosestLinkAnyFilter(linkFilter = _.residue != from.residue, from = point, angle = angle)
+  def updateBondTarget(point: p.Point): Unit = {
+    for {
+      from <- tempBond.items.keys.headOption collect {
+        case TempBond.LinkToPoint(link, _) => link
+        case TempBond.LinkToLink(link, _) => link
+      }
+      item <- from.residue.getItem
+    } {
+      val closestLink = convention().getClosestLinkAnyFilter(
+        linkFilter = _.residue != from.residue,
+        from = point,
+        angle = item.rotation
+      )
       closestLink.fold {
         tempLink(from)
         tempBond(TempBond.LinkToPoint(from, point))
@@ -325,9 +336,11 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     scope.view.draw()
   }
 
-  def updateSelectionBonds(): Unit = {
+  def updateSelectionBonds(): Unit = updateResidueSetBonds(selection())
+
+  def updateResidueSetBonds(set: Set[Residue]): Unit = {
     val affectedBonds = for {
-      r <- selection()
+      r <- set
       b <- r +: (r.children.fold(Seq[Residue]())(_.values.toSeq)
         ++ r.parent.toSeq.map(_.residue))
     } yield b
@@ -424,7 +437,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     }
   }
 
-  Obs(state){println(state())}
+  //Obs(state){println(state())}
 
   def mouseDown(e: MouseEvent): Unit = {
     canvas.focus()
@@ -436,7 +449,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           val hitTest = scope.project.hitTest(point)
           Option(hitTest) match {
             case Some(hit) =>
-              hit.item.name.orNull match {
+              hit.item.name.getOrElse("") match {
                 case "delete" =>
                   val deleted = selection()
                   updateSelection(Set.empty)
@@ -448,11 +461,19 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
                     convention().handleHL(None)
                     state() = CreateBond
                   }
+                case "rotate" =>
+                  for (r <- hit.item.getResidue) {
+                    state() = Rotate(hit.item)
+                  }
                 case _ =>
                   for (r <- hit.item.getResidue) {
-                    state() = Hit(point, hit.item)
-                    if(!selection().contains(r)) {
-                      updateSelection(Set(r))
+                    if (e.shiftKey || e.ctrlKey) updateSelection {
+                      if (selection() contains r) selection() - r else selection() + r
+                    } else {
+                      state() = Hit(point, hit.item)
+                      if(!selection().contains(r)) {
+                          updateSelection(Set(r))
+                      }
                     }
                   }
               }
@@ -502,6 +523,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         state() = PostCreateBond
       case PostCreateBond =>
       case Hit(_, _) =>
+      case Rotate(_) =>
     }
   }
 
@@ -523,6 +545,11 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         for(r <- item.getResidue) {
           updateSelection(Set(r))
         }
+        state() = Default
+      case Rotate(_) =>
+        val oldSel = selection()
+        updateSelection(Set.empty)
+        updateSelection(oldSel)
         state() = Default
     }
   }
@@ -573,10 +600,31 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         updateSelectionBonds()
         state() = Drag(point)
       case CreateBond =>
-        updateBondTarget(point, angle = 0.0)
+        updateBondTarget(point)
       case PostCreateBond =>
       case Hit(down, _) =>
         state() = Drag(down)
+      case Rotate(item) =>
+        for (r <- item.getResidue; ri <- r.getItem) {
+          val mid = ri.bounds.center
+          val dir = point.subtract(mid)
+          ri.asInstanceOf[js.Dynamic].setRotation(dir.angle + 90)
+          updateResidueSetBonds(Set(r))
+        }
+    }
+  }
+
+  def keyPress(c: Int): Unit = {
+    c match {
+      case 46 =>
+        val deleted = selection()
+        updateSelection(Set.empty)
+        deleted foreach removeResidue
+      case 27 | 32 =>
+        if(GlycanoWeb.showModeSelect()) {
+          cancelPlace()
+        }
+      case _ =>
     }
   }
 }

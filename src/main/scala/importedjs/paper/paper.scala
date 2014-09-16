@@ -254,6 +254,7 @@ class Item extends js.Object {
   var id: Double = ???
   var name: js.UndefOr[String] = ???
   var position: Point = ???
+  var rotation: Double = ???
   var style: PathStyle = ???
   var visible: Boolean = ???
   var blendMode: String = ???
@@ -307,7 +308,7 @@ class Item extends js.Object {
   def scale(scale: Double, center: Point): js.Dynamic = ???
   def scale(hor: Double, ver: Double, center: Point = ???): js.Dynamic = ???
   def translate(delta: Double): js.Dynamic = ???
-  def rotate(angle: Double, center: Point): js.Dynamic = ???
+  def rotate(angle: Double, center: Point = ???): js.Dynamic = ???
   def shear(point: Point, center: Point): js.Dynamic = ???
   def shear(hor: Double, ver: Double, center: Point): js.Dynamic = ???
   def transform(matrix: Matrix, flags: js.Array[js.Any] = ???): js.Dynamic = ???

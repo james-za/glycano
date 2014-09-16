@@ -3,19 +3,14 @@ package za.jwatson.glycanoweb.render
 import importedjs.paper.Implicits._
 import importedjs.paper._
 import importedjs.{paper => p}
-import org.parboiled2.ParseError
 import org.scalajs.dom.SVGElement
-import za.jwatson.glycanoweb.ConventionEditor
-import za.jwatson.glycanoweb.ConventionEditor.{Conv, ConventionParser}
 import za.jwatson.glycanoweb.render.Convention.CanvasItemMod
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer._
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
-import scala.util.{Failure, Success}
 import scalaz.syntax.std.option._
-import scalaz.syntax.std.boolean._
 
 class Convention(scope: p.PaperScope) {
 
@@ -400,10 +395,26 @@ class Convention(scope: p.PaperScope) {
     val x2 = x.clonePath()
     x2.position = hl.bounds.topRight
 
-    val gr = new p.Group(js.Array(hl, box, x2))
+    val rotHeight = 30
+    val rotRadius = 10
+
+    val rotHandle = p.Path.Circle(hl.bounds.topCenter.subtract(0, rotHeight), rotRadius)
+    rotHandle.name = "rotate"
+    rotHandle.fillColor = "grey"
+    rotHandle.strokeColor = "black"
+    rotHandle.strokeWidth = 1
+
+    val rotConnector = p.Path.Line(hl.bounds.topCenter, rotHandle.position)
+    rotConnector.strokeColor = "black"
+    rotConnector.strokeWidth = 1.5
+
+    val gr = new p.Group(js.Array(hl, box, x2, rotConnector, rotHandle))
     gr.name = "highlight"
     residue.group.insertChild(0, gr)
     //residue.group.addChild(hl)
+
+    itemResidueShapes(rotHandle.id) = residue.residueShape
+    itemResidueShapes(x2.id) = residue.residueShape
   }
 
   def unhighlightResidue(residue: Residue): Unit = {
