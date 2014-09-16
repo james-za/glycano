@@ -2,10 +2,8 @@ package za.jwatson.glycanoweb
 
 import upickle._
 import za.jwatson.glycanoweb.render.GlycanoCanvas
-import za.jwatson.glycanoweb.structure.Absolute.{D, L}
-import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
-import za.jwatson.glycanoweb.structure._
 import za.jwatson.glycanoweb.structure.RGraph._
+import za.jwatson.glycanoweb.structure._
 
 case class Gly(residues: Map[Residue, GlyRes])
 case class GlyRes(x: Double, y: Double, targetRes: Int, targetPos: Int, subs: Map[Int, Seq[SubstituentType]])
@@ -32,6 +30,7 @@ object Gly {
   implicit val rwSubstituentType = ReadWriter[SubstituentType](st => Js.Str(st.symbol), {
     case Js.Str(SubstituentType(st)) => st
   })
+
   implicit val rwResidue = ReadWriter[Residue](r => Js.Arr(
     Js.Str(r.anomer.symbol),
     Js.Str(r.absolute.symbol),
@@ -43,5 +42,25 @@ object Gly {
       Js.Str(ResidueType(rt))
     ) => Residue.next(rt, ano, abs)
   })
-  //implicit val rwGly = ReadWriter()
+
+//  implicit val rSubsMap = upickle.MapR[Int, Seq[SubstituentType]]
+//  implicit val wSubsMap = upickle.MapW[Int, Seq[SubstituentType]]
+
+  implicit val rwGlyRes = ReadWriter[GlyRes](gr => Js.Arr(
+    Js.Num(gr.x),
+    Js.Num(gr.y),
+    Js.Num(gr.targetRes),
+    Js.Num(gr.targetPos),
+    writeJs(gr.subs)
+  ), {
+    case Js.Arr(Js.Num(x), Js.Num(y), Js.Num(tr), Js.Num(tp), subs) =>
+      GlyRes(x, y, tr.toInt, tp.toInt, readJs[Map[Int, Seq[SubstituentType]]](subs))
+  })
+
+//  implicit val rGlyMap = upickle.MapR[Residue, GlyRes]
+//  implicit val wGlyMap = upickle.MapW[Residue, GlyRes]
+
+  implicit val rwGly = ReadWriter[Gly](gly => writeJs(gly.residues), {
+    case js => Gly(readJs[Map[Residue, GlyRes]](js))
+  })
 }

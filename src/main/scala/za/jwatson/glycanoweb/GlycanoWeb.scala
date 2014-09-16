@@ -1,29 +1,27 @@
 package za.jwatson.glycanoweb
 
-import importedjs.filereaderjs.{Opts, FileReaderJS}
+import importedjs.filereaderjs.{FileReaderJS, Opts}
 import importedjs.paper
+import japgolly.scalajs.react.React
 import org.scalajs.dom
 import org.scalajs.dom.HTMLInputElement
 import org.scalajs.jquery.{jQuery => $, _}
 import rx._
+import upickle._
 import za.jwatson.glycanoweb.render.GlycanoCanvas
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer._
+import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure.ResidueCategory.Aldose
 import za.jwatson.glycanoweb.structure._
-import za.jwatson.glycanoweb.structure.RGraph._
 
 import scala.scalajs.js
-import scala.scalajs.js.UndefOr
 import scala.scalajs.js.annotation.JSExport
 import scalatags.JsDom._
 import scalatags.JsDom.all._
-
-import scalaz.syntax.std.boolean._
 import scalaz.std.option._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
-
-import upickle._
 
 @JSExport
 object GlycanoWeb {
@@ -199,25 +197,27 @@ object GlycanoWeb {
 //      col(xs=6)(btn(Primary, Lg, block = true)("Create")(id:="mode-create", onclick:={
 //        if(residueType().isEmpty) residueType() = Some(ResidueType.Glycero)
 //      }))
-    val modeSelect =
-      col(xs=12)(btn(Primary, Lg, block = true)(glyphIcon("hand-up")(marginRight:=15.px), "Selection Mode")(id:="mode-select", onclick:={() =>
-        if(showModeSelect()) {
+    val modeSelect = col(xs=12)(
+      btn(Primary, Lg, block = true)(
+        glyphIcon("hand-up")(marginRight := 15.px),
+        "Selection Mode",
+        id := "mode-select",
+        onclick := (() => if(showModeSelect()) {
           setResidueType(none)
           setSubstituentType(none)
-        }
-      }))
+        })
+      )
+    )
 
     val conventionPanel =
       panel(Default)(
         panelHeading("Convention"),
         panelBody(classes = "text-center")(
-          btnGroup(
-            radioButton(Default, "conv-uct")("UCT"),
-            radioButton(Default, "conv-cfg")("CFG"),
-            radioButton(Default, "conv-oxford")("Oxford")
-          )
+          div(id := "cg")
         )
       )
+
+
 
     /** Main container */
     val mainContainer = containerFluid(
@@ -342,6 +342,11 @@ object GlycanoWeb {
 
     $("cat-Aldose").addClass("active")
 
+    val cg1 = dom.document.getElementById("cg")
+    println(cg1.className)
+    val conventionGroup = React.renderComponent(react.ConventionGroup, cg1)
+    println(conventionGroup.state)
+
     import za.jwatson.glycanoweb.structure.ResidueType._
     glycanoCanvas.addResidue(Alpha, D, Ara, randomPoint(glycanoCanvas.scope.view.bounds))
     glycanoCanvas.addResidue(Alpha, L, Ido, randomPoint(glycanoCanvas.scope.view.bounds))
@@ -364,7 +369,7 @@ object GlycanoWeb {
 
     $("#save-gly").click(null, (eo: JQueryEventObject) => {
       import upickle._
-      import Gly._
+      //import Gly._
       val gly = write(Gly.from(glycanoCanvas))
       val base64 = dom.window.btoa(gly)
       val dataUrl = "data:text/plain;base64," + base64
@@ -386,7 +391,7 @@ object GlycanoWeb {
     }: js.Any)
 
     val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
-      import Gly._
+      //import Gly._
       val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
       val gly = read[Gly](str)
 

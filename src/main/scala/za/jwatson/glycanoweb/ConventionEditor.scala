@@ -184,9 +184,9 @@ object ConventionEditor {
     def ws: Rule0 = rule { zeroOrMore(WhiteSpaceChar) }
     def ws(c: Char): Rule0 = rule { c ~ ws }
     def ws(s: String): Rule0 = rule { str(s) ~ ws }
-    def conventions = rule { ws ~ oneOrMore(convention) ~ EOI }
+    def conventions: Rule1[Seq[Conv]] = rule { ws ~ oneOrMore(convention) ~ EOI }
     def convention = rule {
-      conventionName ~> (new ConvBuilder(_)) ~ ws('{') ~ conventionInner ~ ws('}') ~> (_.result())
+      conventionName ~> (new ConvBuilder(_)) ~ ws('{') ~ conventionInner ~> (_.result()) ~ ws('}')
     }
     def conventionName = rule { ws("convention") ~ stringLiteral }
     def conventionInner: Rule[ConvBuilder :: HNil, ConvBuilder :: HNil] = rule { zeroOrMore(shapeDef | convRule) }

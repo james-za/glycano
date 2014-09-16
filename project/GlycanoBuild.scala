@@ -27,20 +27,23 @@ object GlycanoBuild extends Build {
       Resolver.sonatypeRepo("releases"),
       Resolver.defaultLocal,
       Resolver.url("sjs-release", url("http://dl.bintray.com/scala-js/scala-js-releases"))(Resolver.ivyStylePatterns),
-      "myltsev" at "http://dl.bintray.com/alexander-myltsev/maven"
+      "myltsev" at "http://dl.bintray.com/alexander-myltsev/maven/"
     ),
     javaOptions += "-Xmx6G",
     libraryDependencies ++= Seq(
-      "org.scala-lang.modules.scalajs"  %%% "scalajs-dom"       % "0.6",
-      "org.scala-lang.modules.scalajs"  %%% "scalajs-jquery"    % "0.6",
-      "com.scalatags"                   %%% "scalatags"         % "0.4.0",
-      "com.scalarx"                     %%% "scalarx"           % "0.2.6",
-      "com.github.japgolly.fork.scalaz" %%% "scalaz-core"       % "7.1.0",
-      "name.myltsev"                    %%% "shapeless"         % "2.0.0",
-      "name.myltsev"                    %%% "parboiled"         % "2.0.0",
-      "org.scala-lang"                  %   "scala-reflect"     % glycanoScalaVersion, // temp fix for parboiled2 issue #81
-      "com.lihaoyi"                     %%% "upickle"           % "0.2.2"
-    )
+      "org.scala-lang.modules.scalajs"    %%% "scalajs-dom"       % "0.6",
+      "org.scala-lang.modules.scalajs"    %%% "scalajs-jquery"    % "0.6",
+      "com.scalatags"                     %%% "scalatags"         % "0.4.0",
+      "com.scalarx"                       %%% "scalarx"           % "0.2.6",
+      "com.github.japgolly.fork.scalaz"   %%% "scalaz-core"       % "7.1.0",
+      "name.myltsev"                      %%% "shapeless"         % "2.0.0",
+      /*"name.myltsev"*/"org.parboiled"   %%% "parboiled"         % "2.0.1",
+      /*"org.scala-lang"                    %   "scala-reflect"     % glycanoScalaVersion, // temp fix for parboiled2 issue #81*/
+      "com.lihaoyi"                       %%% "upickle"           % "0.2.4",
+      "com.github.japgolly.scalajs-react" %%% "core"              % "0.4.1-SNAPSHOT",
+      "com.github.japgolly.scalajs-react" %%% "ext-scalaz71"      % "0.4.1-SNAPSHOT"
+    ),
+    ScalaJSKeys.relativeSourceMaps := true
   )
 
   lazy val root = project.in(file(".")).settings(

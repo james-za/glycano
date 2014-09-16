@@ -1,5 +1,6 @@
 package za.jwatson.glycanoweb.render
 
+import za.jwatson.glycanoweb.ConventionEditor
 import za.jwatson.glycanoweb.ConventionEditor._
 import za.jwatson.glycanoweb.structure.{Residue, ResidueType, Absolute, Anomer}
 
@@ -8,8 +9,28 @@ import scalajs.js
 import importedjs.{paper => p}
 
 import scala.util.Try
+import scalaz.Monoid
 
-class DisplayConv(conv: Conv) {
+object DisplayConv {
+  implicit val DisplayInstance = Monoid.instance[DisplayConv]({
+    case (a, b) =>
+      val name = a.conv.name
+      val shapeDefs = a.conv.shapeDefs ++ b.conv.shapeDefs
+      val rules = a.conv.rules ++ b.conv.rules
+      DisplayConv(Conv(name, shapeDefs, rules))
+  }, DisplayConv(Conv("")))
+
+  def fromString(str: String): Option[DisplayConv] = {
+    val result = new ConventionEditor.ConventionParser(str).conventions.run()
+    val conv = result.toOption.flatMap(_.headOption)
+    conv.map(new DisplayConv(_))
+  }
+
+  import scalaz.syntax.std.option._
+  val UCT = fromString(ConventionEditor.testText).orZero
+}
+
+case class DisplayConv(conv: Conv) {
   def translateColor(color: String): p.Color = color match {
     case "none" => new p.Color(0, 0, 0, 0)
 //    case "black" => new p.Color("#000000")
