@@ -179,6 +179,7 @@ class Convention(scope: p.PaperScope) {
     base.fillColor = new p.Color(back)
     detail.fillColor = new p.Color(fill)
 
+    group.transformContent = false
     //outline.curves = js.Array[p.Curve]()
   }
 
@@ -326,7 +327,7 @@ class Convention(scope: p.PaperScope) {
   val bonds = collection.mutable.Map[js.Number, Residue]()
   val bondItems = collection.mutable.Map[Residue, p.Path]()
 
-  def addResidue(r: Residue, pos: p.Point): Unit = {
+  def addResidue(r: Residue, pos: p.Point, rot: Double = 0.0): Unit = {
     val rs = ResidueShape(r)
     residueResidueShapes(r) = rs
     itemResidueShapes(rs.group.id) = rs
@@ -334,6 +335,7 @@ class Convention(scope: p.PaperScope) {
       itemResidueShapes(item.id) = rs
     }
     rs.group.position = pos
+    rs.group.rotate(rot, rs.group.bounds.center)
   }
 
   def removeResidue(residue: Residue): Unit = {
@@ -447,8 +449,8 @@ class Convention(scope: p.PaperScope) {
   def updateBond(from: Residue, to: Residue, i: Int): Unit = {
     for(path <- bondItems.get(from)) {
       path.removeSegments()
-      path.add(from.outline.segments(0).point)
-      path.add(to.outline.segments(i - 1).point)
+      path.add(from.group.localToGlobal(from.outline.segments(0).point))
+      path.add(to.group.localToGlobal(to.outline.segments(i - 1).point))
     }
   }
 
@@ -466,8 +468,9 @@ class Convention(scope: p.PaperScope) {
       segment <- residueShape.outline.segments.toSeq
       link <- getLink(segment)
       if linkFilter(link)
-      if parent.fold(true)(linkValid(from, segment.point, _, angle))
-      distsq = segment.point.getDistance(from, squared = true)
+      segPt = residueShape.group.localToGlobal(segment.point)
+      if parent.fold(true)(linkValid(from, segPt, _, angle))
+      distsq = segPt.getDistance(from, squared = true)
       if distsq < threshold
     } yield (link, distsq)
 
@@ -488,8 +491,9 @@ class Convention(scope: p.PaperScope) {
     val points = for {
       residueShape <- residueResidueShapes.get(to).toSeq
       segment <- residueShape.outline.segments.toSeq
-      if linkValid(from, segment.point, parent, angle)
-      distsq = segment.point.getDistance(from, squared = true)
+      segPt = residueShape.group.localToGlobal(segment.point)
+      if linkValid(from, segPt, parent, angle)
+      distsq = segPt.getDistance(from, squared = true)
       if distsq < threshold
     } yield (segment, distsq)
 
@@ -504,7 +508,7 @@ class Convention(scope: p.PaperScope) {
   }
 
   def linkPosition(link: Link): p.Point = {
-    link.residue.outline.segments(link.position - 1).point
+    link.residue.group.localToGlobal(link.residue.outline.segments(link.position - 1).point)
   }
 
   val threshold = 50 * 50
@@ -545,7 +549,7 @@ class Convention(scope: p.PaperScope) {
   }
 
   def residueTemplateLinkPosition(i: Int): Option[p.Point] = {
-    residueTemplate.map(_._2.segments(i - 1).point)
+    residueTemplate.map(rtmp => rtmp._1.localToGlobal(rtmp._2.segments(i - 1).point))
   }
 
   var substituentTemplate: Option[p.Item] = None
@@ -564,7 +568,7 @@ class Convention(scope: p.PaperScope) {
   }
 
   def hitHandle(residue: Residue, point: P): Boolean = {
-    residue.getHandle.exists(_.contains(point))
+    residue.getHandle.exists(_.contains(residue.group.globalToLocal(point)))
   }
 
   def finishBond(from: Link, to: p.Point): Option[Link] = {

@@ -61,12 +61,7 @@ class DisplayConv(conv: Conv) {
             z
         }
         stylePairs foreach {
-          case ("fill", fill) =>
-            val c = translateColor(fill)
-            if (r.rt == ResidueType.Glc && r.anomer == Anomer.Alpha && r.absolute == Absolute.D) {
-              println(c)
-            }
-            item.fillColor = c
+          case ("fill", fill) => item.fillColor = translateColor(fill)
           case ("stroke", stroke) => item.strokeColor = translateColor(stroke)
           case ("stroke-width", sw) => item.strokeWidth = sw.toDouble
           case ("x", x) => item.position.x = x.toDouble

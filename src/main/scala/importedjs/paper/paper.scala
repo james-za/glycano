@@ -255,6 +255,7 @@ class Item extends js.Object {
   var name: js.UndefOr[String] = ???
   var position: Point = ???
   var rotation: Double = ???
+  var transformContent: Boolean = ???
   var style: PathStyle = ???
   var visible: Boolean = ???
   var blendMode: String = ???
@@ -323,6 +324,9 @@ class Item extends js.Object {
   def importSVG(svg: SVGElement): Item = ???
   def exportJSON(options: js.Dynamic = ???): String = ???
   def importJSON(json: String): Item = ???
+
+  def globalToLocal(p: Point): Point = ???
+  def localToGlobal(p: Point): Point = ???
 
   var onFrame: js.Function1[FrameEvent, _] = ???
   var onMouseDown: js.Function1[PaperMouseEvent, _] = ???

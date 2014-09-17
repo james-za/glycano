@@ -7,8 +7,10 @@ import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
 import za.jwatson.glycanoweb.structure._
 import za.jwatson.glycanoweb.structure.RGraph._
 
+import scalajs.js
+
 case class Gly(residues: Map[Residue, GlyRes])
-case class GlyRes(x: Double, y: Double, targetRes: Int, targetPos: Int, subs: Map[Int, Seq[SubstituentType]])
+case class GlyRes(x: Double, y: Double, rot: Double, targetRes: Int, targetPos: Int, subs: Map[Int, Seq[SubstituentType]])
 
 object Gly {
   def from(glycanoCanvas: GlycanoCanvas): Gly = {
@@ -21,10 +23,11 @@ object Gly {
       r <- rs
       item <- r.getItem
       p = item.position
+      rot = item.rotation
       tr = r.parent.fold(-1)(l => rp(l.residue))
       tp = r.parent.fold(-1)(_.position)
       subs = r.substituents.mapValues(_.map(_.st))
-    } yield r -> GlyRes(p.x, p.y, tr, tp, subs)
+    } yield r -> GlyRes(p.x, p.y, rot, tr, tp, subs)
 
     Gly(residues.toMap)
   }
@@ -43,5 +46,17 @@ object Gly {
       Js.Str(ResidueType(rt))
     ) => Residue.next(rt, ano, abs)
   })
-  //implicit val rwGly = ReadWriter()
+  implicit val rwGly = ReadWriter[Gly](gly => Js.Arr((for ((r, gr) <- gly.residues.toSeq) yield {
+    Js.Arr(writeJs(r), writeJs(gr.x), writeJs(gr.y), writeJs(gr.rot), writeJs(gr.targetRes), writeJs(gr.targetPos), Js.Obj(
+      (for ((i, sts) <- gr.subs.toSeq) yield i.toString -> Js.Arr(sts.map(writeJs[SubstituentType]): _*)): _*
+    ))
+  }): _*), {
+    case Js.Arr(rs @ _*) => Gly(rs.collect {
+      case Js.Arr(r, x, y, rot, tr, tp, Js.Obj(subs @ _*)) => readJs[Residue](r) -> GlyRes(
+        readJs[Double](x), readJs[Double](y), readJs[Double](rot), readJs[Int](tr), readJs[Int](tp), subs.collect {
+          case (i, Js.Arr(sts @ _*)) => i.toInt -> sts.map(readJs[SubstituentType])
+        }.toMap
+      )
+    }.toMap)
+  })
 }

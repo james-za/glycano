@@ -21,14 +21,14 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
     val pr = gly.residues.keys.toIndexedSeq
     //println(pr.map(r => s"id=${r.id}: $r"))
-    for ((r, GlyRes(x, y, _, _, subs)) <- gly.residues) {
-      addResidue(r, p.Point(x, y))
+    for ((r, GlyRes(x, y, rot, _, _, subs)) <- gly.residues) {
+      addResidue(r, p.Point(x, y), rot)
       for {
         (pos, sts) <- subs
         st <- sts
       } addSubstituent(Link(r, pos), st)
     }
-    for ((r, GlyRes(_, _, tr, tp, _)) <- gly.residues if tr != -1) {
+    for ((r, GlyRes(_, _, _, tr, tp, _)) <- gly.residues if tr != -1) {
       graph() += Bond(r, Link(pr(tr), tp))
       convention().addBond(r, pr(tr), tp)
     }
@@ -36,6 +36,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   def clearAll(): Unit = {
+    updateSelection(Set.empty)
     for {
       r <- residues()
       (_, subs) <- r.substituents
@@ -70,9 +71,9 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     residue
   }
 
-  def addResidue(residue: Residue, pos: p.Point): Residue = {
+  def addResidue(residue: Residue, pos: p.Point, rot: Double = 0.0): Residue = {
     graph() += residue
-    convention().addResidue(residue, pos)
+    convention().addResidue(residue, pos, rot)
     residue
   }
 
@@ -150,8 +151,48 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   canvas.onmousemove = mouseMove _
 
   jQ(org.scalajs.dom.window).keydown((e: JQueryEventObject) => {
-    keyPress(e.which)
+    val ctrl = e.asInstanceOf[js.Dynamic].ctrlKey.asInstanceOf[js.UndefOr[Boolean]]
+    val meta = e.asInstanceOf[js.Dynamic].metaKey.asInstanceOf[Boolean]
+    val mod = meta || ctrl.getOrElse(false)
+    e.which match {
+      case 46 =>
+        deleteSelection()
+      case 27 | 32 =>
+        if(GlycanoWeb.showModeSelect()) {
+          cancelPlace()
+        }
+      case 88 /*X*/ if mod =>
+        copySelection()
+        deleteSelection()
+      case 67 /*C*/ if mod =>
+        copySelection()
+      case 86 /*V*/ if mod =>
+        pasteSelection()
+      case _ =>
+    }
   })
+
+  val buffer = Var[Map[Residue, p.Point]](Map.empty)
+
+  def deleteSelection(): Unit = {
+    val deleted = selection()
+    updateSelection(Set.empty)
+    deleted foreach removeResidue
+  }
+
+  def copySelection(): Unit = {
+    val copied = for {
+      r <- selection()
+      item <- r.getItem
+    } yield r -> item.position
+    buffer() = copied.toMap
+  }
+
+  def pasteSelection(): Unit = {
+    for ((r, pos) <- buffer()) {
+      addResidue(r.anomer, r.absolute, r.rt, pos)
+    }
+  }
 
   sealed trait InputState
   object InputState {
@@ -506,9 +547,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
             for {
               st <- GlycanoWeb.substituentType()
               link <- convention().getClosestLinkAny(point, None)
-            } {
-              val added = addSubstituent(link, st)
-            }
+            } addSubstituent(link, st)
           case 2 =>
             cancelPlace()
         }
@@ -608,7 +647,8 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         for (r <- item.getResidue; ri <- r.getItem) {
           val mid = ri.bounds.center
           val dir = point.subtract(mid)
-          ri.asInstanceOf[js.Dynamic].setRotation(dir.angle + 90)
+          //ri.asInstanceOf[js.Dynamic].setRotation(dir.angle + 90)
+          ri.rotation = dir.angle + 90
           updateResidueSetBonds(Set(r))
         }
     }

@@ -3,10 +3,9 @@ package za.jwatson.glycanoweb
 import importedjs.filereaderjs.{FileReaderJS, Opts}
 import importedjs.paper
 import org.scalajs.dom
-import org.scalajs.dom.{MouseEvent, HTMLInputElement}
+import org.scalajs.dom.{HTMLInputElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => $, _}
 import rx._
-import upickle._
 import za.jwatson.glycanoweb.render.GlycanoCanvas
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer._
@@ -66,17 +65,22 @@ object GlycanoWeb {
 
     import za.jwatson.glycanoweb.BootstrapScalatags._
 
+    def radioGroup[T](name: String, items: Seq[T], itemId: T => String, content: T => String) = btnGroup(
+      for ((item, i) <- items.zipWithIndex) yield
+        radioButton(inputName = name, classes = if (i == 0) "active" else "")(id:=itemId(item), content(item))
+    )
+
+    /** Toggles for molecular class */
+    val residueCategories =
+      btnToolbar(display.`inline-block`)(
+        radioGroup[ResidueCategory]("category", ResidueCategory.ResidueCategories, cat => "rc-" + cat.name, _.name)
+      )
+
     /** Toggles for absolute and anomeric configuration */
     val residueConfig =
       btnToolbar(display.`inline-block`)(
-        btnGroup(
-          radioButton(inputName = "anomeric", classes = "active")(id:=Alpha.symbol, Alpha.desc),
-          radioButton(inputName = "anomeric")(id:=Beta.symbol, Beta.desc)
-        ),
-        btnGroup(
-          radioButton(inputName = "absolute", classes = "active")(id:=D.symbol, D.desc),
-          radioButton(inputName = "absolute")(id:=L.symbol, L.desc)
-        )
+        radioGroup[Anomer]("anomer", Anomer.Anomers, ano => "ano-" + ano.symbol, _.desc),
+        radioGroup[Absolute]("absolute", Absolute.Absolutes, abs => "abs-" + abs.symbol, _.desc)
       )
 
     /** Selection of residue type to create */
@@ -87,13 +91,15 @@ object GlycanoWeb {
 //          (div(cls := "svg"))
 //      )
 //    )
-    val residuePages = div(
+
+    val residueTabs =
       ul(cls:="nav nav-tabs", "role".attr:="tablist", id:="res-tabs")(
         for (cat <- ResidueCategory.ResidueCategories) yield
           li(a(href:=("#cat-" + cat.name), "role".attr:="tab", "data-toggle".attr:="tab")(
             cat.name
           ))
-      ),
+      )
+    val residuePages =
       btnGroup(id:="aldoses")(
         div(cls:="tab-content")(
           for (cat <- ResidueCategory.ResidueCategories) yield div(cls:="tab-pane", id:=("cat-" + cat.name))(
@@ -105,13 +111,13 @@ object GlycanoWeb {
           )
         )
       )
-    )
 
     /** Actions related to creating residues */
     val residuePanel =
       panel(Default)(
         panelHeading("Residues"),
         panelBody(classes = "text-center")(
+          row(col(xs=12)(residueTabs)),
           row(col(xs=12)(residueConfig)),
           row(col(xs=12)(residuePages))
         )
@@ -294,11 +300,16 @@ object GlycanoWeb {
     )
     $(".residue").tooltipster(tooltipsterConfig)
     $(".substituent").tooltipster(tooltipsterConfig)
-    $("#" + D.symbol).click(() => absolute() = D)
-    $("#" + L.symbol).click(() => absolute() = L)
-    $("#" + Alpha.symbol).click(() => anomeric() = Alpha)
-    $("#" + Beta.symbol).click(() => anomeric() = Beta)
-    for (rt <- ResidueType.Aldoses) {
+
+    for ((cat, i) <- ResidueCategory.ResidueCategories.zipWithIndex)
+      $("#rc-" + cat.name).click { () =>
+        $(s"#myTab li:eq($i) a").asInstanceOf[js.Dynamic].tab("show")
+      }
+
+    for (ano <- Anomer.Anomers) $("#ano-" + ano.symbol).click(() => anomeric() = ano)
+    for (abs <- Absolute.Absolutes) $("#abs-" + abs.symbol).click(() => absolute() = abs)
+
+    for (rt <- ResidueType.ResidueTypes) {
       val rtElem = dom.document.getElementById("rt-" + rt.desc)
       $(rtElem).click(null, (eo: JQueryEventObject) => {
         val rtOld = residueType()
@@ -364,8 +375,9 @@ object GlycanoWeb {
     }
 
     $("#save-gly").click(null, (eo: JQueryEventObject) => {
+      import Gly._
       import upickle._
-      val gly = write(Gly.from(glycanoCanvas))
+      val gly = write(Gly.from(glycanoCanvas))(rwGly)
       val base64 = dom.window.btoa(gly)
       val dataUrl = "data:text/plain;base64," + base64
       glycanoCanvas.scope.view.draw()
@@ -386,8 +398,9 @@ object GlycanoWeb {
     }: js.Any)
 
     val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
+      import upickle._, Gly._
       val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
-      val gly = read[Gly](str)
+      val gly = read[Gly](str)(rwGly)
 
       glycanoCanvas.loadGly(gly)
       $("#filename").value(file.name)
