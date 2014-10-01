@@ -16,6 +16,8 @@ import scalaz.std.option._
 import scalaz.syntax.std.option._
 
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
+  def dc = GlycanoWeb.displayConv()
+
   def loadGly(gly: Gly): Unit = {
     clearAll()
 
@@ -57,12 +59,36 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   scope.setup(canvas)
   val convention = rx.Var[Convention](new Convention(scope))
   implicit def _convention = convention()
-  val o = rx.Obs(convention, skipInitial = true) {
-    //todo: conversion between uct/cfg/oxford
+
+  rx.Obs(GlycanoWeb.displayConv, skipInitial = true) {
+    for ((s, ss) <- convention().substSubstShapes) {
+      convention().removeSubstituent(s)
+    }
+    for ((r, rs) <- convention().residueResidueShapes if r.rt.category != ResidueCategory.Repeat) {
+      val pos = rs.group.position
+      val rot = rs.group.rotation
+      convention().removeResidue(r)
+      if (dc == DisplayConv.convUCT) {
+        convention().addResidue(r, pos, rot)
+        for {
+          (p, subs) <- r.substituents
+          top = convention().linkPosition(Link(r, p))
+        } {
+          subs.zipWithIndex.foldLeft(top) {
+            case (t, (sub, i)) =>
+              val first = i == 0
+              val ss = convention().addSubstituent(sub, t, first)
+              val h = ss.item.bounds.height
+              t.add(0, if (first) h / 2 else h)
+          }
+        }
+      } else {
+        convention().addResidue(r, pos, rot, r.substituents)
+      }
+    }
+    updateResidueSetBonds(residues())
+    scope.view.draw()
   }
-
-  //todo: val conv = Var[DisplayConv](UCT)
-
 
   def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, pos: p.Point): Residue = {
     val residue = Residue.next(rt, ano, abs)
@@ -109,16 +135,18 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       convention().removeBond(r)
   }
 
-  def addSubstituent(link: Link, st: SubstituentType): Substituent = {
-    val substituent = Substituent.next(st)
-    addSubstituent(link, substituent)
-    substituent
+  def addSubstituent(link: Link, st: SubstituentType): Unit = {
+    if (link.residue.rt.category != ResidueCategory.Repeat) {
+      addSubstituent(link, Substituent.next(st))
+    }
   }
 
   def addSubstituent(link: Link, substituent: Substituent): Unit = {
-    val (pos, mid) = nextSubstPos(link)
-    graph() += link -> substituent
-    convention().addSubstituent(substituent, pos, mid)
+    if (link.residue.rt.category != ResidueCategory.Repeat) {
+      val (pos, mid) = nextSubstPos(link)
+      graph() += link -> substituent
+      convention().addSubstituent(substituent, pos, mid)
+    }
   }
 
   def removeSubstituent(subst: Substituent): Unit = {
@@ -300,6 +328,14 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     tempBond(TempBond.LinkToPoint(Link(residue, 1), point))
   }
 
+  def repeatTargetValid(link: Link): Boolean = {
+    link.residue.rt match {
+      case ResidueType.Begin => false
+      case ResidueType.End => link.position == 2
+      case _ => true
+    }
+  }
+
   def updateBondTarget(point: p.Point): Unit = {
     for {
       from <- tempBond.items.keys.headOption collect {
@@ -309,7 +345,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       item <- from.residue.getItem
     } {
       val closestLink = convention().getClosestLinkAnyFilter(
-        linkFilter = _.residue != from.residue,
+        linkFilter = link => link.residue != from.residue && repeatTargetValid(link),
         from = point,
         angle = item.rotation
       )
@@ -431,7 +467,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   def linkFilter(link: Link): Boolean = {
     val bondOk = if (link.position == 1) !link.residue.hasParent else true
-    link.residue.child(link.position).isEmpty && bondOk
+    link.residue.child(link.position).isEmpty && bondOk && repeatTargetValid(link)
   }
 
   def showPlaceTempBonds(point: p.Point, angle: Double): Unit = {
@@ -447,12 +483,14 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         case (r, i) => convention().onRightOf(point, i.position, angle)
       }
       val rightTB = for {
-        point <- convention().residueTemplateLinkPosition(1)
+        point <- convention().residueTemplateLinkPosition(1) if t.rt != ResidueType.End
         link <- convention().getClosestLinkAnyFilterFrom(right.map(_._1), linkFilter, point, Some(true), angle, 200 * 200)
       } yield TempBond.LinkToTemplate(link, 1)
       
       val validLefts = for {
         (r, i) <- left.toSeq if !r.hasParent
+        if t.rt != ResidueType.Begin
+        if r.rt != ResidueType.End
         link = Link(r, 1)
         linkPt = convention().linkPosition(link)
         dist = linkPt.getDistance(point, squared = true)

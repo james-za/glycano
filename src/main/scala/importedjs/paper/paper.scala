@@ -255,7 +255,7 @@ class Item extends js.Object {
   var name: js.UndefOr[String] = ???
   var position: Point = ???
   var rotation: Double = ???
-  var transformContent: Boolean = ???
+  var applyMatrix: Boolean = ???
   var style: PathStyle = ???
   var visible: Boolean = ???
   var blendMode: String = ???

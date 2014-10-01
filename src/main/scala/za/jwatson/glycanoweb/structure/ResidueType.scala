@@ -5,9 +5,9 @@ import ResidueType._
 
 case class ResidueType(symbol: String, desc: String, linkage: Int, category: ResidueCategory)
 
-object ResidueType extends Aldoses with Ketoses with Alditols {
-  val ResidueTypes = Aldoses ++ Ketoses ++ Alditols
-  val ResidueTypeCategories = ResidueTypes.groupBy(_.category) + (Repeat -> Seq.empty)
+object ResidueType extends Aldoses with Ketoses with Alditols with Repeat {
+  val ResidueTypes = Aldoses ++ Ketoses ++ Alditols ++ Repeats
+  val ResidueTypeCategories = ResidueTypes.groupBy(_.category)// + (Repeat -> Seq.empty)
   val ResidueTypeMap = ResidueTypes.map(rt => rt.symbol -> rt).toMap
 
   def aldose(symbol: String, desc: String, linkage: Int) =
@@ -20,6 +20,12 @@ object ResidueType extends Aldoses with Ketoses with Alditols {
     ResidueType(symbol, desc, linkage, Repeat)
 
   def unapply(str: String): Option[ResidueType] = ResidueTypeMap.get(str)
+}
+
+trait Repeat {
+  val Begin = repeat("[", "Repeat-Begin", 1)
+  val End = repeat("]", "Repeat-End", 2)
+  val Repeats = Seq(Begin, End)
 }
 
 trait Aldoses {

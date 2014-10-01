@@ -48,7 +48,8 @@ object GlycanoBuild extends Build {
       name := "GlycanoWeb",
       nightmareTask,
       bootSnippet := "GlycanoWeb().main();",
-      refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile)
+      refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),
+      relativeSourceMaps := true
     ): _*
   )
 

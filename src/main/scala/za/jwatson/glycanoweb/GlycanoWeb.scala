@@ -6,7 +6,7 @@ import org.scalajs.dom
 import org.scalajs.dom.{HTMLInputElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => $, _}
 import rx._
-import za.jwatson.glycanoweb.render.GlycanoCanvas
+import za.jwatson.glycanoweb.render.{DisplayConv, GlycanoCanvas}
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer._
 import za.jwatson.glycanoweb.structure.RGraph._
@@ -38,6 +38,7 @@ object GlycanoWeb {
   val residueType = rx.Var[Option[ResidueType]](None)
   val substituentType = rx.Var[Option[SubstituentType]](None)
   val showModeSelect = Rx((residueType() orElse substituentType()).isDefined)
+  val displayConv = rx.Var[DisplayConv](DisplayConv.convUCT)
 
   val conventionEditor = new ConventionEditor("conventionEditor")
 
@@ -47,6 +48,8 @@ object GlycanoWeb {
       $("#rt-" + o.desc).button("toggle")
     residueType() = rt
     if (substituentType().isDefined) setSubstituentType(none)
+    if (residueType().isDefined && displayConv() != DisplayConv.convUCT)
+      setResidueType(none)
   }
 
   def setSubstituentType(st: Option[SubstituentType], skipToggle: Boolean = false): Unit = {
@@ -55,6 +58,15 @@ object GlycanoWeb {
       $("#st-" + o.symbol).button("toggle")
     substituentType() = st
     if (residueType().isDefined) setResidueType(none)
+    if (substituentType().isDefined && displayConv() != DisplayConv.convUCT)
+      setSubstituentType(none)
+  }
+
+  Obs(displayConv) {
+    if (displayConv() != DisplayConv.convUCT) {
+      setResidueType(none)
+      setSubstituentType(none)
+    }
   }
 
   @JSExport
@@ -199,7 +211,7 @@ object GlycanoWeb {
 
 
 //    val modeCreate =
-//      col(xs=6)(btn(Primary, Lg, block = true)("Create")(id:="mode-create", onclick:={
+//      col(xs=6)(btn(Primary, Lg, block = true)("Create")(id:="mode-create", onclick:={() =>
 //        if(residueType().isEmpty) residueType() = Some(ResidueType.Glycero)
 //      }))
     val modeSelect =
@@ -212,9 +224,8 @@ object GlycanoWeb {
         panelHeading("Convention"),
         panelBody(classes = "text-center")(
           btnGroup(
-            radioButton(Default, "conv-uct")("UCT"),
-            radioButton(Default, "conv-cfg")("CFG"),
-            radioButton(Default, "conv-oxford")("Oxford")
+            radioButton(Default, "conv-uct")("UCT")(onclick := {() => displayConv() = DisplayConv.convUCT}),
+            radioButton(Default, "conv-cfg")("CFG")(onclick := {() => displayConv() = DisplayConv.convCFG})
           )
         )
       )
@@ -239,7 +250,7 @@ object GlycanoWeb {
 
     dom.document.body.appendChild(mainContainer.render)
     dom.document.body.appendChild(conventionEditor.renderModal)
-    $("#" + conventionEditor.textAreaId).`val`(ConventionEditor.testText)
+    $("#" + conventionEditor.textAreaId).`val`(ConventionEditor.textUCT)
 
     val cv = canvas(display.`inline-block`, verticalAlign:="top", id:="stage", tabindex:=1).render
     dom.document.getElementById("stage-panel").appendChild(cv)
@@ -267,7 +278,8 @@ object GlycanoWeb {
       rt <- ResidueType.ResidueTypes
     } yield {
       val g = glycanoCanvas.convention().createIcon(rt, abs, ano, iconBounds)
-      (ano, abs, rt) -> svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
+      val svg = svgTags.svg(display:="block", width:=iconWidth.px, height:=iconHeight.px)(raw(g.outerHTML))
+      (ano, abs, rt) -> svg
     }).toMap
 
     val substIconMap = (for (st <- SubstituentType.SubstituentTypes) yield {
@@ -412,7 +424,10 @@ object GlycanoWeb {
       glycanoCanvas.residues()
       glycanoCanvas.bonds()
       val sel = glycanoCanvas.selection()
-      CASPER.getStrings(sel).values.mkString("; ")
+      println("sel: " + sel)
+      val text = CASPER.getStrings(sel).values.mkString("; ")
+      println("text: " + text)
+      text
     }
     Obs(casperText) {
       dom.document.getElementById("casper").setAttribute("value", casperText())
@@ -422,8 +437,10 @@ object GlycanoWeb {
       glycanoCanvas.selection().toList match {
         case Nil => div()
         case res :: Nil =>
-          val first = for(Link(to, p) <- res.parent) yield div(s"${res.desc}(1->$p)${to.desc}")
-          val rest = for(ch <- res.children.toSeq; (i, src) <- ch) yield div(s"${src.desc}(1->$i)${res.desc}")
+          val first = for(parent @ Link(to, p) <- res.parent) yield
+            div(res.symbol, CASPER.arrowString(Bond(res, parent)), to.symbol)
+          val rest = for(ch <- res.children.toSeq; (i, src) <- ch) yield
+            div(src.symbol, CASPER.arrowString(Bond(src, Link(res, i))), res.symbol)
           div((first ++ rest).toSeq)
         case ress => div(ress.map(r => div(r.desc)))
       }
