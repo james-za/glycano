@@ -327,6 +327,20 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     }
   }*/
 
+  val bondsLabelled = Rx[Set[Bond]] {
+    val show = GlycanoWeb.bondLabels()
+    if (show) {
+      for {
+        from <- bonds()
+        to <- from.parent
+      } yield Bond(from, to)
+    } else Set.empty[Bond]
+  }
+
+  Obs(bondsLabelled) {
+    ctx.bondLabels := bondsLabelled()
+    redraw()
+  }
 
   val boxSelect = Var[Option[p.Rectangle]](None)
 
@@ -505,6 +519,8 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       from <- affectedBonds
       Link(to, i) <- from.parent
     } ctx.updateBond(from, to, i)
+
+    ctx.bondLabels := bondsLabelled()
 
     for {
       r <- set

@@ -740,7 +740,7 @@ class TextItem extends Item {
 }
 
 @JSName("paper.PointText")
-class PointText protected () extends TextItem {
+class PointText () extends TextItem {
   def this(point: Point) = this()
   var point: Point = ???
 }

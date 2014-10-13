@@ -4,6 +4,8 @@ import za.jwatson.glycanoweb.{BootstrapScalatags => bs}
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure._
 
+import org.scalajs.jquery.{jQuery => jQ}
+
 import scalatags.JsDom.all._
 import GlycanoWeb._
 
@@ -133,6 +135,17 @@ object GlycanoPage {
         ul(cls:="nav navbar-nav")(
           saveDropdown
         ),
+        form(cls:="navbar-form navbar-left")(
+          bs.formGroup(
+            label(cls:="checkbox-inline")(
+              input(`type`:="checkbox", id:="bondlabel", value:="bondlabel", onchange:={() =>
+                GlycanoWeb.bondLabels() = jQ("#bondlabel").is(":checked")
+              }),
+              "Bond Labels"
+            )
+          )
+        ),
+        " ",
         bs.navBtn()(id:="navbar-clear-btn", "Clear"),
         " ",
         conventionEditor.createNavButton

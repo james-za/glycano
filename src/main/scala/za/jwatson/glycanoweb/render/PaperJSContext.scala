@@ -1,9 +1,10 @@
 package za.jwatson.glycanoweb.render
 
 import importedjs.paper.Implicits._
+import importedjs.paper.PointText
 import importedjs.{paper => p}
 import org.scalajs.dom.SVGElement
-import za.jwatson.glycanoweb.GlycanoWeb
+import za.jwatson.glycanoweb.{CASPER, GlycanoWeb}
 import za.jwatson.glycanoweb.render.PaperJSContext.CanvasItemMod
 import za.jwatson.glycanoweb.structure.Anomer._
 import za.jwatson.glycanoweb.structure.RGraph._
@@ -393,6 +394,26 @@ class PaperJSContext(scope: p.PaperScope) {
 
   def finishBond(from: Link, to: p.Point): Option[Link] = {
     getClosestLinkAny(to, parent = Some(true))
+  }
+
+  val bondLabels = new DiffMap[Bond, p.PointText] {
+    override val updateWhenCreating: Boolean = true
+    override def removeItem(source: Bond, item: PointText): Unit = item.remove()
+    override def createItem(source: Bond): PointText = {
+      val text = new p.PointText()
+      text.content = source.from.anomer.desc + "" + source.to.position
+      text.fontSize = 40
+      text.fontWeight = "Bold"
+      text.fillColor = "white"
+      text.strokeColor = "black"
+      text.strokeWidth = 2
+      text
+    }
+    override def updateItem(source: Bond, item: PointText): Unit = {
+      val from = linkPosition(Link(source.from, 1))
+      val to = linkPosition(source.to)
+      item.position = from.add(to).multiply(0.5)
+    }
   }
 
   val handleHL: CanvasItemMod[p.Path, Residue] = new CanvasItemMod[p.Path, Residue] {

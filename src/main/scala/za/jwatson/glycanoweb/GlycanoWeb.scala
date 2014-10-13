@@ -31,6 +31,7 @@ object GlycanoWeb extends JSApp {
   val substituentType = rx.Var[Option[SubstituentType]](None)
   val showModeSelect = Rx(residueType().isDefined || substituentType().isDefined)
   val displayConv = rx.Var[DisplayConv](DisplayConv.convUCT)
+  val bondLabels = rx.Var[Boolean](false)
 
   val conventionEditor = new ConventionEditor("conventionEditor")
 
@@ -229,8 +230,9 @@ object GlycanoWeb extends JSApp {
     }: js.Any)
 
     $("#save-svg").click(null, (eo: JQueryEventObject) => {
+      import js.Dynamic.{global => g}
       val svg = glycanoCanvas.scope.project.exportSVG(js.Dynamic.literal(asString = true: js.Any))
-      val base64 = dom.window.btoa(svg.asInstanceOf[String])
+      val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
       val dataUrl = "data:image/svg+xml;base64," + base64
       $("#save-svg").attr("href", dataUrl).attr("download", filename + ".svg")
     }: js.Any)
