@@ -89,6 +89,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   scope.setup(canvas)
   implicit val ctx = new PaperJSContext(scope)
 
+  val layerBack = scope.project.activeLayer
+  val background = p.Path.Rectangle(scope.view.bounds.topLeft, scope.view.bounds.bottomRight)
+  background.fillColor = "white"
+  val layerFront = new p.Layer()
+  layerFront.activate()
+
   def redraw() = scope.view.draw()
 
   rx.Obs(GlycanoWeb.displayConv, skipInitial = true) {
@@ -522,15 +528,13 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
     ctx.bondLabels := bondsLabelled()
 
-    for {
+    if (dc == DisplayConv.convUCT) for {
       r <- set
       (pos, subs) <- r.substituents
       top = ctx.linkPosition(Link(r, pos))
       (sub, offset) <- subs.zip(stackPositions(subs))
       subItem <- sub.getItem
-    } {
-      subItem.position = top.add(0, offset)
-    }
+    } subItem.position = top.add(0, offset)
   }
 
   def moveSelectionBy(delta: p.Point) {

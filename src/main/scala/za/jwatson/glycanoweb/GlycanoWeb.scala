@@ -84,6 +84,9 @@ object GlycanoWeb extends JSApp {
       val h = docHeight - top - 15 - 45
       $("#stage").width(w).height(h)
       glycanoCanvas.scope.view.viewSize = new paper.Size(w, h)
+      glycanoCanvas.background.fitBounds(glycanoCanvas.scope.view.bounds)
+      glycanoCanvas.background.bounds.width = glycanoCanvas.scope.view.bounds.width - 1
+      glycanoCanvas.background.bounds.height = glycanoCanvas.scope.view.bounds.height - 1
       glycanoCanvas.scope.view.draw()
     }
     //dom.window.onload = {_: dom.Event => resizeCanvas()}
@@ -360,6 +363,7 @@ object GlycanoWeb extends JSApp {
       ov.appendChild(overviewContent().render)
     }
 
+    resizeCanvas()
     glycanoCanvas.redraw()
 
   }
