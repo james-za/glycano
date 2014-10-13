@@ -33,7 +33,7 @@ object GlycanoBuild extends Build {
     libraryDependencies ++= Seq(
       "org.scala-lang.modules.scalajs"  %%% "scalajs-dom"       % "0.6",
       "org.scala-lang.modules.scalajs"  %%% "scalajs-jquery"    % "0.6",
-      "com.scalatags"                   %%% "scalatags"         % "0.4.0",
+      "com.scalatags"                   %%% "scalatags"         % "0.4.1",
       "com.scalarx"                     %%% "scalarx"           % "0.2.6",
       "com.github.japgolly.fork.scalaz" %%% "scalaz-core"       % "7.1.0",
       "name.myltsev"                    %%% "shapeless"         % "2.0.0",
@@ -47,7 +47,7 @@ object GlycanoBuild extends Build {
     gwDefaultSettings ++ scalaJSSettings ++ workbenchSettings ++ Seq(
       name := "GlycanoWeb",
       nightmareTask,
-      bootSnippet := "GlycanoWeb().main();",
+      bootSnippet := "za.jwatson.glycanoweb.GlycanoWeb().main();",
       refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),
       relativeSourceMaps := true
     ): _*

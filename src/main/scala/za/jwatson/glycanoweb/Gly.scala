@@ -14,20 +14,18 @@ case class GlyRes(x: Double, y: Double, rot: Double, targetRes: Int, targetPos: 
 
 object Gly {
   def from(glycanoCanvas: GlycanoCanvas): Gly = {
-    import glycanoCanvas.RichResidue
-
     implicit val graph = glycanoCanvas.graph()
     val rs = glycanoCanvas.graph().residues.toList
     val rp = rs.zipWithIndex.toMap
     val residues = for {
       r <- rs
-      item <- r.getItem
-      p = item.position
-      rot = item.rotation
+      x <- r.x
+      y <- r.y
+      rot <- r.rotation
       tr = r.parent.fold(-1)(l => rp(l.residue))
       tp = r.parent.fold(-1)(_.position)
       subs = r.substituents.mapValues(_.map(_.st))
-    } yield r -> GlyRes(p.x, p.y, rot, tr, tp, subs)
+    } yield r -> GlyRes(x, y, rot, tr, tp, subs)
 
     Gly(residues.toMap)
   }

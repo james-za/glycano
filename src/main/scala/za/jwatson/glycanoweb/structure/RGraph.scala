@@ -8,12 +8,15 @@ import scalaz.{State, PState}
 import scalaz.syntax.std.option._
 import scalaz.std.option._
 
-case class RGraph(entries: Map[Residue, GraphEntry] = Map.empty, substs: Map[Substituent, SubstEntry] = Map.empty)
+case class RGraph(entries: Map[Residue, GraphEntry] = Map.empty, substs: Map[Substituent, Link] = Map.empty)
+
+case class Placement(x: Double, y: Double, rotation: Double)
 
 object RGraph {
   def of(xs: Seq[Residue]): RGraph = RGraph(xs.map(_ -> GraphEntry()).toMap)
 
   case class GraphEntry(
+    x: Double = 0, y: Double = 0, rotation: Double = 0,
     children: Map[Int, Residue] = Map.empty,
     parent: Option[Link] = None,
     subs: Map[Int, Vector[Substituent]] = Map.empty
@@ -22,12 +25,14 @@ object RGraph {
     def -(ci: Int) = this.copy(children = children - ci)
   }
 
-  case class SubstEntry(link: Link) {
+  case class SubstEntry(link: Link)
 
-  }
+  private val xL: GraphEntry @> Double = Lens.lensg(ge => x2 => ge.copy(x = x2), _.x)
+  private val yL: GraphEntry @> Double = Lens.lensg(ge => y2 => ge.copy(y = y2), _.y)
+  private val rotationL: GraphEntry @> Double = Lens.lensg(ge => r2 => ge.copy(rotation = r2), _.rotation)
 
-  val substsL: RGraph @> Map[Substituent, SubstEntry] = Lens.lensg(g => ss2 => g.copy(substs = ss2), g => g.substs)
-  def substEntryL(s: Substituent): RGraph @?> SubstEntry = ~substsL >=> PLens.mapVPLens(s)
+  val substsL: RGraph @> Map[Substituent, Link] = Lens.lensg(g => ss2 => g.copy(substs = ss2), g => g.substs)
+  def substEntryL(s: Substituent): RGraph @?> Link = ~substsL >=> PLens.mapVPLens(s)
 
   private val entriesL: RGraph @> Map[Residue, GraphEntry] = Lens.lensg(g => es2 => g.copy(entries = es2), _.entries)
   private def entryL(r: Residue): RGraph @?> GraphEntry = ~entriesL >=> PLens.mapVPLens(r)
@@ -70,7 +75,7 @@ object RGraph {
       val stack = subs.getOrElse(link.position, Vector.empty)
       subs.updated(link.position, stack :+ subst)
     }
-    _ <- substsL %== { _ + (subst -> SubstEntry(link)) }
+    _ <- substsL %== { _.updated(subst, link) }
   } yield ()
 
   def removeSubst(subst: Substituent)(g: RGraph): State[RGraph, Unit] = {
@@ -94,17 +99,26 @@ object RGraph {
     _ <- substsL %== { _ -- r.substituents(g).values.flatten }
     _ <- entriesL %== { _ - r }
   } yield ()
+
+  def setPlacement(r: Residue, placement: Placement): State[RGraph, Unit] = for {
+    _ <- entryL(r) >=> ~xL := placement.x
+    _ <- entryL(r) >=> ~yL := placement.y
+    _ <- entryL(r) >=> ~rotationL := placement.rotation
+  } yield ()
   
   implicit class RGraphOps(g: RGraph) {
     def -(residue: Residue): RGraph = removeResidue(residue) exec g
     def -(bond: Bond): RGraph = removeBond(bond) exec g
     def -(link: Link): RGraph = removeLink(link) exec g
     def -(subst: Substituent): RGraph = removeSubst(subst)(g) exec g
+    def --(links: Iterable[Link]): RGraph = links.foldLeft(g)(_ - _)
 
     def +(residue: Residue): RGraph = addResidue(residue) exec g
     def +(bond: Bond): RGraph = addBond(bond) exec g
     //def +(bond: (Residue, Link)): RGraph = addBond(bond._1)(bond._2) exec g
     def +(subst: (Link, Substituent)): RGraph = addSubst(subst._1)(subst._2)(g) exec g
+
+    def updated(r: Residue, placement: Placement): RGraph = setPlacement(r, placement) exec g
     
 //    def --(residues: Seq[Residue]): RGraph = entriesL.mod(_ -- residues, g)
 //    def ++(residues: Seq[Residue]): RGraph = entriesL.mod(_ ++ residues.map(_ -> GraphEntry()), g)
@@ -115,10 +129,16 @@ object RGraph {
   }
 
   implicit class ResidueOps(r: Residue) {
-    def parent(implicit g: RGraph): Option[Link] = getParentL(r) get g
-    def children(implicit g: RGraph): Option[Map[Int, Residue]] = entryL(r) >=> ~childrenMapL get g
+    lazy val entry: RGraph @?> GraphEntry = entryL(r)
+
+    def x(implicit g: RGraph): Option[Double] = entry >=> ~xL get g
+    def y(implicit g: RGraph): Option[Double] = entry >=> ~yL get g
+    def rotation(implicit g: RGraph): Option[Double] = entry >=> ~rotationL get g
+
+    def parent(implicit g: RGraph): Option[Link] = entry >=> ~parentL >=> PLens.somePLens get g
+    def children(implicit g: RGraph): Option[Map[Int, Residue]] = entry >=> ~childrenMapL get g
     def child(i: Int)(implicit g: RGraph): Option[Residue] = getChildL(r, i) get g
-    def bond(implicit g: RGraph): Option[Bond] = getParentL(r) get g map (Bond(r, _))
+    def bond(implicit g: RGraph): Option[Bond] = entry >=> ~parentL >=> PLens.somePLens get g map (Bond(r, _))
 
     def hasParent(implicit g: RGraph): Boolean = g.entries.get(r).fold(false)(_.parent.nonEmpty)
     def hasChildren(implicit g: RGraph): Boolean = g.entries.get(r).fold(false)(_.children.nonEmpty)
@@ -136,7 +156,7 @@ object RGraph {
   }
 
   implicit class SubstituentOps(s: Substituent) {
-    def residue(implicit g: RGraph): Residue = g.substs(s).link.residue
-    def link(implicit g: RGraph): Link = g.substs(s).link
+    def residue(implicit g: RGraph): Residue = g.substs(s).residue
+    def link(implicit g: RGraph): Link = g.substs(s)
   }
 }

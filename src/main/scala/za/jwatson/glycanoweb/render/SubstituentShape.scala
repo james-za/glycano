@@ -101,13 +101,14 @@ object SubstituentShape {
     val db = d.strokeBounds
     val b = st match {
       case ST.n => rrb(db, 5, 5, fill = "#86CEFF", stroke = "black")
-      case ST.cooh => cb(db, 5, fill = "white", stroke = "")
-      case ST.methyl => rrb(db, 5, 5, fill = "white", stroke = "")
+      case ST.cooh => cb(db, 5, fill = "white", stroke = "black")
+      case ST.methyl => rrb(db, 5, 5, fill = "white", stroke = "black")
       case ST.deoxy => cb(db, 6, fill = "white", stroke = "black")
       case ST.s => cb(db, 5, fill = "#FFFF00", stroke = "black")
       case ST.p => cb(db, 5, fill = "#8E008E", stroke = "black")
       case ST.ac => tb(db, fill = "white", stroke = "black")
     }
+    b.name = "back"
     new p.Group(js.Array[p.Item](b, d))
   }
 }

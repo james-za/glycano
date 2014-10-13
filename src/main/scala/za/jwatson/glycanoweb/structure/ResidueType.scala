@@ -1,12 +1,12 @@
 package za.jwatson.glycanoweb.structure
 
-import za.jwatson.glycanoweb.structure.ResidueCategory.{Repeat, Ketose, Alditol, Aldose}
+import za.jwatson.glycanoweb.structure.ResidueCategory._
 import ResidueType._
 
 case class ResidueType(symbol: String, desc: String, linkage: Int, category: ResidueCategory)
 
-object ResidueType extends Aldoses with Ketoses with Alditols with Repeat {
-  val ResidueTypes = Aldoses ++ Ketoses ++ Alditols ++ Repeats
+object ResidueType extends Aldoses with Ketoses with Alditols with Repeat with Annotation {
+  val ResidueTypes = Aldoses ++ Ketoses ++ Alditols ++ Repeats ++ Annotations
   val ResidueTypeCategories = ResidueTypes.groupBy(_.category)// + (Repeat -> Seq.empty)
   val ResidueTypeMap = ResidueTypes.map(rt => rt.symbol -> rt).toMap
 
@@ -20,6 +20,11 @@ object ResidueType extends Aldoses with Ketoses with Alditols with Repeat {
     ResidueType(symbol, desc, linkage, Repeat)
 
   def unapply(str: String): Option[ResidueType] = ResidueTypeMap.get(str)
+}
+
+trait Annotation {
+  val Text = ResidueType("text", "Text", 0, Annotation)
+  val Annotations = Seq(Text)
 }
 
 trait Repeat {

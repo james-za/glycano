@@ -1,7 +1,7 @@
 package za.jwatson.glycanoweb.render
 
 import org.parboiled2.ParseError
-import za.jwatson.glycanoweb.ConventionEditor
+import za.jwatson.glycanoweb.{ConventionParser, ConventionEditor}
 import za.jwatson.glycanoweb.ConventionEditor.RuleCond.{DefaultCond, ResCond}
 import za.jwatson.glycanoweb.ConventionEditor._
 import za.jwatson.glycanoweb.structure._

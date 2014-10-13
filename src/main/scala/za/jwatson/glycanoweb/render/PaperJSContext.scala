@@ -2,24 +2,35 @@ package za.jwatson.glycanoweb.render
 
 import importedjs.paper.Implicits._
 import importedjs.{paper => p}
-import org.parboiled2.ParseError
 import org.scalajs.dom.SVGElement
-import za.jwatson.glycanoweb.{GlycanoWeb, ConventionEditor}
-import za.jwatson.glycanoweb.ConventionEditor.{Conv, ConventionParser}
-import za.jwatson.glycanoweb.render.Convention.CanvasItemMod
-import za.jwatson.glycanoweb.structure.Absolute.{D, L}
+import za.jwatson.glycanoweb.GlycanoWeb
+import za.jwatson.glycanoweb.render.PaperJSContext.CanvasItemMod
 import za.jwatson.glycanoweb.structure.Anomer._
-import za.jwatson.glycanoweb.structure._
 import za.jwatson.glycanoweb.structure.RGraph._
+import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
-import scala.util.{Failure, Success}
 import scalaz.syntax.std.option._
 
-class Convention(scope: p.PaperScope) {
+class PaperJSContext(scope: p.PaperScope) {
   def dc = GlycanoWeb.displayConv()
 
   import importedjs.paper.{Point => P}
+
+  def createBondIcon(anomer: Anomer, size: p.Rectangle): SVGElement = {
+    val scale = 0.5
+    val item = p.Path.Line(size.leftCenter, size.rightCenter)
+    item.strokeColor = "black"
+    item.strokeWidth = 7
+    if(anomer == Beta) {
+      item.dashArray = js.Array(15 * scale, 10 * scale)
+    }
+    item.remove()
+    item.exportSVG()
+  }
+
+  def createIcon(r: Residue, bounds: p.Rectangle): SVGElement =
+    createIcon(r.rt, r.absolute, r.anomer, bounds)
 
   def createIcon(rt: ResidueType, abs: Absolute, ano: Anomer, bounds: p.Rectangle): SVGElement = {
     val rs = ResidueShape(Residue.next(rt, ano, abs), dc)
@@ -390,6 +401,18 @@ class Convention(scope: p.PaperScope) {
     override def revert(h: p.Path, r: Residue): Unit = {h.strokeColor = "black"}
   }
 
+  val bondHL: CanvasItemMod[p.Item, Bond] = new CanvasItemMod[p.Item, Bond] {
+    override def create(b: Bond): p.Item = bondItems(b.from)
+    override def update(h: p.Item, b: Bond): Unit = {h.strokeColor = "blue"}
+    override def revert(h: p.Item, b: Bond): Unit = {h.strokeColor = "black"}
+  }
+
+  val substituentHL: CanvasItemMod[p.Item, Substituent] = new CanvasItemMod[p.Item, Substituent] {
+    override def create(s: Substituent): p.Item = s.getGroup.get.children.find(_.name.getOrElse("") == "back").get
+    override def update(h: p.Item, s: Substituent): Unit = {h.strokeColor = "blue"; h.strokeWidth = 2}
+    override def revert(h: p.Item, s: Substituent): Unit = {h.strokeColor = "black"; h.strokeWidth = 1}
+  }
+
   val handlePress: CanvasItemMod[p.Path, Residue] = new CanvasItemMod[p.Path, Residue] {
     override def create(r: Residue): p.Path = r.handle
     override def update(h: p.Path, r: Residue): Unit = {h.strokeWidth = 2}
@@ -397,7 +420,8 @@ class Convention(scope: p.PaperScope) {
   }
 }
 
-object Convention {
+//todo: replace with DiffMap
+object PaperJSContext {
   trait CanvasItemMod[T, S] {
     def update(t: T, s: S): Unit
     def create(s: S): T
@@ -415,19 +439,6 @@ object Convention {
         item = Some(create(s))
         update(item.get, s)
       }
-//      source match {
-//        case Some(s) =>
-//          if(source != itemSource) {
-//            for (t <- item) revert(t, s)
-//            item = Some(create(s))
-//          }
-//          update(item.get, s)
-//        case None =>
-//          for(t <- item) {
-//            revert(t, itemSource.get)
-//            item = None
-//          }
-//      }
       itemSource = source
     }
   }

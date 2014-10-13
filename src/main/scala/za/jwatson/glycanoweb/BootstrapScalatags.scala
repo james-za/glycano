@@ -94,4 +94,9 @@ object BootstrapScalatags {
   def modalFooter(footerTag: Frag): TypedTag[HTMLDivElement] = div(cls:="modal-footer")(footerTag)
 
   val formGroup = div(cls:="form-group")
+
+  def radioGroup[T](name: String, items: Seq[T], itemId: T => String, content: T => String) = btnGroup(
+    for ((item, i) <- items.zipWithIndex) yield
+      radioButton(inputName = name, classes = if (i == 0) "active" else "")(id:=itemId(item), content(item))
+  )
 }
