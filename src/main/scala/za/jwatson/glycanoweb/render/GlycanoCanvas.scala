@@ -3,13 +3,14 @@ package za.jwatson.glycanoweb.render
 import importedjs.paper.Implicits._
 import importedjs.paper.{Point, PointText}
 import importedjs.{paper => p}
-import org.scalajs.dom.{HTMLCanvasElement, MouseEvent}
+import org.scalajs.dom.HTMLCanvasElement
 import org.scalajs.jquery.{JQueryEventObject, jQuery => jQ}
 import rx._
+import za.jwatson.glycanoweb.render.GlycanoCanvas.InputState.{AddAnnotation, Default}
 import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
-import za.jwatson.glycanoweb.{Gly, GlyRes, GlycanoWeb}
+import za.jwatson.glycanoweb.{GlyAnnot, Gly, GlyRes, GlycanoWeb}
 
 import scala.scalajs.js
 import scalaz.std.option._
@@ -63,6 +64,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 //    graph() = graph().updated(r, placement)
 //  }
 
+  val annotations = Var(Map.empty[Int, GlyAnnot])
+
+  Obs(annotations, skipInitial = true) {
+    ctx.annots := annotations().values.toSeq
+  }
+
   val history = Var(Vector(graph()))
   def addToHistory(): Unit = {
     history() = graph() +: history().drop(undoPosition) take undoLimit
@@ -90,12 +97,19 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   implicit val ctx = new PaperJSContext(scope)
 
   val layerBack = scope.project.activeLayer
-  val background = p.Path.Rectangle(scope.view.bounds.topLeft, scope.view.bounds.bottomRight)
-  background.fillColor = "white"
   val layerFront = new p.Layer()
   layerFront.activate()
 
   def redraw() = scope.view.draw()
+
+  def toggleAddAnnotation(): Unit = {
+    updateSelection(Set.empty)
+    state() match {
+      case Default => state() = AddAnnotation
+      case AddAnnotation => state() = Default
+      case _ =>
+    }
+  }
 
   rx.Obs(GlycanoWeb.displayConv, skipInitial = true) {
     for ((s, ss) <- ctx.substSubstShapes) {
@@ -105,7 +119,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       val pos = rs.group.position
       val rot = rs.group.rotation
       ctx.removeResidue(r)
-      if (dc == DisplayConv.convUCT) {
+      if (dc.name == "UCT") {
         ctx.addResidue(r, pos, rot)
         for {
           (p, subs) <- r.substituents
@@ -209,8 +223,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   implicit class RichSubstituent(substituent: Substituent) {
     def getItem: Option[p.Item] = ctx.getItem(substituent)
   }
+  implicit class RichAnnotation(annot: GlyAnnot) {
+    def getItem: Option[p.Item] = ctx.getItem(annot)
+  }
   implicit class RichItem(item: p.Item) {
     def getResidue: Option[Residue] = ctx.getResidue(item)
+    def getAnnotation: Option[GlyAnnot] = ctx.getAnnotation(item)
   }
 
   scope.project.layers.push(new p.Layer())
@@ -223,9 +241,13 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
 
-  canvas.onmousedown = mouseDown _
-  canvas.onmouseup = mouseUp _
-  canvas.onmousemove = mouseMove _
+//  canvas.onmousedown = mouseDown _
+//  canvas.onmouseup = mouseUp _
+//  canvas.onmousemove = mouseMove _
+
+  scope.tool.onMouseDown = mouseDown _
+  scope.tool.onMouseUp = mouseUp _
+  scope.tool.onMouseMove = mouseMove _
 
   jQ(org.scalajs.dom.window).keydown((e: JQueryEventObject) => {
     val shift = e.asInstanceOf[js.Dynamic].shiftKey.asInstanceOf[js.UndefOr[Boolean]].getOrElse(false)
@@ -303,19 +325,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     updateSelection(lookup.values.toSet)
     addToHistory()
   }
-
-  sealed trait InputState
-  object InputState {
-    case object Default extends InputState
-    case object PlaceResidue extends InputState
-    case object AddSubstituent extends InputState
-    case class BoxSelect(down: p.Point) extends InputState
-    case class Drag(last: p.Point) extends InputState
-    case object CreateBond extends InputState
-    case object PostCreateBond extends InputState
-    case class Hit(down: p.Point, item: p.Item) extends InputState
-    case class Rotate(item: p.Item) extends InputState
-  }
+  import GlycanoCanvas.InputState
   import InputState._
 
   val state = Var[InputState](Default)
@@ -332,6 +342,43 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case CreateBond =>
     }
   }*/
+
+  def changeResidue(old: Residue, added: Residue): Residue = {
+    val select = selection() contains old
+    if (select) updateSelection(selection() - old)
+
+    val parent = old.parent
+    val children = old.children
+    val pos = old.getItem.get.position
+    val rot = old.getItem.get.rotation
+    removeResidue(old)
+
+    addResidue(added, pos, rot)
+    for (link <- parent) addBond(Bond(added, link))
+    for {
+      map <- children
+      (pos, from) <- map
+    } addBond(Bond(from, Link(added, pos)))
+
+    if (select) updateSelection(selection() + added)
+    added
+  }
+
+  def changeResidueAnomer(r: Residue, ano: Anomer): Residue =
+    changeResidue(r, Residue.next(r.rt, ano, r.absolute))
+
+  def changeResidueAbsolute(r: Residue, abs: Absolute): Residue =
+    changeResidue(r, Residue.next(r.rt, r.anomer, abs))
+
+  val selectedAnnotation = Var[Option[Int]](None)
+
+  Obs(selectedAnnotation) {
+    val sel = selectedAnnotation()
+    for {
+      (id, annot) <- annotations()
+      item <- annot.getItem
+    } item.selected = sel.contains(id)
+  }
 
   val bondsLabelled = Rx[Set[Bond]] {
     val show = GlycanoWeb.bondLabels()
@@ -367,6 +414,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   def updateSelection(newSelection: Set[Residue]): Unit = {
+    selectedAnnotation() = None
     val oldSelection = selection()
     if(newSelection != oldSelection) {
       for (res <- oldSelection diff newSelection) ctx.unhighlightResidue(res)
@@ -376,7 +424,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   }
 
   var hitHandle: Boolean = false
-  
+
   val tempBond: DiffMap[TempBond, p.Path] = new DiffMap[TempBond, p.Path] {
     override val updateWhenCreating = false
     override def createItem(s: TempBond): p.Path = {
@@ -528,7 +576,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
     ctx.bondLabels := bondsLabelled()
 
-    if (dc == DisplayConv.convUCT) for {
+    if (dc.name == "UCT") for {
       r <- set
       (pos, subs) <- r.substituents
       top = ctx.linkPosition(Link(r, pos))
@@ -554,6 +602,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case (g, (r, placement)) =>
         g.updated(r, placement)
     }
+    for (annotId <- selectedAnnotation()) {
+      val annot = annotations()(annotId)
+      annotations() += annotId -> GlyAnnot(annotId, annot.x + delta.x, annot.y + delta.y, annot.rot, annot.text, annot.size)
+      for (item <- annotations()(annotId).getItem)
+        item.selected = true
+    }
   }
 
   def canvasTopLeft = {
@@ -564,11 +618,11 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     p.Point(left - scrollLeft, top - scrollTop)
   }
 
-  def clientToProject(e: MouseEvent): p.Point = {
-    val pointClient = p.Point(e.clientX, e.clientY)
-    val pointOffset = pointClient subtract canvasTopLeft
-    scope.view.viewToProject(pointOffset)
-  }
+//  def clientToProject(e: MouseEvent): p.Point = {
+//    val pointClient = p.Point(e.clientX, e.clientY)
+//    val pointOffset = pointClient subtract canvasTopLeft
+//    scope.view.viewToProject(pointOffset)
+//  }
 
   def cancelPlace(): Unit = {
     tempBond(Set.empty[TempBond])
@@ -601,7 +655,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         point <- ctx.residueTemplateLinkPosition(1) if t.rt != ResidueType.End
         link <- ctx.getClosestLinkAnyFilterFrom(right.map(_._1), linkFilter, point, Some(true), angle, 200 * 200)
       } yield TempBond.LinkToTemplate(link, 1)
-      
+
       val validLefts = for {
         (r, i) <- left.toSeq if !r.hasParent
         if t.rt != ResidueType.Begin
@@ -633,13 +687,13 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   //Obs(state){println(state())}
 
-  def mouseDown(e: MouseEvent): Unit = {
+  def mouseDown(e: p.ToolEvent): Unit = {
     canvas.focus()
     canvas.blur()
-    val point = clientToProject(e)
+    val point = e.point//clientToProject(e)
     state() match {
       case Default =>
-        if(e.button == 0) {
+        if(e.event.button == 0) {
           val hitTest = scope.project.hitTest(point)
           Option(hitTest) match {
             case Some(hit) =>
@@ -658,8 +712,9 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
                     state() = Rotate(hit.item)
                   }
                 case _ =>
-                  for (r <- hit.item.getResidue) {
-                    if (e.shiftKey || e.ctrlKey) updateSelection {
+                  //println("hit nothing")
+                  val foundResOpt = for (r <- hit.item.getResidue) yield {
+                    if (e.event.shiftKey || e.event.ctrlKey) updateSelection {
                       if (selection() contains r) selection() - r else selection() + r
                     } else {
                       state() = Hit(point, hit.item)
@@ -668,6 +723,18 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
                       }
                     }
                   }
+//                  val foundRes = foundResOpt.isDefined
+//                  val hitAnnots = for {
+//                    (annotId, annot) <- annotations()
+//                    item <- annot.getItem
+//                    if item.bounds.contains(point)
+//                  } yield annot
+
+                  for (annot <- hit.item.getAnnotation /*orElse hitAnnots.headOption*/) {
+                    updateSelection(Set.empty)
+                    selectedAnnotation() = Some(annot.id)
+                    state() = Hit(point, hit.item)
+                  }
               }
             case None =>
               updateBoxSelect(point, point)
@@ -675,7 +742,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           }
         }
       case PlaceResidue =>
-        e.button match {
+        e.event.button match {
           case 0 =>
             for(t <- residueTemplate()) {
               val added = addResidue(t.anomer, t.absolute, t.rt, point)
@@ -694,7 +761,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
             cancelPlace()
         }
       case AddSubstituent =>
-        e.button match {
+        e.event.button match {
           case 0 =>
             for {
               st <- GlycanoWeb.substituentType()
@@ -709,7 +776,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case BoxSelect(_) =>
       case Drag(_) =>
       case CreateBond =>
-        if(e.button == 0) {
+        if(e.event.button == 0) {
           endBond()
         }
         tempBond(Set.empty[TempBond])
@@ -718,10 +785,15 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case PostCreateBond =>
       case Hit(_, _) =>
       case Rotate(_) =>
+      case AddAnnotation =>
+        val added = GlyAnnot.next(point.x, point.y, 0, "Annotation", 20)
+        annotations() += (added.id -> added)
+        state() = Default
+        selectedAnnotation() = Some(added.id)
     }
   }
 
-  def mouseUp(e: MouseEvent): Unit = {
+  def mouseUp(e: p.ToolEvent): Unit = {
     state() match {
       case Default =>
       case PlaceResidue =>
@@ -746,6 +818,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         updateSelection(Set.empty)
         updateSelection(oldSel)
         state() = Default
+      case AddAnnotation =>
     }
   }
 
@@ -779,8 +852,8 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     (top.add(0, offset), stack.isEmpty)
   }
 
-  def mouseMove(e: MouseEvent): Unit = {
-    val point = clientToProject(e)
+  def mouseMove(e: p.ToolEvent): Unit = {
+    val point = e.point//clientToProject(e)
     state() match {
       case Default =>
         val hitTest = scope.project.hitTest(point)
@@ -820,6 +893,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
           ri.rotation = dir.angle + 90
           updateResidueSetBonds(Set(r))
         }
+      case AddAnnotation =>
     }
   }
 
@@ -860,4 +934,18 @@ object GlycanoCanvas {
   }
 //  case class TempBond(from: Link, to: p.Point, toPos: Option[Int], toLink: Option[Link])
   case class Selected(residue: Residue, offset: p.Point)
+
+  sealed trait InputState
+  object InputState {
+    case object Default extends InputState
+    case object PlaceResidue extends InputState
+    case object AddSubstituent extends InputState
+    case class BoxSelect(down: p.Point) extends InputState
+    case class Drag(last: p.Point) extends InputState
+    case object CreateBond extends InputState
+    case object PostCreateBond extends InputState
+    case class Hit(down: p.Point, item: p.Item) extends InputState
+    case class Rotate(item: p.Item) extends InputState
+    case object AddAnnotation extends InputState
+  }
 }

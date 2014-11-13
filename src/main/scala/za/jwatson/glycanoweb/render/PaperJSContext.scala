@@ -4,7 +4,7 @@ import importedjs.paper.Implicits._
 import importedjs.paper.PointText
 import importedjs.{paper => p}
 import org.scalajs.dom.SVGElement
-import za.jwatson.glycanoweb.{CASPER, GlycanoWeb}
+import za.jwatson.glycanoweb.{GlyAnnot, CASPER, GlycanoWeb}
 import za.jwatson.glycanoweb.render.PaperJSContext.CanvasItemMod
 import za.jwatson.glycanoweb.structure.Anomer._
 import za.jwatson.glycanoweb.structure.RGraph._
@@ -97,11 +97,14 @@ class PaperJSContext(scope: p.PaperScope) {
       item.asInstanceOf[js.Dynamic].pulseDuration.asInstanceOf[js.UndefOr[Double]].getOrElse(0.0)
   }
 
-  val itemResidueShapes = collection.mutable.Map[js.Number, ResidueShape]()
+  val itemResidueShapes = collection.mutable.Map[Double, ResidueShape]()
   val residueResidueShapes = collection.mutable.Map[Residue, ResidueShape]()
 
-  val itemSubstShapes = collection.mutable.Map[js.Number, SubstituentShape]()
+  val itemSubstShapes = collection.mutable.Map[Double, SubstituentShape]()
   val substSubstShapes = collection.mutable.Map[Substituent, SubstituentShape]()
+
+  val itemAnnotShapes = collection.mutable.Map[Double, AnnotShape]()
+  val annotAnnotShapes = collection.mutable.Map[GlyAnnot, AnnotShape]()
 
   def items = residueResidueShapes.values.map(_.group)
 
@@ -123,6 +126,13 @@ class PaperJSContext(scope: p.PaperScope) {
     def getSubstituentShape: Option[SubstituentShape] = substSubstShapes.get(substituent)
     def getGroup: Option[p.Item] = getSubstituentShape.map(_.item)
   }
+  implicit class RichAnnotRS(annot: GlyAnnot) {
+    def annotShape: AnnotShape = annotAnnotShapes(annot)
+    def item: p.Item = annotShape.item
+
+    def getAnnotShape: Option[AnnotShape] = annotAnnotShapes.get(annot)
+    def getItem: Option[p.Item] = getAnnotShape.map(_.item)
+  }
   implicit class RichItemRS(item: p.Item) {
     def residueShape: ResidueShape = itemResidueShapes(item.id)
     def residue: Residue = residueShape.residue
@@ -132,14 +142,19 @@ class PaperJSContext(scope: p.PaperScope) {
 
     def getResidueShape: Option[ResidueShape] = itemResidueShapes.get(item.id)
     def getResidue: Option[Residue] = getResidueShape.map(_.residue)
+
+    def getAnnotShape: Option[AnnotShape] = itemAnnotShapes.get(item.id)
+    def getAnnotation: Option[GlyAnnot] = getAnnotShape.map(_.annotation)
   }
 
   def getResidue(item: p.Item): Option[Residue] = item.getResidue
   def getItem(residue: Residue): Option[p.Item] = residue.getGroup
   def getItem(substituent: Substituent): Option[p.Item] = substituent.getGroup
+  def getItem(annot: GlyAnnot): Option[p.Item] = annot.getItem
+  def getAnnotation(item: p.Item): Option[GlyAnnot] = item.getAnnotation
 
   val bonds = collection.mutable.Map[js.Number, Residue]()
-  val bondItems = collection.mutable.Map[Residue, p.Path]()
+  val bondItems = collection.mutable.Map[Residue, (p.Path, p.Path)]()
 
   def addResidue(r: Residue, pos: p.Point, rot: Double = 0.0, subs: Map[Int, Vector[Substituent]] = Map.empty): Unit = {
     val rs = ResidueShape(r, dc, subs)
@@ -182,6 +197,21 @@ class PaperJSContext(scope: p.PaperScope) {
       itemSubstShapes.remove(ss.item.id)
       substSubstShapes.remove(subst)
       ss.item.remove()
+    }
+  }
+
+  def addAnnotation(annot: GlyAnnot, pos: p.Point): p.PointText = {
+    val as = AnnotShape(annot)
+    annotAnnotShapes(annot) = as
+    itemAnnotShapes(as.item.id) = as
+    as.item
+  }
+
+  def removeAnnotation(annot: GlyAnnot): Unit = {
+    for (as <- annotAnnotShapes.get(annot)) {
+      itemAnnotShapes.remove(as.item.id)
+      annotAnnotShapes.remove(annot)
+      as.item.remove()
     }
   }
 
@@ -242,6 +272,10 @@ class PaperJSContext(scope: p.PaperScope) {
   }
 
   def addBond(from: Residue, to: Residue, i: Int): Unit = {
+    val circle = p.Path.Circle(new p.Point(0, 0), 6)
+    circle.strokeColor = "black"
+    circle.strokeWidth = 1
+    circle.fillColor = "#808080"
 
     val item = new p.Path()
     item.strokeColor = "black"
@@ -251,24 +285,28 @@ class PaperJSContext(scope: p.PaperScope) {
     }
     item.project.layers(0) addChild item
     bonds(item.id) = from
-    bondItems(from) = item
+    bondItems(from) = (item, circle)
     updateBond(from, to, i)
   }
 
   def removeBond(r: Residue): Unit = {
-    for(item <- bondItems.get(r)) {
+    for((item, circle) <- bondItems.get(r)) {
       item.remove()
+      circle.remove()
       bondItems.remove(r)
       bonds.remove(item.id)
     }
   }
 
   def updateBond(from: Residue, to: Residue, i: Int): Unit = {
-    for(path <- bondItems.get(from)) {
+    for((path, circle) <- bondItems.get(from)) {
       path.removeSegments()
 
+      val toPos = linkPosition(Link(to, i))
       path.add(linkPosition(Link(from, 1)))
-      path.add(linkPosition(Link(to, i)))
+      path.add(toPos)
+
+      circle.position = toPos
     }
   }
 
@@ -326,7 +364,7 @@ class PaperJSContext(scope: p.PaperScope) {
   }
 
   def linkPosition(link: Link): p.Point = {
-    if (dc == DisplayConv.convUCT)
+    if (dc.name == "UCT")
       link.residue.group.localToGlobal(link.residue.outline.segments(link.position - 1).point)
     else
       link.residue.group.localToGlobal(link.residue.outline.bounds.center)
@@ -416,6 +454,16 @@ class PaperJSContext(scope: p.PaperScope) {
     }
   }
 
+  val annots = new DiffMap[GlyAnnot, p.PointText] {
+    override val updateWhenCreating: Boolean = true
+    override def removeItem(source: GlyAnnot, item: PointText): Unit = removeAnnotation(source)
+    override def createItem(source: GlyAnnot): PointText = addAnnotation(source, new p.Point(source.x, source.y))
+    override def updateItem(source: GlyAnnot, item: PointText): Unit = {
+      item.point = new p.Point(source.x, source.y)
+      item.fontSize = source.size
+    }
+  }
+
   val handleHL: CanvasItemMod[p.Path, Residue] = new CanvasItemMod[p.Path, Residue] {
     override def create(r: Residue): p.Path = r.handle
     override def update(h: p.Path, r: Residue): Unit = {h.strokeColor = "blue"}
@@ -423,7 +471,7 @@ class PaperJSContext(scope: p.PaperScope) {
   }
 
   val bondHL: CanvasItemMod[p.Item, Bond] = new CanvasItemMod[p.Item, Bond] {
-    override def create(b: Bond): p.Item = bondItems(b.from)
+    override def create(b: Bond): p.Item = bondItems(b.from)._1
     override def update(h: p.Item, b: Bond): Unit = {h.strokeColor = "blue"}
     override def revert(h: p.Item, b: Bond): Unit = {h.strokeColor = "black"}
   }

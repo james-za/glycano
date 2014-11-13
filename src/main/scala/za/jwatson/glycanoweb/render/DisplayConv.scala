@@ -1,7 +1,7 @@
 package za.jwatson.glycanoweb.render
 
 import org.parboiled2.ParseError
-import za.jwatson.glycanoweb.{ConventionParser, ConventionEditor}
+import za.jwatson.glycanoweb.{GlycanoWeb, ConventionParser, ConventionEditor}
 import za.jwatson.glycanoweb.ConventionEditor.RuleCond.{DefaultCond, ResCond}
 import za.jwatson.glycanoweb.ConventionEditor._
 import za.jwatson.glycanoweb.structure._
@@ -93,8 +93,40 @@ object DisplayConv {
   }
 
   val convDefault = new DisplayConv(Conv(""))
-  val convUCT = parseTextConv(ConventionEditor.textUCT) getOrElse convDefault
-  val convCFG = parseTextConv(ConventionEditor.textCFG) getOrElse convDefault
+
+  import org.scalajs.dom
+
+  val conventions = rx.Var[collection.mutable.Map[String, DisplayConv]](js.Dictionary[DisplayConv]())
+  def convs = dom.localStorage("glycano.conventions").asInstanceOf[js.UndefOr[String]].fold {
+    js.Dictionary[String]()
+  } {
+    c => js.JSON.parse(c).asInstanceOf[js.Dictionary[String]]
+  }
+
+  def refresh(): Unit = {
+    conventions() = for {
+      (k, v) <- convs
+      c <- parseTextConv(v)
+    } yield k -> c
+//    for (c <- conventions().get("UCT")) convUCT() = c
+//    for (c <- conventions().get("CFG")) convCFG() = c
+  }
+
+  refresh()
+
+  for {
+    (k, v) <- Map(
+      "UCT" -> ConventionEditor.textUCT,
+      "CFG" -> ConventionEditor.textCFG
+    )
+    c <- parseTextConv(v)
+  } {
+    //println(s"conv '$k':\n$v\n\n")
+    conventions()(k) = c
+  }
+
+  def convUCT = conventions().getOrElse("UCT", convDefault)
+  def convCFG = conventions().getOrElse("CFG", convDefault)
 }
 
 object ToInt {

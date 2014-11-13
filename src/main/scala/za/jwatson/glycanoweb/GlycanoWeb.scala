@@ -6,6 +6,8 @@ import org.scalajs.dom
 import org.scalajs.dom.{HTMLInputElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => $, _}
 import rx._
+import za.jwatson.glycanoweb.BootstrapScalatags.Sm
+import za.jwatson.glycanoweb.render.GlycanoCanvas.InputState
 import za.jwatson.glycanoweb.render.{DisplayConv, GlycanoCanvas}
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer._
@@ -17,6 +19,8 @@ import za.jwatson.glycanoweb.{BootstrapScalatags => bs}
 import scala.scalajs.js
 import scala.scalajs.js.JSApp
 import scala.scalajs.js.annotation.JSExport
+import scala.util.Try
+import scalatags.JsDom
 import scalatags.JsDom.all._
 import scalatags.JsDom.svgTags
 import scalaz.std.option._
@@ -31,6 +35,7 @@ object GlycanoWeb extends JSApp {
   val substituentType = rx.Var[Option[SubstituentType]](None)
   val showModeSelect = Rx(residueType().isDefined || substituentType().isDefined)
   val displayConv = rx.Var[DisplayConv](DisplayConv.convUCT)
+
   val bondLabels = rx.Var[Boolean](false)
 
   val conventionEditor = new ConventionEditor("conventionEditor")
@@ -44,7 +49,7 @@ object GlycanoWeb extends JSApp {
       $("#rt-" + o.desc).button("toggle")
     residueType() = rt
     if (substituentType().isDefined) setSubstituentType(none)
-    if (residueType().isDefined && displayConv() != DisplayConv.convUCT)
+    if (residueType().isDefined && displayConv().name != "UCT")
       setResidueType(none)
   }
 
@@ -54,12 +59,12 @@ object GlycanoWeb extends JSApp {
       $("#st-" + o.symbol).button("toggle")
     substituentType() = st
     if (residueType().isDefined) setResidueType(none)
-    if (substituentType().isDefined && displayConv() != DisplayConv.convUCT)
+    if (substituentType().isDefined && displayConv().name != "UCT")
       setSubstituentType(none)
   }
 
   Obs(displayConv) {
-    if (displayConv() != DisplayConv.convUCT) {
+    if (displayConv().name != "UCT") {
       setResidueType(none)
       setSubstituentType(none)
     }
@@ -84,9 +89,6 @@ object GlycanoWeb extends JSApp {
       val h = docHeight - top - 15 - 45
       $("#stage").width(w).height(h)
       glycanoCanvas.scope.view.viewSize = new paper.Size(w, h)
-      glycanoCanvas.background.fitBounds(glycanoCanvas.scope.view.bounds)
-      glycanoCanvas.background.bounds.width = glycanoCanvas.scope.view.bounds.width - 1
-      glycanoCanvas.background.bounds.height = glycanoCanvas.scope.view.bounds.height - 1
       glycanoCanvas.scope.view.draw()
     }
     //dom.window.onload = {_: dom.Event => resizeCanvas()}
@@ -227,7 +229,12 @@ object GlycanoWeb extends JSApp {
     }: js.Any)
 
     $("#save-png").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.layerBack.activate()
+      val background = paper.Path.Rectangle(glycanoCanvas.scope.view.bounds.topLeft, glycanoCanvas.scope.view.bounds.bottomRight)
+      background.fillColor = new paper.Color("white")
       val dataUrl = cv.toDataURL("PNG")
+      background.remove()
+      glycanoCanvas.layerFront.activate()
       glycanoCanvas.scope.view.draw()
       $("#save-png").attr("href", dataUrl).attr("download", filename + ".png")
     }: js.Any)
@@ -243,6 +250,41 @@ object GlycanoWeb extends JSApp {
     $("#navbar-clear-btn").click(null, (eo: JQueryEventObject) => {
       glycanoCanvas.clearAll()
       glycanoCanvas.redraw()
+    }: js.Any)
+
+    $("#navbar-delete-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.deleteSelection()
+      glycanoCanvas.redraw()
+    }: js.Any)
+
+    $("#navbar-cut-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.copySelection()
+      glycanoCanvas.deleteSelection()
+      glycanoCanvas.redraw()
+    }: js.Any)
+
+    $("#navbar-copy-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.copySelection()
+      glycanoCanvas.redraw()
+    }: js.Any)
+
+    $("#navbar-paste-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.pasteSelection()
+      glycanoCanvas.redraw()
+    }: js.Any)
+
+    $("#navbar-undo-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.undo()
+      glycanoCanvas.redraw()
+    }: js.Any)
+
+    $("#navbar-redo-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.redo()
+      glycanoCanvas.redraw()
+    }: js.Any)
+
+    $("#navbar-annotation-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.toggleAddAnnotation()
     }: js.Any)
 
     val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
@@ -324,8 +366,48 @@ object GlycanoWeb extends JSApp {
 
     val overviewContent = Rx {
       glycanoCanvas.selection().toList match {
-        case Nil => div()
+        case Nil =>
+          val annotDiv = for (annotId <- glycanoCanvas.selectedAnnotation()) yield {
+            val annot = glycanoCanvas.annotations()(annotId)
+            div(
+              div(cls:="form-group input-group")(
+                "Text", input(id:="annotation-text", `type`:="text", cls:="form-control", value:=annot.text, onchange:={() =>
+                  val text = $("#annotation-text").value().asInstanceOf[js.UndefOr[String]].getOrElse("")
+                  glycanoCanvas.annotations() += annot.id -> GlyAnnot(annotId, annot.x, annot.y, annot.rot, text, annot.size)
+                  glycanoCanvas.selectedAnnotation() = Some(annot.id)
+                  glycanoCanvas.redraw()
+                })
+              ),
+              div(cls:="form-group input-group")(
+                "Font Size", input(id:="annotation-size", `type`:="text", cls:="form-control", value:=annot.size, onchange:={() =>
+                  val sizeStr = $("#annotation-size").value().asInstanceOf[js.UndefOr[String]].getOrElse("")
+                  val size = Try(sizeStr.toDouble).getOrElse(20.0)
+                  glycanoCanvas.annotations() += annot.id -> GlyAnnot(annotId, annot.x, annot.y, annot.rot, annot.text, size)
+                  glycanoCanvas.selectedAnnotation() = Some(annot.id)
+                  glycanoCanvas.redraw()
+                })
+              )
+            )
+          }
+          annotDiv.getOrElse(div())
         case res :: Nil =>
+          val change = bs.row(bs.col(xs=6)(
+            bs.btnGroup(
+              for (ano <- Anomer.Anomers) yield
+                bs.radioButton(inputName = ano.symbol, classes = if (ano == res.anomer) "active" else "")(
+                  JsDom.all.onclick := {() =>
+                    val added = glycanoCanvas.changeResidueAnomer(res, ano)
+                    glycanoCanvas.redraw()
+                  }, ano.desc))
+          ), bs.col(xs=6)(
+            bs.btnGroup(
+              for (abs <- Absolute.Absolutes) yield
+                bs.radioButton(inputName = abs.symbol, classes = if (abs == res.absolute) "active" else "")(
+                  JsDom.all.onclick := {() =>
+                    val added = glycanoCanvas.changeResidueAbsolute(res, abs)
+                    glycanoCanvas.redraw()
+                  }, abs.desc))
+          ))
           val first = for(parent @ Link(to, _) <- res.parent) yield {
             val b = Bond(res, parent)
             bs.row(
@@ -352,7 +434,7 @@ object GlycanoWeb extends JSApp {
               onmouseout := {() => glycanoCanvas.ctx.substituentHL(none); glycanoCanvas.redraw()}
             )
           }
-          div((first ++ rest ++ substs).toSeq)
+          div(change, (first ++ rest ++ substs).toSeq)
         case ress => div(ress.map(r => div(r.desc)))
       }
     }

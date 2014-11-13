@@ -1,24 +1,18 @@
 package za.jwatson.glycanoweb
 
-import org.parboiled2.{ParseError, Rule0, Parser, ParserInput}
+import org.parboiled2.ParseError
+import org.scalajs.jquery.{JQuery, jQuery => jQ}
 import rx._
-import shapeless.HNil
-import za.jwatson.glycanoweb.ConventionEditor.RuleCond._
-import za.jwatson.glycanoweb.render.PaperJSContext
-import za.jwatson.glycanoweb.structure.Absolute.{L, D}
-import za.jwatson.glycanoweb.structure.Anomer._
+import za.jwatson.glycanoweb.BootstrapScalatags._
+import za.jwatson.glycanoweb.ConventionEditor._
+import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure._
-import scala.collection.mutable
-import scala.reflect.ClassTag
-import scala.util.{Success, Failure}
-import scalajs.js
+
+import scala.scalajs.js
+import scala.util.{Failure, Success}
 import scalatags.JsDom._
-import all._
-import BootstrapScalatags._
+import scalatags.JsDom.all._
 import scalaz.syntax.std.option._
-import scalaz.std.option._
-import org.scalajs.jquery.{jQuery => jQ, JQuery}
-import ConventionEditor._
 
 class ConventionEditor(val modalId: String) {
   val text = Var("")
@@ -46,10 +40,14 @@ class ConventionEditor(val modalId: String) {
     val inText = jQ("#" + textAreaId).`val`().asInstanceOf[String]
     println("parsing: " + inText.take(20) + "...")
     val parser = new ConventionParser(inText)
-    parser.conventions.run() match {
-      case Success(c)             ⇒ //"Expression is valid\n" + c.mkString("\n")
-      case Failure(e: ParseError) ⇒ println("Expression is not valid: " + parser.formatError(e))
-      case Failure(e)             ⇒ println("Unexpected error during parsing run: " + e)
+    parser.conv.run() match {
+      case Success(c)             =>
+        //println(c)
+        DisplayConv.convs(c.name) = inText
+        org.scalajs.dom.localStorage.setItem("glycano.conventions", js.JSON.stringify(DisplayConv.convs))
+        DisplayConv.refresh()
+      case Failure(e: ParseError) => println("Expression is not valid: " + parser.formatError(e))
+      case Failure(e)             => println("Unexpected error during parsing run: " + e)
     }
     println("...done")
     text() = inText
@@ -67,6 +65,8 @@ object ConventionEditor {
       |   def Diamond = Polygon(points="80,40 40,80 0,40 40,0")
       |   def Arrow = Polygon(points="90,30 60,60 0,60 0,0 60,0")
       |   def Hexagon = Polygon(points="90,40 65,80 25,80 0,40 25,0 65,0")
+      |   def Seven = Polygon(points="90,40 65,80 25,80 0,40 25,0 45,15 65,0")
+      |   def Eight = Polygon(points="90,40 65,80 45,65 25,80 0,40 25,0 45,15 65,0")
       |
       |   def LShape = Polygon(points="0,0 0,44 36,44 36,40 4,40 4,0")
       |
@@ -133,7 +133,8 @@ object ConventionEditor {
       |   L (Ara, Lyx, Rib, Xyl)
       |     -> #4 [lshape] LShape
       |     -> style [lshape] { x: 22; y: 8 }
-      |   L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal)
+      |   L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal,
+      |      Fru, Psi, Sor, Tag)
       |     -> #4 [lshape] LShape
       |     -> style [lshape] { x: 27; y: 18 }
       |
@@ -143,6 +144,48 @@ object ConventionEditor {
       |
       |   * -> style [outline] { fill: none; stroke: #000000; stroke-width: 3 }
       |   * -> style [lshape] { fill: #000000; stroke: #FFFFFF; stroke-width: 1 }
+      |
+      |   (Three)
+      |   -> #0 [primary] Triangle
+      |   -> #2 [outline, links] Triangle
+      |   -> #3 [outlinefront] Triangle
+      |
+      |   (Four)
+      |   -> #0 [primary] Diamond
+      |   -> #2 [outline, links] Diamond
+      |   -> #3 [outlinefront] Diamond
+      |
+      |   (Rul, Xul)
+      |   -> #0 [primary] Arrow
+      |   -> #2 [outline, links] Arrow
+      |   -> #3 [outlinefront] Arrow
+      |
+      |   (Fru, Psi, Sor, Tag)
+      |   -> #0 [primary] Hexagon
+      |   -> #2 [outline, links] Hexagon
+      |   -> #3 [outlinefront] Hexagon
+      |
+      |   (AltHep)
+      |   -> #0 [primary] Seven
+      |   -> #2 [outline, links] Seven
+      |   -> #3 [outlinefront] Seven
+      |
+      |   (ManOct)
+      |   -> #0 [primary] Eight
+      |   -> #2 [outline, links] Eight
+      |   -> #3 [outlinefront] Eight
+      |
+      |   (Sor) -> #1 [secondary] Polygon(points="0,40 90,40 65,80 25,80")
+      |   (Tag) -> #1 [secondary] Polygon(points="90,40 65,0 45,0 45,80 65,80")
+      |
+      |   (Three, Four, Rul, Fru, Sor, Tag, AltHep, ManOct) -> style [primary] { fill: #FFFFFF }
+      |   (Xul, Psi) -> style [primary] { fill: #808080 }
+      |   (Sor) -> style [secondary] { fill: #808080 }
+      |   (Tag) -> style [secondary] { fill: #808080 }
+      |
+      |   (Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, AltHep, ManOct)
+      |   -> style [outline] { stroke: #000000; stroke-width: 11 }
+      |   -> style [outlinefront] { stroke: #FFFFFF; stroke-width: 9 }
       |}
     """.stripMargin
 

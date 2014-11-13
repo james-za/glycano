@@ -14,7 +14,7 @@ object Anomer {
     override val desc = "\u03B2"
   }
 
-  val Anomers = Seq(Alpha, Beta)
+  val Anomers: Seq[Anomer] = Seq(Alpha, Beta)
   val AnomerMap = Anomers.map(ano => ano.symbol -> ano).toMap
 
   def unapply(str: String): Option[Anomer] = AnomerMap.get(str)

@@ -2,7 +2,8 @@ package za.jwatson.glycanoweb
 
 import shapeless.HNil
 
-import scalatags.JsDom._
+import scalatags.JsDom
+import scalatags.JsDom.TypedTag
 import scalatags.JsDom.all._
 import org.scalajs.dom._
 
@@ -42,7 +43,7 @@ object BootstrapScalatags {
   object Sm extends Size("sm")
   object Xs extends Size("xs")
 
-  def navbar(style: Style = Default): TypedTag[HTMLElement] = tags2.nav(cls:=s"navbar navbar-${style.name}", "role".attr:="navigation")
+  def navbar(style: Style = Default): TypedTag[HTMLElement] = JsDom.tags2.nav(cls:=s"navbar navbar-${style.name}", "role".attr:="navigation")
 
   def panel(style: Style = Default): TypedTag[HTMLDivElement] = div(cls:=s"panel panel-${style.name}")
   def panelHeading: TypedTag[HTMLDivElement] = div(cls:="panel-heading")
@@ -98,5 +99,10 @@ object BootstrapScalatags {
   def radioGroup[T](name: String, items: Seq[T], itemId: T => String, content: T => String) = btnGroup(
     for ((item, i) <- items.zipWithIndex) yield
       radioButton(inputName = name, classes = if (i == 0) "active" else "")(id:=itemId(item), content(item))
+  )
+
+  def radioGroupA[T](name: String, items: Seq[T], action: T => _, content: T => String) = btnGroup(
+    for ((item, i) <- items.zipWithIndex) yield
+      radioButton(inputName = name, classes = if (i == 0) "active" else "")(JsDom.all.onclick := {() => action(item)}, content(item))
   )
 }

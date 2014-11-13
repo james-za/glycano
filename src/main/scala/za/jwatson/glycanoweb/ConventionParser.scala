@@ -1,35 +1,29 @@
 package za.jwatson.glycanoweb
 
-import org.parboiled2.{Parser, ParserInput}
 import za.jwatson.glycanoweb.ConventionEditor.RuleCond._
 import za.jwatson.glycanoweb.structure.Absolute.{L, D}
 import za.jwatson.glycanoweb.structure.{Absolute, Anomer}
 import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
 
-import scala.collection.mutable
-import scalaz.std.option._
-
-import shapeless._
-import scalaz.syntax.std.option._
 import org.parboiled2._
 import ConventionEditor._
 
 class ConventionParser(val input: ParserInput) extends Parser {
 
-  val WhiteSpaceChar = CharPredicate.from((c: Char) => " \n\r\t\f".contains(c))
-  def ws: Rule0 = rule { zeroOrMore(WhiteSpaceChar) }
-  def ws(c: Char): Rule0 = rule { c ~ ws }
+  def conv: Rule1[Conv] = rule { ws ~ convention ~ EOI }
+
+  def ws: Rule0 = rule { zeroOrMore(anyOf(" \n\r\t\f")) }
+  def ws(c: Char): Rule0 = rule { ch(c) ~ ws }
   def ws(s: String): Rule0 = rule { str(s) ~ ws }
   def conventions: Rule1[Seq[Conv]] = rule { ws ~ oneOrMore(convention) ~ EOI }
   def convention: Rule1[Conv] = rule {
-    conventionName ~> (new ConvBuilder(_)) ~ ws('{') ~ conventionInner ~> (_.result()) ~ ws('}')
+    conventionName ~> (new ConvBuilder(_)) ~ ws('{') ~ zeroOrMore(shapeDef | convRule) ~> (_.result()) ~ ws('}')
   }
   def conventionName = rule { ws("convention") ~ stringLiteral }
-  def conventionInner: Rule[ConvBuilder :: HNil, ConvBuilder :: HNil] = rule { zeroOrMore(shapeDef | convRule) }
 
   def shapeDef = rule { ws("def ") ~ identifier ~ ws('=') ~ shape ~> ((_: ConvBuilder) += _ -> _) }
   def convRule = rule { (ruleCond | defaultCond) ~ modifiers ~> ConvRule ~> ((_: ConvBuilder) += _) }
-  type RuleCondBuilder = mutable.Builder[RuleCond, Seq[RuleCond]]
+  type RuleCondBuilder = collection.mutable.Builder[RuleCond, Seq[RuleCond]]
   def defaultCond = rule { ws("default") ~ push(Seq(DefaultCond)) }
   def ruleCond = rule {
     push(Seq.newBuilder[RuleCond]: RuleCondBuilder) ~
@@ -57,7 +51,7 @@ class ConventionParser(val input: ParserInput) extends Parser {
 
   def anoCond: Rule1[Option[RuleCond]] = rule { optional(anomer ~> AnoCond) }
   def absCond: Rule1[Option[RuleCond]] = rule { optional(absolute ~> AbsCond) }
-  def resCond: Rule1[Option[RuleCond]] = rule { (residueTypeList ~> ResCond ~> (_.some: Option[ResCond])) | (ws('*') ~ push(none: Option[ResCond])) }
+  def resCond: Rule1[Option[RuleCond]] = rule { (residueTypeList ~> ResCond ~> ((rc: ResCond) => Some(rc): Option[ResCond])) | (ws('*') ~ push(None: Option[ResCond])) }
   def subCond: Rule1[Option[RuleCond]] = rule { optional(ws('<') ~ zeroOrMore(identifier).separatedBy(ws(',')) ~ ws('>') ~> SubCond) }
 
   def residueTypeList: Rule1[Seq[String]] = rule { ws('(') ~ oneOrMore(identifier).separatedBy(ws(',')) ~ ws(')') }

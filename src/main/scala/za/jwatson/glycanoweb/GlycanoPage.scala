@@ -146,8 +146,14 @@ object GlycanoPage {
           )
         ),
         " ",
-        bs.navBtn()(id:="navbar-clear-btn", "Clear"),
-        " ",
+        bs.navBtn()(id:="navbar-clear-btn", "Clear All"), " ",
+        bs.navBtn()(id:="navbar-delete-btn", "Delete"), " ",
+        bs.navBtn()(id:="navbar-cut-btn", "Cut"), " ",
+        bs.navBtn()(id:="navbar-copy-btn", "Copy"), " ",
+        bs.navBtn()(id:="navbar-paste-btn", "Paste"), " ",
+        bs.navBtn()(id:="navbar-cut-btn", bs.glyphIcon("chevron-left"), " Undo"), " ",
+        bs.navBtn()(id:="navbar-cut-btn", bs.glyphIcon("chevron-right"), " Redo"), " ",
+        bs.navBtn()(id:="navbar-annotation-btn", bs.glyphIcon("font"), " Add Annotation"), " ",
         conventionEditor.createNavButton
       )
     ))

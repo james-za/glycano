@@ -9,8 +9,17 @@ import za.jwatson.glycanoweb.structure.RGraph._
 
 import scalajs.js
 
-case class Gly(residues: Map[Residue, GlyRes])
+case class Gly(residues: Map[Residue, GlyRes], annotations: Seq[GlyAnnot])
 case class GlyRes(x: Double, y: Double, rot: Double, targetRes: Int, targetPos: Int, subs: Map[Int, Seq[SubstituentType]])
+case class GlyAnnot(id: Int, x: Double, y: Double, rot: Double, text: String, size: Double)
+
+object GlyAnnot {
+  var nextId: Int = 0
+  def next(x: Double, y: Double, rot: Double, text: String, size: Double): GlyAnnot = {
+    nextId += 1
+    GlyAnnot(nextId, x, y, rot, text, size)
+  }
+}
 
 object Gly {
   def from(glycanoCanvas: GlycanoCanvas): Gly = {
@@ -27,7 +36,9 @@ object Gly {
       subs = r.substituents.mapValues(_.map(_.st))
     } yield r -> GlyRes(x, y, rot, tr, tp, subs)
 
-    Gly(residues.toMap)
+    val annotations = glycanoCanvas.annotations().values.toList
+
+    Gly(residues.toMap, annotations)
   }
 
   implicit val rwSubstituentType = ReadWriter[SubstituentType](st => Js.Str(st.symbol), {
@@ -44,17 +55,26 @@ object Gly {
       Js.Str(ResidueType(rt))
     ) => Residue.next(rt, ano, abs)
   })
-  implicit val rwGly = ReadWriter[Gly](gly => Js.Arr((for ((r, gr) <- gly.residues.toSeq) yield {
-    Js.Arr(writeJs(r), writeJs(gr.x), writeJs(gr.y), writeJs(gr.rot), writeJs(gr.targetRes), writeJs(gr.targetPos), Js.Obj(
-      (for ((i, sts) <- gr.subs.toSeq) yield i.toString -> Js.Arr(sts.map(writeJs[SubstituentType]): _*)): _*
-    ))
-  }): _*), {
-    case Js.Arr(rs @ _*) => Gly(rs.collect {
-      case Js.Arr(r, x, y, rot, tr, tp, Js.Obj(subs @ _*)) => readJs[Residue](r) -> GlyRes(
-        readJs[Double](x), readJs[Double](y), readJs[Double](rot), readJs[Int](tr), readJs[Int](tp), subs.collect {
-          case (i, Js.Arr(sts @ _*)) => i.toInt -> sts.map(readJs[SubstituentType])
-        }.toMap
+  implicit val rwGly = ReadWriter[Gly](gly => Js.Arr(
+    Js.Arr((for ((r, gr) <- gly.residues.toSeq) yield Js.Arr(
+      writeJs(r), Js.Num(gr.x), Js.Num(gr.y), Js.Num(gr.rot), Js.Num(gr.targetRes), Js.Num(gr.targetPos), Js.Obj(
+        (for ((i, sts) <- gr.subs.toSeq) yield i.toString -> Js.Arr(sts.map(writeJs[SubstituentType]): _*)): _*
       )
-    }.toMap)
+    )): _*),
+    Js.Arr((for (GlyAnnot(_, x, y, rot, text, size) <- gly.annotations) yield
+      Js.Arr(Js.Num(x), Js.Num(y), Js.Num(rot), Js.Str(text), Js.Num(size))
+    ): _*)
+  ), {
+    case Js.Arr(Js.Arr(rs @ _*), Js.Arr(as @ _*)) =>
+      val residues = rs.collect {
+        case Js.Arr(r, Js.Num(x), Js.Num(y), Js.Num(rot), Js.Num(tr), Js.Num(tp), Js.Obj(subs @ _*)) =>
+          readJs[Residue](r) -> GlyRes(x, y, rot, tr.toInt, tp.toInt, subs.collect {
+              case (i, Js.Arr(sts @ _*)) => i.toInt -> sts.map(readJs[SubstituentType])
+          }.toMap): (Residue, GlyRes)
+      }.toMap
+      val annotations = as.collect {
+        case Js.Arr(Js.Num(x), Js.Num(y), Js.Num(rot), Js.Str(text), Js.Num(size)) => GlyAnnot.next(x, y, rot, text, size)
+      }
+      Gly(residues, annotations)
   })
 }
