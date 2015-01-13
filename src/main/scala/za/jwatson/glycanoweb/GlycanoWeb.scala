@@ -215,17 +215,18 @@ object GlycanoWeb extends JSApp {
 
     def filename = {
       val fn = $("#filename").value().asInstanceOf[String]
-      fn.isEmpty ? "glycano" | fn
+      val base = fn.isEmpty ? "glycano" | fn
+      base.endsWith(".gly") ? base | (base + ".gly")
     }
 
     $("#save-gly").click(null, (eo: JQueryEventObject) => {
       import Gly._
       import upickle._
-      val gly = write(Gly.from(glycanoCanvas))(rwGly)
+      val gly = write(Gly.from(glycanoCanvas.graph(), glycanoCanvas.annotations()))(rwGly)
       val base64 = dom.window.btoa(gly)
       val dataUrl = "data:text/plain;base64," + base64
       glycanoCanvas.scope.view.draw()
-      $("#save-gly").attr("href", dataUrl).attr("download", filename + ".gly")
+      $("#save-gly").attr("href", dataUrl).attr("download", filename)
     }: js.Any)
 
     $("#save-png").click(null, (eo: JQueryEventObject) => {
@@ -284,7 +285,23 @@ object GlycanoWeb extends JSApp {
     }: js.Any)
 
     $("#navbar-annotation-btn").click(null, (eo: JQueryEventObject) => {
+      if(showModeSelect()) {
+        glycanoCanvas.cancelPlace()
+        glycanoCanvas.cancelSubst()
+      }
       glycanoCanvas.toggleAddAnnotation()
+    }: js.Any)
+
+    $("#navbar-zoom-in-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.zoomLevel() += 1
+    }: js.Any)
+
+    $("#navbar-zoom-out-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.zoomLevel() -= 1
+    }: js.Any)
+
+    $("#navbar-zoom-reset-btn").click(null, (eo: JQueryEventObject) => {
+      glycanoCanvas.zoomLevel() = 0
     }: js.Any)
 
     val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
@@ -319,6 +336,7 @@ object GlycanoWeb extends JSApp {
     def deleteSubstituent(s: Substituent) = {
       span(cls:="pull-right", button(cls:="btn btn-link btn-xs", "remove", onclick:={() =>
         glycanoCanvas.removeSubstituent(s)
+        glycanoCanvas.addToHistory()
         glycanoCanvas.redraw()
       }))
     }
@@ -375,6 +393,7 @@ object GlycanoWeb extends JSApp {
                   val text = $("#annotation-text").value().asInstanceOf[js.UndefOr[String]].getOrElse("")
                   glycanoCanvas.annotations() += annot.id -> GlyAnnot(annotId, annot.x, annot.y, annot.rot, text, annot.size)
                   glycanoCanvas.selectedAnnotation() = Some(annot.id)
+                  glycanoCanvas.addToHistory()
                   glycanoCanvas.redraw()
                 })
               ),
@@ -384,6 +403,7 @@ object GlycanoWeb extends JSApp {
                   val size = Try(sizeStr.toDouble).getOrElse(20.0)
                   glycanoCanvas.annotations() += annot.id -> GlyAnnot(annotId, annot.x, annot.y, annot.rot, annot.text, size)
                   glycanoCanvas.selectedAnnotation() = Some(annot.id)
+                  glycanoCanvas.addToHistory()
                   glycanoCanvas.redraw()
                 })
               )
@@ -397,6 +417,7 @@ object GlycanoWeb extends JSApp {
                 bs.radioButton(inputName = ano.symbol, classes = if (ano == res.anomer) "active" else "")(
                   JsDom.all.onclick := {() =>
                     val added = glycanoCanvas.changeResidueAnomer(res, ano)
+                    glycanoCanvas.addToHistory()
                     glycanoCanvas.redraw()
                   }, ano.desc))
           ), bs.col(xs=6)(
@@ -405,6 +426,7 @@ object GlycanoWeb extends JSApp {
                 bs.radioButton(inputName = abs.symbol, classes = if (abs == res.absolute) "active" else "")(
                   JsDom.all.onclick := {() =>
                     val added = glycanoCanvas.changeResidueAbsolute(res, abs)
+                    glycanoCanvas.addToHistory()
                     glycanoCanvas.redraw()
                   }, abs.desc))
           ))

@@ -75,12 +75,12 @@ object GlycanoPage {
 
   /** Displaying and parsing CASPER text format */
   val casperForm =
-  /*form("role".attr:="form")(*/
-    div(cls:="form-group input-group")(
-      input(id:="casper", `type`:="text", cls:="form-control"),
-      span(cls:="input-group-btn")(bs.btn()(id:="casper-parse", "Parse"))
+  form("role".attr:="form form-inline")(
+    div(cls:="form-group input-group", width:="100%")(
+      input(id:="casper", `type`:="text", cls:="form-control")/*,
+      span(cls:="input-group-btn")(bs.btn()(id:="casper-parse", "Parse"))*/
     )
-  /*)*/
+  )
 
   /** Main canvas element */
   val stagePanel = bs.panel()(id:="stage-panel")()
@@ -151,10 +151,13 @@ object GlycanoPage {
         bs.navBtn()(id:="navbar-cut-btn", "Cut"), " ",
         bs.navBtn()(id:="navbar-copy-btn", "Copy"), " ",
         bs.navBtn()(id:="navbar-paste-btn", "Paste"), " ",
-        bs.navBtn()(id:="navbar-cut-btn", bs.glyphIcon("chevron-left"), " Undo"), " ",
-        bs.navBtn()(id:="navbar-cut-btn", bs.glyphIcon("chevron-right"), " Redo"), " ",
+        bs.navBtn()(id:="navbar-undo-btn", bs.glyphIcon("chevron-left"), " Undo"), " ",
+        bs.navBtn()(id:="navbar-redo-btn", bs.glyphIcon("chevron-right"), " Redo"), " ",
         bs.navBtn()(id:="navbar-annotation-btn", bs.glyphIcon("font"), " Add Annotation"), " ",
-        conventionEditor.createNavButton
+        bs.navBtn()(id:="navbar-zoom-out-btn", bs.glyphIcon("zoom-out")), " ",
+        bs.navBtn()(id:="navbar-zoom-reset-btn", "100%"), " ",
+        bs.navBtn()(id:="navbar-zoom-in-btn", bs.glyphIcon("zoom-in")), " "/*,
+        conventionEditor.createNavButton*/
       )
     ))
 

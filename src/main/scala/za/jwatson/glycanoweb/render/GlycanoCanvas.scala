@@ -25,23 +25,26 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def loadGly(gly: Gly): Unit = {
     clearAll()
 
-    val pr = gly.residues.keys.toIndexedSeq
-    //println(pr.map(r => s"id=${r.id}: $r"))
-    for ((r, GlyRes(x, y, rot, _, _, subs)) <- gly.residues) {
-      addResidue(r, p.Point(x, y), rot)
+    val added = for (GlyRes(ano, abs, rt, x, y, rot, _, _, subs) <- gly.residues) yield {
+      val res = addResidue(ano, abs, rt, p.Point(x, y), rot)
       for {
         (pos, sts) <- subs
         st <- sts
-      } addSubstituent(Link(r, pos), st)
+      } addSubstituent(Link(res, pos), st)
+      res
     }
-    for ((r, GlyRes(_, _, _, tr, tp, _)) <- gly.residues if tr != -1) {
-      graph() += Bond(r, Link(pr(tr), tp))
-      ctx.addBond(r, pr(tr), tp)
+    val pr = added.toIndexedSeq
+    for ((GlyRes(_, _, _, _, _, _, tr, tp, _), i) <- gly.residues.zipWithIndex if tr != -1) {
+      addBond(Bond(pr(i), Link(pr(tr), tp)))
     }
+
+    annotations() = (for (GlyAnnot(_, x, y, rot, text, size) <- gly.annotations) yield {
+      val a = GlyAnnot.next(x, y, rot, text, size)
+      a.id -> a
+    }).toMap
+
     scope.view.draw()
   }
-
-
 
   def clearAll(): Unit = {
     updateSelection(Set.empty)
@@ -53,6 +56,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     bonds() foreach ctx.removeBond
     residues() foreach ctx.removeResidue
     graph() = RGraph()
+    annotations() = Map.empty
   }
 
   val graph = Var(RGraph())
@@ -70,25 +74,27 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     ctx.annots := annotations().values.toSeq
   }
 
-  val history = Var(Vector(graph()))
+  val history = Var(Vector((graph(), annotations())))
   def addToHistory(): Unit = {
-    history() = graph() +: history().drop(undoPosition) take undoLimit
+    history() = (graph(), annotations()) +: history().drop(undoPosition) take undoLimit
     undoPosition = 0
   }
 
-  def setState(target: RGraph): Unit = {
+  def setState(target: (RGraph, Map[Int, GlyAnnot])): Unit = {
     clearAll()
-    for ((r, ge) <- target.entries) {
-      addResidue(r, p.Point(ge.x, ge.y), ge.rotation)
-      for {
-        (pos, subs) <- ge.subs
-        sub <- subs
-      } addSubstituent(Link(r, pos), sub)
-    }
-    for {
-      (r, ge) <- target.entries
-      link <- ge.parent
-    } addBond(Bond(r, link))
+//    for ((r, ge) <- target.entries) {
+//      addResidue(r.anomer, r.absolute, r.rt, p.Point(ge.x, ge.y), ge.rotation)
+//      for {
+//        (pos, subs) <- ge.subs
+//        sub <- subs
+//      } addSubstituent(Link(r, pos), sub)
+//    }
+//    for {
+//      (r, ge) <- target.entries
+//      link <- ge.parent
+//    } addBond(Bond(r, link))
+    val (g, a) = target
+    loadGly(Gly.from(g, a))
     redraw()
   }
 
@@ -98,7 +104,14 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   val layerBack = scope.project.activeLayer
   val layerFront = new p.Layer()
+  val layerAnnot = new p.Layer()
   layerFront.activate()
+  
+  val zoomLevel = Var(0)
+  val zoom = Rx { math.pow(1.2, zoomLevel()) }
+  Obs(zoomLevel, skipInitial = true) {
+    scope.view.zoom = zoom()
+  }
 
   def redraw() = scope.view.draw()
 
@@ -257,6 +270,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     e.which match {
       case 46 =>
         deleteSelection()
+        redraw()
       case 27 | 32 =>
         if(GlycanoWeb.showModeSelect()) {
           cancelPlace()
@@ -264,10 +278,12 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
       case 88 /*X*/ if mod =>
         copySelection()
         deleteSelection()
+        redraw()
       case 67 /*C*/ if mod =>
         copySelection()
       case 86 /*V*/ if mod =>
         pasteSelection()
+        redraw()
       case 90 /*Z*/ if mod =>
         if (shift) redo() else undo()
       case 89 /*Y*/ if mod =>
@@ -293,9 +309,15 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val buffer = Var[Map[Residue, GraphEntry]](Map.empty)
 
   def deleteSelection(): Unit = {
+    for (annotId <- selectedAnnotation()) {
+      selectedAnnotation() = None
+      annotations() -= annotId
+    }
+
     val deleted = selection()
     updateSelection(Set.empty)
     deleted foreach removeResidue
+
     addToHistory()
   }
 
@@ -528,20 +550,27 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   val residueTemplate = Rx {
     GlycanoWeb.residueType().map { rt =>
+      tempBond := Set.empty[TempBond]
+      tempLink := Set.empty[Link]
       ctx.showResidueTemplate(none, null)
       Residue.next(rt, GlycanoWeb.anomeric(), GlycanoWeb.absolute())
     }
   }
 
   val clearOldTemplate = Obs(residueTemplate) {
+    tempBond := Set.empty[TempBond]
+    tempLink := Set.empty[Link]
     for (rTemp <- residueTemplate()) {
       canvas.style.cursor = "none"
+
       state() = PlaceResidue
     }
     scope.view.draw()
   }
 
   Obs(GlycanoWeb.substituentType) {
+    tempBond := Set.empty[TempBond]
+    tempLink := Set.empty[Link]
     ctx.showSubstituentTemplate(None, null)
     for (st <- GlycanoWeb.substituentType()) {
       canvas.style.cursor = "default"
@@ -632,6 +661,13 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
 
   def cancelSubst(): Unit = {
     GlycanoWeb.setSubstituentType(None)
+  }
+
+  def cancelAll(): Unit = {
+    cancelPlace()
+    cancelSubst()
+
+    redraw()
   }
 
   def linkFilter(link: Link): Boolean = {
@@ -790,6 +826,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
         annotations() += (added.id -> added)
         state() = Default
         selectedAnnotation() = Some(added.id)
+        addToHistory()
     }
   }
 
@@ -900,9 +937,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   def keyPress(c: Int): Unit = {
     c match {
       case 46 =>
-        val deleted = selection()
-        updateSelection(Set.empty)
-        deleted foreach removeResidue
+        deleteSelection()
       case 27 | 32 =>
         if(GlycanoWeb.showModeSelect()) {
           cancelPlace()

@@ -201,7 +201,9 @@ class PaperJSContext(scope: p.PaperScope) {
   }
 
   def addAnnotation(annot: GlyAnnot, pos: p.Point): p.PointText = {
+    scope.project.activeLayer = scope.project.layers(2)
     val as = AnnotShape(annot)
+    scope.project.activeLayer = scope.project.layers(1)
     annotAnnotShapes(annot) = as
     itemAnnotShapes(as.item.id) = as
     as.item
