@@ -97,7 +97,7 @@ object DisplayConv {
   import org.scalajs.dom
 
   val conventions = rx.Var[collection.mutable.Map[String, DisplayConv]](js.Dictionary[DisplayConv]())
-  def convs = dom.localStorage("glycano.conventions").asInstanceOf[js.UndefOr[String]].fold {
+  def convs = dom.localStorage.getItem("glycano.conventions").asInstanceOf[js.UndefOr[String]].fold {
     js.Dictionary[String]()
   } {
     c => js.JSON.parse(c).asInstanceOf[js.Dictionary[String]]

@@ -1,19 +1,18 @@
-import java.util.Scanner
 
-import com.decodified.scalassh._
-import net.schmizz.sshj.xfer.FileSystemFile
 import sbt.Keys._
 import sbt._
 
-import scala.scalajs.sbtplugin.ScalaJSPlugin.ScalaJSKeys._
-import scala.scalajs.sbtplugin.ScalaJSPlugin._
+import org.scalajs.sbtplugin.ScalaJSPlugin
+import org.scalajs.sbtplugin.ScalaJSPlugin._
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
+
 import com.lihaoyi.workbench.Plugin._
 
 object GlycanoBuild extends Build {
-  val glycanoScalaVersion = "2.11.2"
+  val glycanoScalaVersion = "2.11.5"
 
   lazy val root = project.in(file("."))
-    .settings(scalaJSSettings: _*)
+    .enablePlugins(ScalaJSPlugin)
     .settings(workbenchSettings: _*)
     .settings(
       name := "GlycanoWeb",
@@ -33,14 +32,14 @@ object GlycanoBuild extends Build {
         "myltsev" at "http://dl.bintray.com/alexander-myltsev/maven"
       ),
       libraryDependencies ++= Seq(
-        "org.scala-lang.modules.scalajs"  %%% "scalajs-dom"       % "0.6",
-        "org.scala-lang.modules.scalajs"  %%% "scalajs-jquery"    % "0.6",
-        "com.scalatags"                   %%% "scalatags"         % "0.4.2",
-        "com.scalarx"                     %%% "scalarx"           % "0.2.6",
+        "org.scala-js"                    %%% "scalajs-dom"       % "0.7.0",
+        "be.doeraene"                     %%% "scalajs-jquery"    % "0.7.0",
+        "com.lihaoyi"                     %%% "scalatags"         % "0.4.3-RC1",
+        "com.lihaoyi"                     %%% "scalarx"           % "0.2.7-RC1",
+        "com.lihaoyi"                     %%% "upickle"           % "0.2.6-RC1",
         "com.github.japgolly.fork.scalaz" %%% "scalaz-core"       % "7.1.0-4",
         "name.myltsev"                    %%% "shapeless"         % "2.0.0",
-        "org.parboiled"                   %%% "parboiled"         % "2.0.1_2",
-        "com.lihaoyi"                     %%% "upickle"           % "0.2.5"
+        "org.parboiled"                   %%% "parboiled"         % "2.0.1_3"
       ),
       bootSnippet := "za.jwatson.glycanoweb.GlycanoWeb().main();",
       refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),

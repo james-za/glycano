@@ -6,9 +6,9 @@ import scala.scalajs.js
 
 package object glycanoweb {
   trait RichJQuery extends org.scalajs.jquery.JQuery {
-    def button(state: js.String = ???): JQuery = ???
-    def tooltip(options: js.Dynamic = ???): JQuery = ???
-    def tooltipster(options: js.Dynamic): JQuery = ???
+    def button(state: String = js.native): JQuery = js.native
+    def tooltip(options: js.Dynamic = js.native): JQuery = js.native
+    def tooltipster(options: js.Dynamic): JQuery = js.native
   }
 
   import scala.language.implicitConversions

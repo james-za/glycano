@@ -245,7 +245,7 @@ object ConventionEditor {
   import scala.language.implicitConversions
   implicit def toRichJQuery(jQuery: JQuery): RichJQuery = jQuery.asInstanceOf[RichJQuery]
   trait RichJQuery extends js.Object {
-    def modal(command: String): JQuery = ???
+    def modal(command: String): JQuery = js.native
   }
 
   import org.parboiled2._

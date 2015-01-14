@@ -183,12 +183,12 @@ object GlycanoWeb extends JSApp {
 
     $("#cat-Aldose").addClass("active")
 
-    dom.document.getElementById("mode-select").onclick = (_: MouseEvent) => {
+    dom.document.getElementById("mode-select").addEventListener("click", (_: dom.Event) => {
       if(showModeSelect()) {
         glycanoCanvas.cancelPlace()
         glycanoCanvas.cancelSubst()
       }
-    }
+    })
 
     /* examples */
 //    {
@@ -378,8 +378,8 @@ object GlycanoWeb extends JSApp {
 
     def setBondHL(b: Bond): Unit = {
       val e = dom.document.getElementById(s"bond-row-${b.from.id}")
-      e.onmouseover = {(_: MouseEvent) => glycanoCanvas.ctx.bondHL(b.some)}
-      e.onmouseout = {(_: MouseEvent) => glycanoCanvas.ctx.bondHL(none)}
+      e.addEventListener("mouseover", {(_: dom.Event) => glycanoCanvas.ctx.bondHL(b.some)})
+      e.addEventListener("mouseout", {(_: dom.Event) => glycanoCanvas.ctx.bondHL(none)})
     }
 
     val overviewContent = Rx {

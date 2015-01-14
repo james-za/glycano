@@ -5,39 +5,39 @@ import org.scalajs.dom._
 import scalajs.js
 
 object FileReaderJS extends js.Object {
-  def enabled: Boolean = ???
-  def setupInput(element: HTMLInputElement, options: FileReaderOpts): Unit = ???
-  def setupDrop(node: Node, options: FileReaderOpts): Unit = ???
-  def setupClipboard(node: Node, options: FileReaderOpts): Unit = ???
-  def setSync(sync: Boolean): Unit = ???
-  def getSync(): Boolean = ???
-  def opts: FileReaderOpts = ???
+  def enabled: Boolean = js.native
+  def setupInput(element: HTMLInputElement, options: FileReaderOpts): Unit = js.native
+  def setupDrop(node: Node, options: FileReaderOpts): Unit = js.native
+  def setupClipboard(node: Node, options: FileReaderOpts): Unit = js.native
+  def setSync(sync: Boolean): Unit = js.native
+  def getSync(): Boolean = js.native
+  def opts: FileReaderOpts = js.native
 }
 
 trait FileReaderOpts extends js.Object {
-  var dragClass: String
-  var accept: String
-  var readAsMap: js.Object
-  var readAsDefault: String
-  var on: FileReaderEvents
+  var dragClass: String = js.native
+  var accept: String = js.native
+  var readAsMap: js.Object = js.native
+  var readAsDefault: String = js.native
+  var on: FileReaderEvents = js.native
 }
 
 trait FileReaderEvents extends js.Object {
-  var beforestart: js.Function2[ProgressEvent, File, Boolean]
-  var loadstart: js.Function2[ProgressEvent, File, _]
-  var progress: js.Function2[ProgressEvent, File, _]
-  var load: js.Function2[ProgressEvent, File, _]
-  var error: js.Function2[ProgressEvent, File, _]
-  var loadend: js.Function2[ProgressEvent, File, _]
-  var abort: js.Function2[ProgressEvent, File, _]
-  var skip: js.Function2[ProgressEvent, File, _]
-  var groupstart: js.Function1[Group, _]
+  var beforestart: js.Function2[ProgressEvent, File, Boolean] = js.native
+  var loadstart: js.Function2[ProgressEvent, File, _] = js.native
+  var progress: js.Function2[ProgressEvent, File, _] = js.native
+  var load: js.Function2[ProgressEvent, File, _] = js.native
+  var error: js.Function2[ProgressEvent, File, _] = js.native
+  var loadend: js.Function2[ProgressEvent, File, _] = js.native
+  var abort: js.Function2[ProgressEvent, File, _] = js.native
+  var skip: js.Function2[ProgressEvent, File, _] = js.native
+  var groupstart: js.Function1[Group, _] = js.native
 }
 
 trait Group extends js.Object {
-  def groupID: String
-  def files: FileList
-  def started: js.Date
+  def groupID: String = js.native
+  def files: FileList = js.native
+  def started: js.Date = js.native
 }
 
 object Opts {

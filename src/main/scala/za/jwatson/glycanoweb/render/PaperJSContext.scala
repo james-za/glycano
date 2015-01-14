@@ -73,7 +73,7 @@ class PaperJSContext(scope: p.PaperScope) {
   val handleBase: p.Path = p.Path.RoundRectangle(handleRect, new p.Size(5, 5))
   private val cw = new p.Color("white")
   private val cb = new p.Color("black")
-  def gs(c: p.Color, n: js.Number) = new p.GradientStop(c, n)
+  def gs(c: p.Color, n: Double) = new p.GradientStop(c, n)
   val gr = new p.Gradient(js.Array(
     gs(cw, 0),
     gs(cw, 0.5 - Double.MinPositiveValue),
@@ -153,7 +153,7 @@ class PaperJSContext(scope: p.PaperScope) {
   def getItem(annot: GlyAnnot): Option[p.Item] = annot.getItem
   def getAnnotation(item: p.Item): Option[GlyAnnot] = item.getAnnotation
 
-  val bonds = collection.mutable.Map[js.Number, Residue]()
+  val bonds = collection.mutable.Map[Double, Residue]()
   val bondItems = collection.mutable.Map[Residue, (p.Path, p.Path)]()
 
   def addResidue(r: Residue, pos: p.Point, rot: Double = 0.0, subs: Map[Int, Vector[Substituent]] = Map.empty): Unit = {
