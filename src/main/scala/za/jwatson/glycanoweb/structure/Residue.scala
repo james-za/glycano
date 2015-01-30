@@ -17,12 +17,9 @@ case class Residue(id: Int, rt: ResidueType, anomer: Anomer, absolute: Absolute)
 
 object Residue {
   var nextId: Int = 0
-  def next(rt: ResidueType,
-            anomer: Anomer,
-            absolute: Absolute): Residue = {
-    nextId += 1
-    Residue(nextId, rt, anomer, absolute)
-  }
+  def getNextId: Int = { nextId += 1; nextId }
+  def next(rt: ResidueType, anomer: Anomer, absolute: Absolute): Residue =
+    Residue(getNextId, rt, anomer, absolute)
 
 }
 

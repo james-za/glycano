@@ -32,17 +32,23 @@ object GlycanoBuild extends Build {
         "myltsev" at "http://dl.bintray.com/alexander-myltsev/maven"
       ),
       libraryDependencies ++= Seq(
-        "org.scala-js"                    %%% "scalajs-dom"       % "0.7.0",
-        "be.doeraene"                     %%% "scalajs-jquery"    % "0.7.0",
-        "com.lihaoyi"                     %%% "scalatags"         % "0.4.3-RC1",
-        "com.lihaoyi"                     %%% "scalarx"           % "0.2.7-RC1",
-        "com.lihaoyi"                     %%% "upickle"           % "0.2.6-RC1",
-        "com.github.japgolly.fork.scalaz" %%% "scalaz-core"       % "7.1.0-4",
-        "name.myltsev"                    %%% "shapeless"         % "2.0.0",
-        "org.parboiled"                   %%% "parboiled"         % "2.0.1_3"
+        "org.scala-js"                      %%% "scalajs-dom"       % "0.7.0",
+        "be.doeraene"                       %%% "scalajs-jquery"    % "0.7.0",
+        "com.lihaoyi"                       %%% "scalatags"         % "0.4.3-RC1",
+        "com.lihaoyi"                       %%% "scalarx"           % "0.2.7-RC1",
+        "com.lihaoyi"                       %%% "upickle"           % "0.2.6-RC1",
+        "com.github.japgolly.fork.scalaz"   %%% "scalaz-core"       % "7.1.0-4",
+        "com.github.japgolly.scalajs-react" %%% "core"              % "0.7.2-RC1",
+        "com.github.japgolly.scalajs-react" %%% "ext-monocle"       % "0.7.2-RC1",
+        "com.github.japgolly.scalajs-react" %%% "ext-scalaz71"      % "0.7.2-RC1",
+        "com.github.japgolly.fork.monocle"  %%% "monocle-core"      % "1.0.1",
+        "com.github.japgolly.fork.monocle"  %%% "monocle-macro"     % "1.0.1",
+        "name.myltsev"                      %%% "shapeless"         % "2.0.0",
+        "org.parboiled"                     %%% "parboiled"         % "2.0.1_3"
       ),
       bootSnippet := "za.jwatson.glycanoweb.GlycanoWeb().main();",
       refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),
-      relativeSourceMaps := true
+      relativeSourceMaps := true,
+      addCompilerPlugin(compilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full))
     )
 }

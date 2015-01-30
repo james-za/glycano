@@ -6,6 +6,7 @@ import org.scalajs.dom
 import org.scalajs.dom.{HTMLInputElement, MouseEvent}
 import org.scalajs.jquery.{jQuery => $, _}
 import rx._
+import rx.ops.RxOps
 import za.jwatson.glycanoweb.BootstrapScalatags.Sm
 import za.jwatson.glycanoweb.render.GlycanoCanvas.InputState
 import za.jwatson.glycanoweb.render.{DisplayConv, GlycanoCanvas}
@@ -16,6 +17,7 @@ import za.jwatson.glycanoweb.structure.ResidueCategory.Aldose
 import za.jwatson.glycanoweb.structure._
 import za.jwatson.glycanoweb.{BootstrapScalatags => bs}
 
+import scala.concurrent.Future
 import scala.scalajs.js
 import scala.scalajs.js.JSApp
 import scala.scalajs.js.annotation.JSExport
@@ -26,6 +28,12 @@ import scalatags.JsDom.svgTags
 import scalaz.std.option._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
+
+object GlycanoApp extends JSApp {
+  def main(): Unit = {
+    react.GlycanoApp(react.GlycanoApp.Props()).render(dom.document.body)
+  }
+}
 
 object GlycanoWeb extends JSApp {
   val anomeric = rx.Var[Anomer](Alpha)
