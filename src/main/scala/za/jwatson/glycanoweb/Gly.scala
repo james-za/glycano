@@ -7,8 +7,6 @@ import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
 import za.jwatson.glycanoweb.structure._
 import za.jwatson.glycanoweb.structure.RGraph._
 
-import scalajs.js
-
 case class Gly(residues: Seq[GlyRes], annotations: Seq[GlyAnnot])
 case class GlyRes(ano: Anomer, abs: Absolute, rt: ResidueType,
                   x: Double, y: Double, rot: Double,
@@ -44,10 +42,10 @@ object Gly {
     Gly(residues, annotations)
   }
 
-  implicit val rwSubstituentType = ReadWriter[SubstituentType](st => Js.Str(st.symbol), {
+  implicit val rwSubstituentType: ReadWriter[SubstituentType] = ReadWriter[SubstituentType](st => Js.Str(st.symbol), {
     case Js.Str(SubstituentType(st)) => st
   })
-  implicit val rwGly = ReadWriter[Gly](gly => Js.Arr(
+  implicit val rwGly: ReadWriter[Gly] = ReadWriter[Gly](gly => Js.Arr(
     Js.Arr((for (gr <- gly.residues) yield Js.Arr(
       Js.Str(gr.ano.symbol), Js.Str(gr.abs.symbol), Js.Str(gr.rt.symbol),
       Js.Num(gr.x), Js.Num(gr.y), Js.Num(gr.rot),

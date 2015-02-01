@@ -341,9 +341,9 @@ object GlycanoWeb extends JSApp {
       }))
     }
 
-    def deleteSubstituent(s: Substituent) = {
+    def deleteSubstituent(link: Link, s: Substituent) = {
       span(cls:="pull-right", button(cls:="btn btn-link btn-xs", "remove", onclick:={() =>
-        glycanoCanvas.removeSubstituent(s)
+        glycanoCanvas.removeSubstituent(link, s)
         glycanoCanvas.addToHistory()
         glycanoCanvas.redraw()
       }))
@@ -459,7 +459,7 @@ object GlycanoWeb extends JSApp {
             s <- ss
           } yield {
             bs.row(
-              bs.col(xs=2)(i), bs.col(xs=2)(overviewSubstituent(s)), bs.col(xs=6)(s.st.name), bs.col(xs=2)(deleteSubstituent(s)),
+              bs.col(xs=2)(i), bs.col(xs=2)(overviewSubstituent(s)), bs.col(xs=6)(s.st.name), bs.col(xs=2)(deleteSubstituent(Link(res, i), s)),
               onmouseover := {() => glycanoCanvas.ctx.substituentHL(s.some); glycanoCanvas.redraw()},
               onmouseout := {() => glycanoCanvas.ctx.substituentHL(none); glycanoCanvas.redraw()}
             )

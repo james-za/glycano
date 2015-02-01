@@ -8,39 +8,42 @@ import za.jwatson.glycanoweb.structure._
 
 import scalajs.js
 
-import importedjs.{paper => p}
+import japgolly.scalajs.react.vdom.prefix_<^._
 
 import scala.util.{Success, Failure, Try}
 
 class DisplayConv(val conv: Conv) {
-  def translateColor(color: String): p.Color = color match {
-    case "none" => new p.Color(0, 0, 0, 0)
-    case fill => new p.Color(fill)
-  }
-  val shapeToItem: Shape => p.Item = {
+  val shapeToItem: Shape => ReactTag = {
     case DefinedShape(position, name) =>
       throw new UnsupportedOperationException("ShapeDef cannot refer to another ShapeDef")
     case Polygon(points) =>
-      val poly = new p.Path()
-      for (Array(x, y) <- points.split("[,;\\s]").grouped(2)) {
-        poly.add(new p.Segment(p.Point(x.toDouble, y.toDouble)))
-      }
-      poly.closePath()
-      poly
+      <.svg.polygon(^.svg.points := points)
     case Circle(ToDouble(x), ToDouble(y), ToDouble(r)) =>
-      p.Path.Circle(p.Point(x, y), r)
+      <.svg.circle(^.svg.cx := x, ^.svg.cy := y, ^.svg.r := r)
     case Star(ToDouble(x), ToDouble(y), ToDouble(n), ToDouble(r1), ToDouble(r2)) =>
-      p.Path.Star(p.Point(x, y), n, r1, r2)
+      val count = n.toInt * 2
+      val dt = 2 * math.Pi / count
+      val points = for (i <- 0 until count) yield {
+        val angle = i * dt
+        val out = i % 2 == 0
+        val r = if (out) r2 else r1
+        val x = r * math.cos(angle)
+        val y = r * math.sin(angle)
+        s"$x,$y"
+      }
+      <.svg.polygon(^.svg.points := points.mkString(" "))
     case Rect(ToDouble(x), ToDouble(y),
     ToDouble(width), ToDouble(height),
     ToDouble(rx), ToDouble(ry)) =>
-      val rect = new p.Rectangle(x, y, width, height)
-      if (rx > 0 || ry > 0) p.Path.RoundRectangle(rect, new p.Size(rx, ry))
-      else p.Path.Rectangle(rect)
+      <.svg.rect(
+        ^.svg.x := x, ^.svg.y := y,
+        ^.svg.width := width, ^.svg.height := height,
+        ^.svg.rx := rx, ^.svg.ry := ry
+      )
   }
   def name = conv.name
   //val shapeDefs = conv.shapeDefs.mapValues(shapeToItem)
-  def group(r: Residue, subs: Map[Int, Vector[Substituent]]): p.Group = {
+  def group(r: Residue, subs: Map[Int, Vector[Substituent]]): ReactTag = {
     val matched = conv.rules.filter(_.conds.forall(_.matches(r, subs)))
     val shapeRules = matched.filter(_.mods.exists(_.isInstanceOf[ShapeMod]))
     val rtDefined = shapeRules.flatMap(_.conds).exists(_.isInstanceOf[ResCond])
@@ -58,25 +61,25 @@ class DisplayConv(val conv: Conv) {
           case DefinedShape(_, name) => shapeToItem(conv.shapeDefs(name))
           case _ => shapeToItem(shape)
         }
-        if (classes contains "links") item.name = "outline"
-        if (classes contains "handle") item.name = "handle"
+        val outlineMod = classes contains "links" ?= (^.svg.`class` := "outline")
+        val handleMod = classes contains "handle" ?= (^.svg.`class` := "handle")
         val stylePairs = styles.foldLeft(Map[String, String]()) {
           case (z, (style, pairs)) if classes contains style =>
             z ++ pairs
           case (z, _) =>
             z
         }
-        stylePairs foreach {
-          case ("fill", fill) => item.fillColor = translateColor(fill)
-          case ("stroke", stroke) => item.strokeColor = translateColor(stroke)
-          case ("stroke-width", sw) => item.strokeWidth = sw.toDouble
-          case ("x", x) => item.position.x += x.toDouble
-          case ("y", y) => item.position.y += y.toDouble
-          case (attr, value) => throw new IllegalArgumentException( s"""Unsupported attribute "$attr" with value "$value"""")
-        }
-        priority -> item
+        val styleMods = stylePairs.collect({
+          case ("fill", fill) => ^.svg.fill := fill
+          case ("stroke", stroke) => ^.svg.stroke := stroke
+          case ("stroke-width", sw) => "strokeWidth".reactAttr := sw
+          case ("x", x) => ^.svg.x := x
+          case ("y", y) => ^.svg.y := y
+          //case (attr, value) => throw new IllegalArgumentException( s"""Unsupported attribute "$attr" with value "$value"""")
+        }).toSeq
+        priority -> item(outlineMod, handleMod, styleMods)
     }.sortBy(_._1).map(_._2)
-    new p.Group(js.Array(shapes: _*))
+    <.svg.g(shapes)
   }
 }
 

@@ -31,24 +31,20 @@ import scala.scalajs.js.annotation.JSName
   }
 
   object RadioGroupMap {
-    case class Props[A](onChange: Option[A] => Unit, choices: Map[A, String], toggle: Boolean = false)
+    case class Props[A](onChange: Option[A] => Unit, choices: Map[A, String], selected: A, toggle: Boolean = false)
 
-    class Backend[A](t: BackendScope[Props[A], Option[A]]) {
+    class Backend[A](t: BackendScope[Props[A], Unit]) {
       def handleClick(a: A): Unit =
-        if (!t.state.contains[A](a)) t.modState { old =>
-          val b = if (t.props.toggle && old.contains[A](a)) None else Some(a)
-          t.props.onChange(b)
-          b
-        }
+        t.props.onChange(if (t.props.toggle && t.props.selected == a) None else Some(a))
     }
 
     def apply[A] = ReactComponentB[Props[A]]("RadioGroupMap")
-      .initialStateP[Option[A]](_.choices.keys.headOption)
-      .backend(new Backend[A](_))
+      .stateless
+      .backend(new Backend(_))
       .render((P, C, S, B) =>
         <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
           for ((value, label) <- P.choices) yield <.button(label)(
-            ^.cls := (if (S.contains[A](value)) "btn btn-default active" else "btn btn-default"),
+            ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
             ^.onClick --> B.handleClick(value)
           )
         )(C)
@@ -58,25 +54,21 @@ import scala.scalajs.js.annotation.JSName
   }
 
   object RadioGroup {
-    case class Props(onChange: Option[String] => Unit, choices: Seq[String], toggle: Boolean = false)
+    case class Props(onChange: Option[String] => Unit, choices: Seq[String], selected: String, toggle: Boolean = false)
 
-    class Backend(t: BackendScope[Props, Option[String]]) {
+    class Backend(t: BackendScope[Props, Unit]) {
       def handleClick(a: String): Unit =
-        if (!t.state.contains[String](a)) t.modState { old =>
-          val b = if (t.props.toggle && old.contains[String](a)) None else Some(a)
-          t.props.onChange(b)
-          b
-        }
+        t.props.onChange(if (t.props.toggle && t.props.selected == a) None else Some(a))
     }
 
     def apply() = component
     val component = ReactComponentB[Props]("RadioGroup")
-      .initialStateP[Option[String]](_.choices.headOption)
+      .stateless
       .backend(new Backend(_))
       .render((P, C, S, B) =>
         <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
           for (value <- P.choices) yield <.button(value)(
-            ^.cls := (if (S.contains[String](value)) "btn btn-default active" else "btn btn-default"),
+            ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
             ^.onClick --> B.handleClick(value)
           )
         )(C)

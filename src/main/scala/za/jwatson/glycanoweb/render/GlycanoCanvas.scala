@@ -170,7 +170,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     for {
       (i, subs) <- residue.substituents
       sub <- subs
-    } removeSubstituent(sub)
+    } removeSubstituent(Link(residue, i), sub)
 
     for (b <- residue.bond) removeBond(b)
     for {
@@ -212,9 +212,8 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     }
   }
 
-  def removeSubstituent(subst: Substituent): Unit = {
-    val link = subst.link
-    graph() -= subst
+  def removeSubstituent(link: Link, subst: Substituent): Unit = {
+    graph() -= (link, subst)
     ctx.removeSubstituent(subst)
     for {
       subs <- link.residue.substituents.get(link.position)

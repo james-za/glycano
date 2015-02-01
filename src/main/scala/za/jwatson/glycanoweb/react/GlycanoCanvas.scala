@@ -40,6 +40,23 @@ object GlycanoCanvas {
       ^.onMouseOut --> B.leaveHandle(r)
     )
   )
+  def defaultShape(ano: Anomer, abs: Absolute, rt: ResidueType, scale: Double = 1) = <.svg.g(
+    ^.svg.transform := s"scale($scale)",
+    <.svg.polygon(
+      ^.svg.points := defaultPoints,
+      ^.svg.fill := "blue",
+      ^.svg.stroke := "black",
+      "strokeWidth".reactAttr := 3
+    ),
+    <.svg.rect(
+      ^.svg.x := 90 - 10, ^.svg.y := 40 - 10,
+      ^.svg.width := 20, ^.svg.height := 20,
+      ^.svg.rx := 5, ^.svg.ry := 5,
+      ^.svg.fill := "white",
+      ^.svg.stroke := "black",
+      "strokeWidth".reactAttr := 1
+    )
+  )
   val defaultOutline = defaultPoints.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
   def outlinePos(r: Residue, ge: GraphEntry, i: Int): (Double, Double) = {
     val (x, y) = defaultOutline(i)
@@ -57,8 +74,7 @@ object GlycanoCanvas {
 
       <.svg.svg(
         ^.svg.width := P.width,
-        ^.svg.height := P.height,
-        ^.onScroll ==> P.B.zoomWheel
+        ^.svg.height := P.height
       )(
         <.svg.g(^.svg.transform := s"translate($vx $vy) scale($vs)")(
           for {
@@ -79,7 +95,7 @@ object GlycanoCanvas {
               <.svg.text(
                 ^.svg.fill := "red",
                 "textAnchor".reactAttr := "middle"
-              )(r.desc, P.selection.contains(r) ?= " (selected)")
+              )(r.desc, P.selection._1.contains(r) ?= " (selected)")
             )
           }
         )
