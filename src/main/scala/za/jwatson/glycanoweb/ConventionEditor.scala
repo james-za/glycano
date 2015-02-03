@@ -73,7 +73,7 @@ object ConventionEditor {
       |   default
       |   -> #1 [primary] Hexagon
       |   -> #3 [outline, links] Hexagon
-      |   -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
+      |   -> #5 [handle] Rect(x="80", y="30", width="20", height="20", rx="5", ry="5")
       |   -> style [primary] { fill: #FFFFFF }
       |   -> style [outline] { fill: none; stroke: #000000; stroke-width: 3 }
       |   -> style [handle] { fill: #FFFFFF; stroke: #000000; stroke-width: 1 }
@@ -81,15 +81,19 @@ object ConventionEditor {
       |   (Glycero)
       |   -> #1 [primary] Triangle
       |   -> #3 [outline, links] Triangle
+      |   -> #5 [handle] Rect(x="30", y="25", width="20", height="20", rx="5", ry="5")
       |   (Erythro, Threo)
       |   -> #1 [primary] Diamond
       |   -> #3 [outline, links] Diamond
+      |   -> #5 [handle] Rect(x="70", y="30", width="20", height="20", rx="5", ry="5")
       |   (Ara, Lyx, Rib, Xyl)
       |   -> #1 [primary] Arrow
       |   -> #3 [outline, links] Arrow
+      |   -> #5 [handle] Rect(x="80", y="20", width="20", height="20", rx="5", ry="5")
       |   (Ido, All, Alt, Gal, Glc, Gul, Man, Tal)
       |   -> #1 [primary] Hexagon
       |   -> #3 [outline, links] Hexagon
+      |   -> #5 [handle] Rect(x="80", y="30", width="20", height="20", rx="5", ry="5")
       |
       |   (Ara) -> #2 [secondary] Polygon(points="0,0 0,60 30,60 30,0")
       |   (Rib) -> #2 [secondary] Polygon(points="0,0 0,30 90,30 60,0")
@@ -138,7 +142,6 @@ object ConventionEditor {
       |     -> #4 [lshape] LShape
       |     -> style [lshape] { x: 27; y: 18 }
       |
-      |   * -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
       |   a * -> style [handle] { fill: #FFFFFF; stroke: #000000; stroke-width: 1 }
       |   b * -> style [handle] { fill: #000000; stroke: #000000; stroke-width: 1 }
       |
@@ -149,31 +152,37 @@ object ConventionEditor {
       |   -> #0 [primary] Triangle
       |   -> #2 [outline, links] Triangle
       |   -> #3 [outlinefront] Triangle
+      |   -> #5 [handle] Rect(x="30", y="25", width="20", height="20", rx="5", ry="5")
       |
       |   (Four)
       |   -> #0 [primary] Diamond
       |   -> #2 [outline, links] Diamond
       |   -> #3 [outlinefront] Diamond
+      |   -> #5 [handle] Rect(x="70", y="30", width="20", height="20", rx="5", ry="5")
       |
       |   (Rul, Xul)
       |   -> #0 [primary] Arrow
       |   -> #2 [outline, links] Arrow
       |   -> #3 [outlinefront] Arrow
+      |   -> #5 [handle] Rect(x="80", y="20", width="20", height="20", rx="5", ry="5")
       |
       |   (Fru, Psi, Sor, Tag)
       |   -> #0 [primary] Hexagon
       |   -> #2 [outline, links] Hexagon
       |   -> #3 [outlinefront] Hexagon
+      |   -> #5 [handle] Rect(x="80", y="30", width="20", height="20", rx="5", ry="5")
       |
       |   (AltHep)
       |   -> #0 [primary] Seven
       |   -> #2 [outline, links] Seven
       |   -> #3 [outlinefront] Seven
+      |   -> #5 [handle] Rect(x="80", y="30", width="20", height="20", rx="5", ry="5")
       |
       |   (ManOct)
       |   -> #0 [primary] Eight
       |   -> #2 [outline, links] Eight
       |   -> #3 [outlinefront] Eight
+      |   -> #5 [handle] Rect(x="80", y="30", width="20", height="20", rx="5", ry="5")
       |
       |   (Sor) -> #1 [secondary] Polygon(points="0,40 90,40 65,80 25,80")
       |   (Tag) -> #1 [secondary] Polygon(points="90,40 65,0 45,0 45,80 65,80")

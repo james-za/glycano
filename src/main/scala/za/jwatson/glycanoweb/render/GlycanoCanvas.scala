@@ -1,21 +1,8 @@
 package za.jwatson.glycanoweb.render
 
-import importedjs.paper.Implicits._
-import importedjs.paper.{Point, PointText}
-import importedjs.{paper => p}
 import org.scalajs.dom.HTMLCanvasElement
-import org.scalajs.jquery.{JQueryEventObject, jQuery => jQ}
-import rx._
-import za.jwatson.glycanoweb.render.GlycanoCanvas.InputState.{AddAnnotation, Default}
-import za.jwatson.glycanoweb.render.GlycanoCanvas.TempBond
-import za.jwatson.glycanoweb.structure.RGraph._
-import za.jwatson.glycanoweb.structure._
-import za.jwatson.glycanoweb.{GlyAnnot, Gly, GlyRes, GlycanoWeb}
-
-import scala.scalajs.js
-import scalaz.std.option._
-import scalaz.syntax.std.option._
-
+import za.jwatson.glycanoweb.structure.Residue
+/*
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val undoLimit = 50
   var undoPosition = 0
@@ -106,7 +93,7 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val layerFront = new p.Layer()
   val layerAnnot = new p.Layer()
   layerFront.activate()
-  
+
   val zoomLevel = Var(0)
   val zoom = Rx { math.pow(1.2, zoomLevel()) }
   Obs(zoomLevel, skipInitial = true) {
@@ -945,41 +932,31 @@ class GlycanoCanvas(canvas: HTMLCanvasElement) {
     }
   }
 }
+*/
 
+/*
 object GlycanoCanvas {
-  sealed trait TempBond {
-    def p1: p.Point
-    def p2: p.Point
+sealed trait TempBond {
+  def p1: p.Point
+  def p2: p.Point
+}
+object TempBond {
+  case class LinkToPoint(link: Link, point: p.Point)(implicit c: PaperJSContext) extends TempBond {
+    override def p1: Point = c.linkPosition(link)
+    override def p2: Point = point
   }
-  object TempBond {
-    case class LinkToPoint(link: Link, point: p.Point)(implicit c: PaperJSContext) extends TempBond {
-      override def p1: Point = c.linkPosition(link)
-      override def p2: Point = point
-    }
-    case class LinkToLink(link1: Link, link2: Link)(implicit c: PaperJSContext) extends TempBond {
-      override def p1: Point = c.linkPosition(link1)
-      override def p2: Point = c.linkPosition(link2)
-    }
-    case class PointToPoint(p1: p.Point, p2: p.Point) extends TempBond
-    case class LinkToTemplate(link: Link, i: Int)(implicit c: PaperJSContext) extends TempBond  {
-      override def p1: Point = c.linkPosition(link)
-      override def p2: Point = c.residueTemplateLinkPosition(i).getOrElse(p.Point(0, 0))
-    }
+  case class LinkToLink(link1: Link, link2: Link)(implicit c: PaperJSContext) extends TempBond {
+    override def p1: Point = c.linkPosition(link1)
+    override def p2: Point = c.linkPosition(link2)
   }
-//  case class TempBond(from: Link, to: p.Point, toPos: Option[Int], toLink: Option[Link])
-  case class Selected(residue: Residue, offset: p.Point)
-
-  sealed trait InputState
-  object InputState {
-    case object Default extends InputState
-    case object PlaceResidue extends InputState
-    case object AddSubstituent extends InputState
-    case class BoxSelect(down: p.Point) extends InputState
-    case class Drag(last: p.Point) extends InputState
-    case object CreateBond extends InputState
-    case object PostCreateBond extends InputState
-    case class Hit(down: p.Point, item: p.Item) extends InputState
-    case class Rotate(item: p.Item) extends InputState
-    case object AddAnnotation extends InputState
+  case class PointToPoint(p1: p.Point, p2: p.Point) extends TempBond
+  case class LinkToTemplate(link: Link, i: Int)(implicit c: PaperJSContext) extends TempBond  {
+    override def p1: Point = c.linkPosition(link)
+    override def p2: Point = c.residueTemplateLinkPosition(i).getOrElse(p.Point(0, 0))
   }
 }
+//  case class TempBond(from: Link, to: p.Point, toPos: Option[Int], toLink: Option[Link])
+case class Selected(residue: Residue, offset: p.Point)
+
+}
+*/

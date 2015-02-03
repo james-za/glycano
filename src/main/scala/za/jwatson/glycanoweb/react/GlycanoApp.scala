@@ -9,11 +9,12 @@ import monocle.Monocle._
 import za.jwatson.glycanoweb.GlyAnnot
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{FormInput, NavbarHeader}
+import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
 object GlycanoApp {
-  case class Props(/*historyLimit: Int = 50*/)
+  case class Props(conventions: Map[String, DisplayConv]/*, historyLimit: Int = 50*/)
 
   @Lenses case class State(
     undoPosition: Int = 0,
@@ -22,7 +23,8 @@ object GlycanoApp {
     bondLabels: Boolean = false,
     view: View = View(),
     buffer: RGraph = RGraph(),
-    mode: Mode = Selection
+    mode: Mode = Selection,
+    displayConv: DisplayConv = DisplayConv.convUCT
   )
 
   sealed trait Mode
@@ -147,7 +149,9 @@ object GlycanoApp {
 
   def apply(props: Props, children: ReactNode*) = component(props, children)
   val component = ReactComponentB[Props]("GlycanoApp")
-    .initialState(State(history = Vector(testGraph)))
+    .initialStateP(P => State(
+      history = Vector(testGraph),
+      displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
     .backend(new Backend(_))
     .render((P, S, B) => {
 
@@ -207,10 +211,10 @@ object GlycanoApp {
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(ResiduePanel(ResiduePanel.Props(B.residuePanelClick))))
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(ResiduePanel(ResiduePanel.Props(S.displayConv, B.residuePanelClick))))
           ),
           <.div(^.cls := "col-xs-9")(
-            GlycanoCanvas(GlycanoCanvas.Props(B, graph = S.history(S.undoPosition), selection = S.selection, view = S.view))
+            GlycanoCanvas(GlycanoCanvas.Props(B, dc = S.displayConv, graph = S.history(S.undoPosition), selection = S.selection, view = S.view))
           )
         )
       )

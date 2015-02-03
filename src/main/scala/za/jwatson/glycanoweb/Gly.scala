@@ -1,7 +1,6 @@
 package za.jwatson.glycanoweb
 
 import upickle._
-import za.jwatson.glycanoweb.render.GlycanoCanvas
 import za.jwatson.glycanoweb.structure.Absolute.{D, L}
 import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
 import za.jwatson.glycanoweb.structure._
@@ -23,7 +22,7 @@ object GlyAnnot {
 }
 
 object Gly {
-  def from(g: RGraph, a: Map[Int, GlyAnnot]): Gly = {
+  def from(g: RGraph): Gly = {
     implicit val graph = g
     val rs = g.residues.toList
     val rp = rs.zipWithIndex.toMap
@@ -37,7 +36,7 @@ object Gly {
       subs = r.substituents.mapValues(_.map(_.st))
     } yield GlyRes(r.anomer, r.absolute, r.rt, x, y, rot, tr, tp, subs)
 
-    val annotations = a.values.toList
+    val annotations = g.annots.values.toList
 
     Gly(residues, annotations)
   }

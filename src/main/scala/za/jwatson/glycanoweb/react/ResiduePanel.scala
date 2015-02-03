@@ -4,11 +4,12 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ReactComponentB
 import monocle.macros.Lenses
-import za.jwatson.glycanoweb.structure.{ResidueCategory, Anomer, Absolute, ResidueType}
+import za.jwatson.glycanoweb.render.DisplayConv
+import za.jwatson.glycanoweb.structure._
 import org.scalajs.dom
 
 object ResiduePanel {
-  case class Props(onChange: State => Unit)
+  case class Props(dc: DisplayConv, onChange: State => Unit)
 
   @Lenses case class State(ano: Anomer, abs: Absolute, rt: Option[ResidueType], page: ResidueCategory)
 
@@ -79,7 +80,11 @@ object ResiduePanel {
                 <.svg.svg(
                   ^.svg.width := 50,
                   ^.svg.height := 40
-                )(GlycanoCanvas.defaultShape(S.ano, S.abs, rt, scale = 0.4))
+                )(
+                  <.svg.g(^.svg.transform := "scale(0.4)")(
+                    P.dc.group(Residue(0, rt, S.ano, S.abs), Map.empty, hh = false, () => (), () => ())
+                  )
+                )
               )
             )
           )

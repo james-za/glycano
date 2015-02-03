@@ -1,13 +1,9 @@
 package za.jwatson.glycanoweb
 
-import za.jwatson.glycanoweb.{BootstrapScalatags => bs}
-import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure._
-
-import org.scalajs.jquery.{jQuery => jQ}
+import za.jwatson.glycanoweb.{BootstrapScalatags => bs}
 
 import scalatags.JsDom.all._
-import GlycanoWeb._
 
 object GlycanoPage {
   /** Toggles for molecular class */
@@ -139,7 +135,7 @@ object GlycanoPage {
           bs.formGroup(
             label(cls:="checkbox-inline")(
               input(`type`:="checkbox", id:="bondlabel", value:="bondlabel", onchange:={() =>
-                GlycanoWeb.bondLabels() = jQ("#bondlabel").is(":checked")
+                /*GlycanoWeb.bondLabels() = jQ("#bondlabel").is(":checked")*/
               }),
               "Bond Labels"
             )
@@ -177,8 +173,8 @@ object GlycanoPage {
       bs.panelHeading("Convention"),
       bs.panelBody(classes = "text-center")(
         bs.btnGroup(
-          bs.radioButton(bs.Default, "conv-uct")("UCT")(onclick := {() => displayConv() = DisplayConv.convUCT}),
-          bs.radioButton(bs.Default, "conv-cfg")("CFG")(onclick := {() => displayConv() = DisplayConv.convCFG})
+          bs.radioButton(bs.Default, "conv-uct")("UCT")(onclick := {() => /*displayConv() = DisplayConv.convUCT*/}),
+          bs.radioButton(bs.Default, "conv-cfg")("CFG")(onclick := {() => /*displayConv() = DisplayConv.convCFG*/})
         )
       )
     )
