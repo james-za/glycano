@@ -45,7 +45,8 @@ import scala.scalajs.js.annotation.JSName
         <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
           for ((value, label) <- P.choices) yield <.button(label)(
             ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
-            ^.onClick --> B.handleClick(value)
+            ^.onClick --> B.handleClick(value),
+            ^.key := value.##
           )
         )(C)
       )
@@ -86,6 +87,7 @@ import scala.scalajs.js.annotation.JSName
                      pressed: Boolean = false)
 
     def apply(props: Props, children: ReactNode*) = component(props, children)
+    def withKey(key: scalajs.js.Any) = component.withKey(key)
     val component = ReactComponentB[Props]("Button")
       .initialState(false)
       .noBackend

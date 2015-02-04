@@ -132,6 +132,9 @@ object GlycanoApp {
     def addAnnotation(): Unit = {
       t.modState(State.mode set PlaceAnnotation(30))
     }
+
+    def modGraph(mod: RGraph => RGraph): Unit =
+      t.modState(StateL.graph modify mod)
   }
 
   val testGraph = {
@@ -175,7 +178,8 @@ object GlycanoApp {
                     ^.`type` := "text",
                     ^.cls := "form-control",
                     ^.placeholder := "Filename",
-                    ^.value := "glycano")
+                    ^.value := "glycano",
+                    ^.readOnly := "true")
                 )
               ),
               <.ul(^.cls := "nav navbar-nav")(
@@ -194,17 +198,17 @@ object GlycanoApp {
                 )
               ),
               " ",
-              Button(Button.Props(() => B.clearAll(), nav = true), "Clear All"), " ",
-              Button(Button.Props(() => B.delete(), nav = true), "Delete"), " ",
-              Button(Button.Props(() => B.cut(), nav = true), "Cut"), " ",
-              Button(Button.Props(() => B.copy(), nav = true), "Copy"), " ",
-              Button(Button.Props(() => B.paste(), nav = true), "Paste"), " ",
-              Button(Button.Props(() => B.undo(), nav = true), GlyphIcon("chevron-left"), " Undo"), " ",
-              Button(Button.Props(() => B.redo(), nav = true), GlyphIcon("chevron-right"), " Redo"), " ",
-              Button(Button.Props(() => B.addAnnotation(), nav = true), GlyphIcon("font"), " Add Annotation"), " ",
-              Button(Button.Props(() => B.zoomOut(), nav = true), GlyphIcon("zoom-out")), " ",
-              Button(Button.Props(() => B.zoomReset(), nav = true), "100%"), " ",
-              Button(Button.Props(() => B.zoomIn(), nav = true), GlyphIcon("zoom-in")), " "
+              Button.withKey("b00")(Button.Props(() => B.clearAll(), nav = true), "Clear All"), " ",
+              Button.withKey("b01")(Button.Props(() => B.delete(), nav = true), "Delete"), " ",
+              Button.withKey("b02")(Button.Props(() => B.cut(), nav = true), "Cut"), " ",
+              Button.withKey("b03")(Button.Props(() => B.copy(), nav = true), "Copy"), " ",
+              Button.withKey("b04")(Button.Props(() => B.paste(), nav = true), "Paste"), " ",
+              Button.withKey("b05")(Button.Props(() => B.undo(), nav = true), GlyphIcon("chevron-left"), " Undo"), " ",
+              Button.withKey("b06")(Button.Props(() => B.redo(), nav = true), GlyphIcon("chevron-right"), " Redo"), " ",
+              Button.withKey("b07")(Button.Props(() => B.addAnnotation(), nav = true), GlyphIcon("font"), " Add Annotation"), " ",
+              Button.withKey("b08")(Button.Props(() => B.zoomOut(), nav = true), GlyphIcon("zoom-out")), " ",
+              Button.withKey("b09")(Button.Props(() => B.zoomReset(), nav = true), "100%"), " ",
+              Button.withKey("b10")(Button.Props(() => B.zoomIn(), nav = true), GlyphIcon("zoom-in")), " "
             )
           ))
         ),
@@ -214,7 +218,7 @@ object GlycanoApp {
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(ResiduePanel(ResiduePanel.Props(S.displayConv, B.residuePanelClick))))
           ),
           <.div(^.cls := "col-xs-9")(
-            GlycanoCanvas(GlycanoCanvas.Props(B, dc = S.displayConv, graph = S.history(S.undoPosition), selection = S.selection, view = S.view))
+            GlycanoCanvas(GlycanoCanvas.Props(B.modGraph, S.mode, dc = S.displayConv, graph = S.history(S.undoPosition), selection = S.selection, view = S.view))
           )
         )
       )

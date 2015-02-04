@@ -5,21 +5,50 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import monocle.macros.Lenses
 import za.jwatson.glycanoweb.GlyAnnot
+import za.jwatson.glycanoweb.react.GlycanoApp.{PlaceAnnotation, PlaceResidue, Selection}
 import za.jwatson.glycanoweb.render.DisplayConv
-import za.jwatson.glycanoweb.structure.RGraph.GraphEntry
+import za.jwatson.glycanoweb.structure.RGraph.{Bond, GraphEntry}
 
 import za.jwatson.glycanoweb.structure._
 
 import scalajs.js
+import org.scalajs.dom
 
 object GlycanoCanvas {
-  case class Props(B: GlycanoApp.Backend, dc: DisplayConv, width: Int = 800, height: Int = 600, graph: RGraph, selection: (Set[Residue], Set[GlyAnnot]), view: View = View())
+  case class Props(modGraph: (RGraph => RGraph) => Unit, mode: GlycanoApp.Mode,
+                   dc: DisplayConv, width: Int = 800, height: Int = 600, graph: RGraph,
+                   selection: (Set[Residue], Set[GlyAnnot]), view: View = View())
 
   @Lenses case class State(hoverHandle: Option[Residue] = None, inputState: InputState = InputState.Default)
 
   @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1)
 
   class Backend(t: BackendScope[Props, State]) {
+    def placeResidue(e: ReactMouseEvent): Unit = {
+      println("placeResidue")
+      for {
+        PlaceResidue(ano, abs, rt) <- Some(t.props.mode)
+        svgRef <- Ref[dom.HTMLElement]("canvas")(t)
+        svg = svgRef.getDOMNode().asInstanceOf[dom.SVGSVGElement]
+        viewRef <- Ref[dom.HTMLElement]("view")(t)
+        view = viewRef.getDOMNode().asInstanceOf[dom.SVGGElement]
+      } {
+        println("placing...")
+        println(svg)
+        println(view)
+        val p = svg.createSVGPoint()
+        p.x = e.clientX
+        p.y = e.clientY
+        println(e.clientX + ", " + e.clientY)
+        println(e.screenX + ", " + e.screenY)
+        val p2 = p.matrixTransform(svg.getScreenCTM().inverse())
+        println(p2.x + ", " + p2.y)
+
+        import RGraph._
+        val r = Residue.next(rt, ano, abs)
+        t.props.modGraph(g => (g + r).updated(r, Placement(p2.x, p2.y, 0)))
+      }
+    }
   }
 
   sealed trait InputState
@@ -100,6 +129,8 @@ object GlycanoCanvas {
     .initialState(State())
     .backend(new Backend(_))
     .render((P, C, S, B) => {
+      println(P.mode)
+
       val View(vx, vy, vs) = P.view
 
       val outlines = for ((r, ge) <- P.graph.entries) yield {
@@ -108,23 +139,26 @@ object GlycanoCanvas {
 
       <.svg.svg(
         ^.svg.width := P.width,
-        ^.svg.height := P.height
+        ^.svg.height := P.height,
+        ^.ref := "canvas"
       )(
-        <.svg.g(^.svg.transform := s"translate($vx $vy) scale($vs)")(
+        <.svg.g(^.svg.transform := s"translate($vx $vy) scale($vs)", ^.ref := "view")(
           for {
             (r @ Residue(_, rt, ano, abs), ge) <- P.graph.entries
-            Link(to, i) <- ge.parent
+            toLink @ Link(to, i) <- ge.parent
           } yield {
             val (x1, y1) = outlinePos(outlines(r), r, ge, 0)
             val (x2, y2) = outlinePos(outlines(r), to, P.graph.entries(to), i)
             <.svg.line(
+              ^.key := Bond(r, toLink).##,
               ^.svg.x1 := x1, ^.svg.y1 := y1,
               ^.svg.x2 := x2, ^.svg.y2 := y2,
               ^.svg.stroke := "black", "strokeWidth".reactAttr := "7"
             )
           },
-          for ((r, ge) <- P.graph.entries) yield SVGResidue(SVGResidue.Props(r, ge, P.dc))
-        )
+          for ((r, ge) <- P.graph.entries) yield SVGResidue.withKey(r.##)(SVGResidue.Props(r, ge, P.dc))
+        ),
+        ^.onClick ==> B.placeResidue
       )
     })
     //.domType[dom.SVGSVGElement]
