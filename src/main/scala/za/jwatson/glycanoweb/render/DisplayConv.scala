@@ -58,10 +58,10 @@ class DisplayConv(val conv: Conv) {
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
   def outline(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IndexedSeq[(Double, Double)] =
-    modsOutlineMemo(residueModsMemo(ano, abs, rt, subs), ano, abs, rt, subs)
+    outlineInnerMemo(residueModsMemo(ano, abs, rt, subs), ano, abs, rt, subs)
 
-  val modsOutlineMemo = scalaz.Memo.mutableHashMapMemo((modsOutline _).tupled)
-  def modsOutline(mods: Seq[RuleMod], ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IndexedSeq[(Double, Double)] = {
+  val outlineInnerMemo = scalaz.Memo.mutableHashMapMemo((outlineInner _).tupled)
+  def outlineInner(mods: Seq[RuleMod], ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IndexedSeq[(Double, Double)] = {
     mods.flatMap {
       case ShapeMod(_, classes, Polygon(points)) if classes.contains("links") =>
         Some(polygonOutline(points))
@@ -71,6 +71,17 @@ class DisplayConv(val conv: Conv) {
         } yield polygonOutline(points)
       case _ => None
     }.headOption.getOrElse(IndexedSeq.fill(rt.linkage)((0.0, 0.0)))
+  }
+
+  def bounds(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = boundsInnerMemo(ano, abs, rt, subs)
+  val boundsInnerMemo = scalaz.Memo.mutableHashMapMemo((boundsInner _).tupled)
+  def boundsInner(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): ((Double, Double), Double, Double) = {
+    val (xs, ys) = outline(ano, abs, rt, subs).unzip
+    val x = xs.min
+    val y = ys.min
+    val width = xs.max - x
+    val height = ys.max - y
+    ((x, y), width, height)
   }
 
   def group(r: Residue, subs: Map[Int, Vector[SubstituentType]], handleHover: Boolean,

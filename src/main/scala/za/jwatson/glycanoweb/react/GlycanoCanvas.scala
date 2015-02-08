@@ -189,7 +189,8 @@ object GlycanoCanvas {
       }
 
       val residues = for ((r, ge) <- P.graph.entries) yield {
-        SVGResidue.withKey(r.id)(SVGResidue.Props(B.residueMouseDown(r), B.handleMouseDown(r), r, ge, P.dc))
+        val selected = P.selection._1.contains(r)
+        SVGResidue.withKey(r.id)(SVGResidue.Props(B.residueMouseDown(r), B.handleMouseDown(r), r, ge, P.dc, selected))
       }
 
       val selectionBox = S.inputState match {
@@ -209,7 +210,7 @@ object GlycanoCanvas {
         case (Mode.PlaceResidue(ano, abs, rt), InputState.AddResidue(x, y)) =>
           val r = Residue(0, rt, ano, abs)
           val ge = GraphEntry(x, y, 0)
-          Some(SVGResidue.withKey(0)(SVGResidue.Props(_ => (), _ => (), r, ge, P.dc)))
+          Some(SVGResidue.withKey(0)(SVGResidue.Props(_ => (), _ => (), r, ge, P.dc, selected = false)))
         case _ => None
       }
 

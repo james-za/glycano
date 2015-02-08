@@ -74,18 +74,22 @@ object ResiduePanel {
       val residuePages = <.div(^.cls := "btn-group", "data-toggle".reactAttr := "buttons")(
         <.div(^.cls := "tab-content")(
           <.div(^.role := "tabpanel", ^.cls := "tab-pane active")(
-            for (rt <- ResidueType.ResidueTypeCategories(S.page)) yield <.span(
-              <.button(^.cls := s"btn btn-default", S.rt.contains(rt) ?= (^.cls := "active"), ^.title := rt.desc, ^.padding := 2.px, ^.onClick --> B.clickResidue(rt))(
-                <.svg.svg(
-                  ^.svg.width := 50,
-                  ^.svg.height := 40
-                )(
-                  <.svg.g(^.svg.transform := "scale(0.4)")(
-                    P.dc.group(Residue(0, rt, S.ano, S.abs), Map.empty, handleHover = false, () => (), () => (), _ => ())
+            for (rt <- ResidueType.ResidueTypeCategories(S.page)) yield {
+              val (_, w, h) = P.dc.bounds(S.ano, S.abs, rt, Map.empty)
+              val scale = 0.4
+              <.span(
+                <.button(^.cls := s"btn btn-default", S.rt.contains(rt) ?= (^.cls := "active"), ^.title := rt.desc, ^.padding := 2.px, ^.onClick --> B.clickResidue(rt))(
+                  <.svg.svg(
+                    ^.svg.width := (w + 20) * scale,
+                    ^.svg.height := (h + 20) * scale
+                  )(
+                    <.svg.g(^.svg.transform := s"scale($scale) translate(10, 0)")(
+                      P.dc.group(Residue(0, rt, S.ano, S.abs), Map.empty, handleHover = false, () => (), () => (), _ => ())
+                    )
                   )
                 )
               )
-            )
+            }
           )
         )
       )
