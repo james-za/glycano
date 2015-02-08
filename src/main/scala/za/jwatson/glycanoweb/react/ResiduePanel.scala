@@ -37,7 +37,6 @@ object ResiduePanel {
     }
 
     def clickResidue(rt: ResidueType): Unit = {
-      println(s"clickResidue($rt)")
       setResidueType(if (t.state.rt.contains[ResidueType](rt)) None else Some(rt))
     }
 
@@ -77,13 +76,12 @@ object ResiduePanel {
           <.div(^.role := "tabpanel", ^.cls := "tab-pane active")(
             for (rt <- ResidueType.ResidueTypeCategories(S.page)) yield <.span(
               <.button(^.cls := s"btn btn-default", S.rt.contains(rt) ?= (^.cls := "active"), ^.title := rt.desc, ^.padding := 2.px, ^.onClick --> B.clickResidue(rt))(
-//                <.input(^.`type` := "checkbox", ^.display.none),
                 <.svg.svg(
                   ^.svg.width := 50,
                   ^.svg.height := 40
                 )(
                   <.svg.g(^.svg.transform := "scale(0.4)")(
-                    P.dc.group(Residue(0, rt, S.ano, S.abs), Map.empty, hh = false, () => (), () => ())
+                    P.dc.group(Residue(0, rt, S.ano, S.abs), Map.empty, handleHover = false, () => (), () => (), _ => ())
                   )
                 )
               )

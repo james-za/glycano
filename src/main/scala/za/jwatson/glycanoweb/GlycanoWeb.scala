@@ -10,7 +10,7 @@ object GlycanoWeb extends JSApp {
   def main(): Unit = {
     //DisplayConv.refresh()
 
-    val props = GlycanoApp.Props(conventions = DisplayConv.conventions().toMap)
+    val props = GlycanoApp.Props(conventions = DisplayConv.conventions)
     GlycanoApp(props).render(dom.document.body)
   }
 }

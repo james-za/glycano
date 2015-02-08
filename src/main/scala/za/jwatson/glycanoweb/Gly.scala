@@ -33,7 +33,7 @@ object Gly {
       rot <- r.rotation
       tr = r.parent.fold(-1)(l => rp(l.residue))
       tp = r.parent.fold(-1)(_.position)
-      subs = r.substituents.mapValues(_.map(_.st))
+      subs = r.substituents
     } yield GlyRes(r.anomer, r.absolute, r.rt, x, y, rot, tr, tp, subs)
 
     val annotations = g.annots.values.toList

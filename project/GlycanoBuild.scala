@@ -49,6 +49,7 @@ object GlycanoBuild extends Build {
       bootSnippet := "za.jwatson.glycanoweb.GlycanoWeb().main();",
       refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),
       relativeSourceMaps := true,
+      emitSourceMaps := false,
       addCompilerPlugin(compilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full))
     )
 }

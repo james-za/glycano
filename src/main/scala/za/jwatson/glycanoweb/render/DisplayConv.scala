@@ -1,7 +1,8 @@
 package za.jwatson.glycanoweb.render
 
+import japgolly.scalajs.react.ReactMouseEvent
 import org.parboiled2.ParseError
-import za.jwatson.glycanoweb.{GlycanoWeb, ConventionParser, ConventionEditor}
+import za.jwatson.glycanoweb.{ConventionParser, ConventionEditor}
 import za.jwatson.glycanoweb.ConventionEditor.RuleCond.{DefaultCond, ResCond}
 import za.jwatson.glycanoweb.ConventionEditor._
 import za.jwatson.glycanoweb.structure._
@@ -43,9 +44,10 @@ class DisplayConv(val conv: Conv) {
   }
   def name = conv.name
   //val shapeDefs = conv.shapeDefs.mapValues(shapeToItem)
-  
-  def residueMods(r: Residue, subs: Map[Int, Vector[Substituent]]): Seq[RuleMod] = {
-    val matched = conv.rules.filter(_.conds.forall(_.matches(r, subs)))
+
+  val residueModsMemo = scalaz.Memo.mutableHashMapMemo((residueMods _).tupled)
+  def residueMods(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): Seq[RuleMod] = {
+    val matched = conv.rules.filter(_.conds.forall(_.matches(ano, abs, rt, subs)))
     val shapeRules = matched.filter(_.mods.exists(_.isInstanceOf[ShapeMod]))
     val rtDefined = shapeRules.flatMap(_.conds).exists(_.isInstanceOf[ResCond])
 
@@ -55,18 +57,27 @@ class DisplayConv(val conv: Conv) {
 
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
-  def outline(r: Residue, subs: Map[Int, Vector[Substituent]]): IndexedSeq[(Double, Double)] =
-    outline(residueMods(r, subs), r, subs)
+  def outline(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IndexedSeq[(Double, Double)] =
+    modsOutlineMemo(residueModsMemo(ano, abs, rt, subs), ano, abs, rt, subs)
 
-  def outline(mods: Seq[RuleMod], r: Residue, subs: Map[Int, Vector[Substituent]]): IndexedSeq[(Double, Double)] = {
-    mods.collect {
-      case ShapeMod(priority, classes, Polygon(points)) =>
-        polygonOutline(points)
-    }.headOption.getOrElse(IndexedSeq.fill(r.rt.linkage)((0.0, 0.0)))
+  val modsOutlineMemo = scalaz.Memo.mutableHashMapMemo((modsOutline _).tupled)
+  def modsOutline(mods: Seq[RuleMod], ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IndexedSeq[(Double, Double)] = {
+    mods.flatMap {
+      case ShapeMod(_, classes, Polygon(points)) if classes.contains("links") =>
+        Some(polygonOutline(points))
+      case ShapeMod(_, classes, DefinedShape(_, shapeName)) if classes.contains("links") =>
+        for {
+          Polygon(points) <- conv.shapeDefs.get(shapeName)
+        } yield polygonOutline(points)
+      case _ => None
+    }.headOption.getOrElse(IndexedSeq.fill(rt.linkage)((0.0, 0.0)))
   }
 
-  def group(r: Residue, subs: Map[Int, Vector[Substituent]], hh: Boolean, hOver: () => Unit, hOut: () => Unit): ReactTag = {
-    val mods = residueMods(r, subs)
+  def group(r: Residue, subs: Map[Int, Vector[SubstituentType]], handleHover: Boolean,
+            handleMouseOver: () => Unit,
+            handleMouseOut: () => Unit,
+            handleMouseDown: ReactMouseEvent => Unit): ReactTag = {
+    val mods = residueModsMemo(r.anomer, r.absolute, r.rt, subs)
 
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
       case (map, StyleMod(style, content)) =>
@@ -80,30 +91,30 @@ class DisplayConv(val conv: Conv) {
           case DefinedShape(_, name) => shapeToItem(conv.shapeDefs(name))
           case _ => shapeToItem(shape)
         }
-        val outlineMod = classes contains "links" ?= (^.svg.`class` := "outline")
+
+        val styleMods = for {
+          (style, pairs) <- styles.toSeq if classes contains style
+          mod <- pairs.collect {
+            case ("fill", fill) => ^.svg.fill := fill
+            case ("stroke", stroke) => ^.svg.stroke := stroke
+            case ("stroke-width", sw) => "strokeWidth".reactAttr := sw
+            case ("x", x) => ^.svg.x := x
+            case ("y", y) => ^.svg.y := y
+          }
+        } yield mod
+
+        val outlineMod = classes contains "links" ?= (^.cls := "outline")
         val handleMod = classes contains "handle" ?= Seq(
-          hh ?= Seq(
+          handleHover ?= Seq(
             "strokeWidth".reactAttr := "3",
             ^.svg.stroke := "blue"
           ),
-          ^.onMouseOver --> hOver(),
-          ^.onMouseOut --> hOut(),
-          ^.svg.`class` := "handle"
+          ^.onMouseOver --> handleMouseOver(),
+          ^.onMouseOut --> handleMouseOut(),
+          ^.onMouseDown ==> handleMouseDown,
+          ^.cls := "handle"
         )
-        val stylePairs = styles.foldLeft(Map[String, String]()) {
-          case (z, (style, pairs)) if classes contains style =>
-            z ++ pairs
-          case (z, _) =>
-            z
-        }
-        val styleMods = stylePairs.collect({
-          case ("fill", fill) => ^.svg.fill := fill
-          case ("stroke", stroke) => ^.svg.stroke := stroke
-          case ("stroke-width", sw) => "strokeWidth".reactAttr := sw
-          case ("x", x) => ^.svg.x := x
-          case ("y", y) => ^.svg.y := y
-          //case (attr, value) => throw new IllegalArgumentException( s"""Unsupported attribute "$attr" with value "$value"""")
-        }).toSeq
+
         priority -> item(outlineMod, styleMods, handleMod)
     }.sortBy(_._1).map(_._2)
     <.svg.g(shapes)
@@ -126,37 +137,23 @@ object DisplayConv {
 
   import org.scalajs.dom
 
-  val conventions = rx.Var[collection.mutable.Map[String, DisplayConv]](js.Dictionary[DisplayConv]())
-  def convs = dom.localStorage.getItem("glycano.conventions").asInstanceOf[js.UndefOr[String]].fold {
-    js.Dictionary[String]()
-  } {
-    c => js.JSON.parse(c).asInstanceOf[js.Dictionary[String]]
-  }
+//  val conventions = rx.Var[collection.mutable.Map[String, DisplayConv]](js.Dictionary[DisplayConv]())
+//  def convs = dom.localStorage.getItem("glycano.conventions").asInstanceOf[js.UndefOr[String]].fold {
+//    js.Dictionary[String]()
+//  } {
+//    c => js.JSON.parse(c).asInstanceOf[js.Dictionary[String]]
+//  }
 
-  def refresh(): Unit = {
-    conventions() = for {
-      (k, v) <- convs
-      c <- parseTextConv(v)
-    } yield k -> c
-//    for (c <- conventions().get("UCT")) convUCT() = c
-//    for (c <- conventions().get("CFG")) convCFG() = c
-  }
-
-  refresh()
-
-  for {
+  val conventions = for {
     (k, v) <- Map(
       "UCT" -> ConventionEditor.textUCT,
       "CFG" -> ConventionEditor.textCFG
     )
     c <- parseTextConv(v)
-  } {
-    //println(s"conv '$k':\n$v\n\n")
-    conventions()(k) = c
-  }
+  } yield k -> c
 
-  def convUCT = conventions().getOrElse("UCT", convDefault)
-  def convCFG = conventions().getOrElse("CFG", convDefault)
+  def convUCT = conventions.getOrElse("UCT", convDefault)
+  def convCFG = conventions.getOrElse("CFG", convDefault)
 }
 
 object ToInt {

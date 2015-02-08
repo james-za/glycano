@@ -23,14 +23,17 @@ object GlycanoApp {
     bondLabels: Boolean = false,
     view: View = View(),
     buffer: RGraph = RGraph(),
-    mode: Mode = Selection,
+    mode: Mode = Mode.Selection,
     displayConv: DisplayConv = DisplayConv.convUCT
   )
 
   sealed trait Mode
-  case object Selection extends Mode
-  case class PlaceResidue(ano: Anomer, abs: Absolute, rt: ResidueType) extends Mode
-  case class PlaceAnnotation(size: Double) extends Mode
+  object Mode {
+    case object Selection extends Mode
+    case class PlaceResidue(ano: Anomer, abs: Absolute, rt: ResidueType) extends Mode
+    case class PlaceSubstituent(st: SubstituentType) extends Mode
+    case class PlaceAnnotation(size: Double) extends Mode
+  }
 
   object StateL {
     val graph = Lens[State, RGraph](s => s.history(s.undoPosition))(g => s => State.history.modify(g +: _.drop(s.undoPosition) take 50/*t.props.historyLimit*/)(s))
@@ -67,23 +70,15 @@ object GlycanoApp {
     buf <- ST.gets(_.buffer)
     gSel <- ST.gets { s =>
       var g = StateL.graph.get(s)
-      def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, x: Double, y: Double, rot: Double): Residue = {
+      def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]], x: Double, y: Double, rot: Double): Residue = {
         val added = Residue.next(rt, ano, abs)
         g += added
         g = g.updated(added, Placement(x, y, rot))
+        g = g &|-? RGraph.entryL(added) ^|-> GraphEntry.subs set subs
         added
-      }
-      def addSubstituent(link: Link, st: SubstituentType): Unit = {
-        val added = Substituent.next(st)
-        g += link -> added
       }
       val addedResidues = for ((src, ge) <- buf.entries) yield {
-        val added = addResidue(src.anomer, src.absolute, src.rt, ge.x, ge.y, ge.rotation)
-        for {
-          (pos, subs) <- ge.subs
-          sub <- subs
-        } addSubstituent(Link(added, pos), sub.st)
-        added
+        addResidue(src.anomer, src.absolute, src.rt, ge.subs, ge.x, ge.y, ge.rotation)
       }
       val lookup = (buf.entries.keys zip addedResidues).toMap
       for {
@@ -93,13 +88,13 @@ object GlycanoApp {
         addedParent <- lookup.get(srcParent)
       } addBond(Bond(added, Link(addedParent, position)))
 
-      val addedSubstituents = for (a <- buf.annots.values) yield {
+      val addedAnnotations = for (a <- buf.annots.values) yield {
         val added = GlyAnnot.next(a.x, a.y, a.rot, a.text, a.size)
         g += added
         added
       }
 
-      (g, (addedResidues.toSet, addedSubstituents.toSet))
+      (g, (addedResidues.toSet, addedAnnotations.toSet))
     }
     _ <- ST.mod(StateL.graph set gSel._1)
     _ <- ST.mod(State.selection set gSel._2)
@@ -115,7 +110,7 @@ object GlycanoApp {
         t.modState(State.undoPosition.modify(_ - 1))
 
     def zoomIn(): Unit = t.modState(State.view ^|-> View.scale modify (_ * 1.1))
-    def zoomOut(): Unit = t.modState(State.view ^|-> View.scale modify (_ * 0.9))
+    def zoomOut(): Unit = t.modState(State.view ^|-> View.scale modify (_ * (1.0 / 1.1)))
     def zoomReset(): Unit = t.modState(State.view ^|-> View.scale set 1.0)
     //def zoomWheel(e: ReactWheelEvent): Unit = t.modState(State.view ^|-> View.scale modify (_ + e.deltaY(e.nativeEvent)))
 
@@ -127,14 +122,20 @@ object GlycanoApp {
     def clearAll(): Unit = t.modState(StateL.graph set RGraph())
 
     def residuePanelClick(template: ResiduePanel.State): Unit =
-      t.modState(State.mode set template.rt.fold[Mode](Selection)(PlaceResidue(template.ano, template.abs, _)))
+      t.modState(State.mode set template.rt.fold[Mode](Mode.Selection)(Mode.PlaceResidue(template.ano, template.abs, _)))
+
+    def substPanelClick(template: SubstituentPanel.State): Unit =
+      t.modState(State.mode set template.st.fold[Mode](Mode.Selection)(Mode.PlaceSubstituent(_)))
 
     def addAnnotation(): Unit = {
-      t.modState(State.mode set PlaceAnnotation(30))
+      t.modState(State.mode set Mode.PlaceAnnotation(30))
     }
 
     def modGraph(mod: RGraph => RGraph): Unit =
       t.modState(StateL.graph modify mod)
+
+    def setSelection(selection: (Set[Residue], Set[GlyAnnot])): Unit =
+      t.modState(State.selection set selection)
   }
 
   val testGraph = {
@@ -147,8 +148,6 @@ object GlycanoApp {
       .updated(r2, Placement(350, 50, 0))
       .updated(r3, Placement(200, 300, 45))
   }
-
-  println(RGraph() + Residue.next(ResidueType.Glc, Anomer.Alpha, Absolute.D))
 
   def apply(props: Props, children: ReactNode*) = component(props, children)
   val component = ReactComponentB[Props]("GlycanoApp")
@@ -207,7 +206,7 @@ object GlycanoApp {
               Button.withKey("b06")(Button.Props(() => B.redo(), nav = true), GlyphIcon("chevron-right"), " Redo"), " ",
               Button.withKey("b07")(Button.Props(() => B.addAnnotation(), nav = true), GlyphIcon("font"), " Add Annotation"), " ",
               Button.withKey("b08")(Button.Props(() => B.zoomOut(), nav = true), GlyphIcon("zoom-out")), " ",
-              Button.withKey("b09")(Button.Props(() => B.zoomReset(), nav = true), "100%"), " ",
+              Button.withKey("b09")(Button.Props(() => B.zoomReset(), nav = true), "Reset Zoom"), " ",
               Button.withKey("b10")(Button.Props(() => B.zoomIn(), nav = true), GlyphIcon("zoom-in")), " "
             )
           ))
@@ -215,10 +214,11 @@ object GlycanoApp {
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(ResiduePanel(ResiduePanel.Props(S.displayConv, B.residuePanelClick))))
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(ResiduePanel(ResiduePanel.Props(S.displayConv, B.residuePanelClick)))),
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(SubstituentPanel(SubstituentPanel.Props(B.substPanelClick))))
           ),
           <.div(^.cls := "col-xs-9")(
-            GlycanoCanvas(GlycanoCanvas.Props(B.modGraph, S.mode, dc = S.displayConv, graph = S.history(S.undoPosition), selection = S.selection, view = S.view))
+            GlycanoCanvas(GlycanoCanvas.Props(B.modGraph, B.setSelection, S.mode, dc = S.displayConv, graph = S.history(S.undoPosition), selection = S.selection, view = S.view))
           )
         )
       )

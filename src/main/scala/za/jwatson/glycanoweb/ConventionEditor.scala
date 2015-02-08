@@ -14,48 +14,48 @@ import scalatags.JsDom._
 import scalatags.JsDom.all._
 import scalaz.syntax.std.option._
 
-class ConventionEditor(val modalId: String) {
-  val text = Var("")
-  val textAreaId = modalId + "Text"
-  def createNavButton = navBtn(size = Md)(onclick:=(() => jQ("#" + modalId).modal("show")))("Convention Editor")
-  def renderModal = {
-    val r = modal(modalId,
-      header = span("Convention Editor").some,
-      body = div(
-        form("role".attr:="form")(
-          formGroup(
-            label(`for`:=textAreaId),
-            textarea(cls:="form-control", rows:=30, id:=textAreaId)
-          )
-        )
-      ).some,
-      footer = div(
-        btn(Default)("data-dismiss".attr:="modal")("Close"),
-        btn(Primary)(onclick:=(() => parseText()))("Save")
-      ).some
-    ).render
-    r
-  }
-  def parseText(): Unit = {
-    val inText = jQ("#" + textAreaId).`val`().asInstanceOf[String]
-    println("parsing: " + inText.take(20) + "...")
-    val parser = new ConventionParser(inText)
-    parser.conv.run() match {
-      case Success(c)             =>
-        //println(c)
-        DisplayConv.convs(c.name) = inText
-        org.scalajs.dom.localStorage.setItem("glycano.conventions", js.JSON.stringify(DisplayConv.convs))
-        DisplayConv.refresh()
-      case Failure(e: ParseError) => println("Expression is not valid: " + parser.formatError(e))
-      case Failure(e)             => println("Unexpected error during parsing run: " + e)
-    }
-    println("...done")
-    text() = inText
-  }
-  def setText(text: String): Unit = {
-    jQ("#" + textAreaId).`val`(text)
-  }
-}
+//class ConventionEditor(val modalId: String) {
+//  val text = Var("")
+//  val textAreaId = modalId + "Text"
+//  def createNavButton = navBtn(size = Md)(onclick:=(() => jQ("#" + modalId).modal("show")))("Convention Editor")
+//  def renderModal = {
+//    val r = modal(modalId,
+//      header = span("Convention Editor").some,
+//      body = div(
+//        form("role".attr:="form")(
+//          formGroup(
+//            label(`for`:=textAreaId),
+//            textarea(cls:="form-control", rows:=30, id:=textAreaId)
+//          )
+//        )
+//      ).some,
+//      footer = div(
+//        btn(Default)("data-dismiss".attr:="modal")("Close"),
+//        btn(Primary)(onclick:=(() => parseText()))("Save")
+//      ).some
+//    ).render
+//    r
+//  }
+//  def parseText(): Unit = {
+//    val inText = jQ("#" + textAreaId).`val`().asInstanceOf[String]
+//    println("parsing: " + inText.take(20) + "...")
+//    val parser = new ConventionParser(inText)
+//    parser.conv.run() match {
+//      case Success(c)             =>
+//        //println(c)
+//        DisplayConv.convs(c.name) = inText
+//        org.scalajs.dom.localStorage.setItem("glycano.conventions", js.JSON.stringify(DisplayConv.convs))
+//        DisplayConv.refresh()
+//      case Failure(e: ParseError) => println("Expression is not valid: " + parser.formatError(e))
+//      case Failure(e)             => println("Unexpected error during parsing run: " + e)
+//    }
+//    println("...done")
+//    text() = inText
+//  }
+//  def setText(text: String): Unit = {
+//    jQ("#" + textAreaId).`val`(text)
+//  }
+//}
 
 object ConventionEditor {
   val textUCT =
@@ -262,27 +262,27 @@ object ConventionEditor {
   case class Conv(name: String, shapeDefs: Map[String, Shape] = Map.empty, rules: Seq[ConvRule] = Seq.empty)
 
   case class ConvRule(conds: Seq[RuleCond], mods: Seq[RuleMod])
-  sealed trait RuleCond { def matches(r: Residue, subs: Map[Int, Vector[Substituent]]): Boolean }
+  sealed trait RuleCond { def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): Boolean }
   object RuleCond {
     case class AnoCond(allowed: Anomer) extends RuleCond {
-      def matches(r: Residue, subs: Map[Int, Vector[Substituent]]) = allowed == r.anomer
+      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = allowed == ano
     }
     case class AbsCond(allowed: Absolute) extends RuleCond {
-      def matches(r: Residue, subs: Map[Int, Vector[Substituent]]) = allowed == r.absolute
+      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = allowed == abs
     }
     case class ResCond(allowed: Seq[String]) extends RuleCond {
-      def matches(r: Residue, subs: Map[Int, Vector[Substituent]]) = allowed contains r.rt.symbol
+      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = allowed contains rt.symbol
     }
     case class SubCond(allowed: Seq[String]) extends RuleCond {
-      def matches(r: Residue, subs: Map[Int, Vector[Substituent]]) = {
+      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = {
         //allowed.forall(a => subs.values.flatten.exists(_.st.symbol == a))
         val allowedSet = allowed.map(_.toLowerCase).toSet
-        val subsSet = subs.values.toVector.flatten.map(_.st.symbol.toLowerCase).toSet
+        val subsSet = subs.values.toVector.flatten.map(_.symbol.toLowerCase).toSet
         allowedSet == subsSet
       }
     }
     case object DefaultCond extends RuleCond {
-      def matches(r: Residue, subs: Map[Int, Vector[Substituent]]) = false
+      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = false
     }
   }
   sealed trait RuleMod

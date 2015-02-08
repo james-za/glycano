@@ -29,7 +29,7 @@ object RGraph {
     x: Double = 0, y: Double = 0, rotation: Double = 0,
     children: Map[Int, Residue] = Map.empty,
     parent: Option[Link] = None,
-    subs: Map[Int, Vector[Substituent]] = Map.empty
+    subs: Map[Int, Vector[SubstituentType]] = Map.empty
   ) {
     def +(ce: (Int, Residue)) = this.copy(children = children + ce)
     def -(ci: Int) = this.copy(children = children - ci)
@@ -50,7 +50,8 @@ object RGraph {
   def addBond(bond: Bond): State[RGraph, Unit] = addBond(bond.from)(bond.to)
   def addBond(from: Residue)(to: Link): State[RGraph, Unit] = for {
     _ <- State.modify(entryL(to.residue) ^|-> GraphEntry.children modify (_.updated(to.position, from)))
-    _ <- State.modify(getParentL(from) set to)
+    //_ <- State.modify(getParentL(from) set to)
+    _ <- State.modify(entryL(from) ^|-> GraphEntry.parent set Some(to))
   } yield ()
 
   def removeBond(bond: Bond): State[RGraph, Unit] = removeBond(bond.from)(bond.to)
@@ -70,9 +71,9 @@ object RGraph {
     } yield ()
   }
 
-  def addSubst(link: Link)(subst: Substituent) = linkSubstsL(link) modify (_ :+ subst)
+  def addSubst(link: Link)(subst: SubstituentType) = linkSubstsL(link) modify (_ :+ subst)
 
-  def removeSubst(link: Link)(subst: Substituent) = linkSubstsL(link) modify (_.filterNot(_ == subst))
+  def removeSubst(link: Link)(position: Int) = linkSubstsL(link) modify (_.take(position).drop(1))
 
   def addResidue(r: Residue) = entryL(r) set GraphEntry()
 
@@ -94,14 +95,14 @@ object RGraph {
     def -(residue: Residue): RGraph = g &|-> entries modify (_ - residue)
     def -(bond: Bond): RGraph = removeBond(bond) exec g
     def -(link: Link): RGraph = removeLink(link) exec g
-    def -(subst: (Link, Substituent)): RGraph = removeSubst(subst._1)(subst._2)(g)
+    def -(subst: (Link, Int)): RGraph = removeSubst(subst._1)(subst._2)(g)
     def -(annot: GlyAnnot): RGraph = g &|-> annots modify (_ - annot.id)
     def --(links: Iterable[Link]): RGraph = links.foldLeft(g)(_ - _)
 
     def +(residue: Residue): RGraph = g &|-> entries modify (_.updated(residue, GraphEntry()))
     def +(bond: Bond): RGraph = addBond(bond) exec g
     //def +(bond: (Residue, Link)): RGraph = addBond(bond._1)(bond._2) exec g
-    def +(subst: (Link, Substituent)): RGraph = g &|-? linkSubstsL(subst._1) modify (_ :+ subst._2)
+    def +(subst: (Link, SubstituentType)): RGraph = g &|-? linkSubstsL(subst._1) modify (_ :+ subst._2)
     def +(annot: GlyAnnot): RGraph = g &|-> annots ^|-? index(annot.id) set annot
 
     def updated(r: Residue, placement: Placement): RGraph = setPlacement(r, placement) exec g

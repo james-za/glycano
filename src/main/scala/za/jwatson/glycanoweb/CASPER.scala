@@ -65,8 +65,8 @@ object CASPER {
   def rec(r: Residue, tail: Boolean = false)(implicit g: RGraph): Vector[String] = {
     val substs = for {
       (i, stack) <- r.substituents
-      subst <- stack
-    } yield i + subst.st.symbol
+      st <- stack
+    } yield i + st.symbol
     val str = r.symbol + substs.mkString + r.bond.map(arrowString).getOrElse("")
     val children = for {
       children <- r.children.to[Vector]
