@@ -68,7 +68,12 @@ object ConventionEditor {
       |   def Seven = Polygon(points="90,40 65,80 25,80 0,40 25,0 45,15 65,0")
       |   def Eight = Polygon(points="90,40 65,80 45,65 25,80 0,40 25,0 45,15 65,0")
       |
-      |   def LShape = Polygon(points="0,0 0,44 36,44 36,40 4,40 4,0")
+      |   def TriangleL = Path(d="M20,35 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
+      |   def DiamondL  = Path(d="M40,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
+      |   def ArrowL    = Path(d="M45,30 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
+      |   def HexagonL  = Path(d="M45,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
+      |   def SevenL    = Path(d="M45,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
+      |   def EightL    = Path(d="M45,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
       |
       |   default
       |   -> #1 [primary] Hexagon
@@ -128,19 +133,22 @@ object ConventionEditor {
       |   L (Man) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #00FF00 }
       |   (Tal) -> style [primary] { fill: #000000 }
       |
-      |   L (Glycero)
-      |     -> #4 [lshape] LShape
-      |     -> style [lshape] { x: 4; y: 14 }
-      |   L (Erythro, Threo)
-      |     -> #4 [lshape] LShape
-      |     -> style [lshape] { x: 22; y: 18 }
-      |   L (Ara, Lyx, Rib, Xyl)
-      |     -> #4 [lshape] LShape
-      |     -> style [lshape] { x: 22; y: 8 }
+      |   L (Glycero,
+      |      Three)
+      |     -> #4 [lshape] TriangleL
+      |   L (Erythro, Threo,
+      |      Four)
+      |     -> #4 [lshape] DiamondL
+      |   L (Ara, Lyx, Rib, Xyl,
+      |      Rul, Xul)
+      |     -> #4 [lshape] ArrowL
       |   L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal,
       |      Fru, Psi, Sor, Tag)
-      |     -> #4 [lshape] LShape
-      |     -> style [lshape] { x: 27; y: 18 }
+      |     -> #4 [lshape] HexagonL
+      |   L (AltHep)
+      |     -> #4 [lshape] SevenL
+      |   L (ManOct)
+      |     -> #4 [lshape] EightL
       |
       |   a * -> style [handle] { fill: #FFFFFF; stroke: #000000; stroke-width: 1 }
       |   b * -> style [handle] { fill: #000000; stroke: #000000; stroke-width: 1 }
@@ -291,6 +299,7 @@ object ConventionEditor {
 
   sealed trait Shape
   case class DefinedShape(position: Int, name: String) extends Shape
+  case class Path(d: String) extends Shape
   case class Polygon(points: String) extends Shape
   case class Rect(x: String = "0", y: String = "0", width: String, height: String, rx: String = "0", ry: String = "0") extends Shape
   case class Circle(x: String = "0", y: String = "0", radius: String) extends Shape

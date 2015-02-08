@@ -66,8 +66,9 @@ class ConventionParser(val input: ParserInput) extends Parser {
     (ignoreCase(char) | unicode) ~ ws ~ push(abs)
   }
 
-  def shape = rule { polygon | rect | circle | star | definedShape }
+  def shape = rule { path | polygon | rect | circle | star | definedShape }
   def namedShape(name: String) = rule { ws(name) ~ ws('(') ~ namedArgList ~ ws(')') }
+  def path: Rule1[Shape] = rule { namedShape("Path") ~> ((map: Map[String, String]) => Path(map("d"))) }
   def polygon: Rule1[Shape] = rule { namedShape("Polygon") ~> ((map: Map[String, String]) => Polygon(map("points"))) }
   def rect: Rule1[Shape] = rule { namedShape("Rect") ~> Rect.fromMap }
   def circle: Rule1[Shape] = rule { namedShape("Circle") ~> Circle.fromMap }

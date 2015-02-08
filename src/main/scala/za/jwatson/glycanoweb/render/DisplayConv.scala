@@ -17,6 +17,8 @@ class DisplayConv(val conv: Conv) {
   val shapeToItem: Shape => ReactTag = {
     case DefinedShape(position, name) =>
       throw new UnsupportedOperationException("ShapeDef cannot refer to another ShapeDef")
+    case Path(d) =>
+      <.svg.path(^.svg.d := d)
     case Polygon(points) =>
       <.svg.polygon(^.svg.points := points)
     case Circle(ToDouble(x), ToDouble(y), ToDouble(r)) =>
@@ -45,8 +47,8 @@ class DisplayConv(val conv: Conv) {
   def name = conv.name
   //val shapeDefs = conv.shapeDefs.mapValues(shapeToItem)
 
-  val residueModsMemo = scalaz.Memo.mutableHashMapMemo((residueMods _).tupled)
-  def residueMods(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): Seq[RuleMod] = {
+  val residueModsMemo = scalaz.Memo.mutableHashMapMemo((residueModsInner _).tupled)
+  def residueModsInner(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): Seq[RuleMod] = {
     val matched = conv.rules.filter(_.conds.forall(_.matches(ano, abs, rt, subs)))
     val shapeRules = matched.filter(_.mods.exists(_.isInstanceOf[ShapeMod]))
     val rtDefined = shapeRules.flatMap(_.conds).exists(_.isInstanceOf[ResCond])
@@ -58,9 +60,9 @@ class DisplayConv(val conv: Conv) {
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
   def outline(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IndexedSeq[(Double, Double)] =
-    outlineInnerMemo(residueModsMemo(ano, abs, rt, subs), ano, abs, rt, subs)
+    outlineMemo(residueModsMemo(ano, abs, rt, subs), ano, abs, rt, subs)
 
-  val outlineInnerMemo = scalaz.Memo.mutableHashMapMemo((outlineInner _).tupled)
+  val outlineMemo = scalaz.Memo.mutableHashMapMemo((outlineInner _).tupled)
   def outlineInner(mods: Seq[RuleMod], ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IndexedSeq[(Double, Double)] = {
     mods.flatMap {
       case ShapeMod(_, classes, Polygon(points)) if classes.contains("links") =>
@@ -73,8 +75,7 @@ class DisplayConv(val conv: Conv) {
     }.headOption.getOrElse(IndexedSeq.fill(rt.linkage)((0.0, 0.0)))
   }
 
-  def bounds(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = boundsInnerMemo(ano, abs, rt, subs)
-  val boundsInnerMemo = scalaz.Memo.mutableHashMapMemo((boundsInner _).tupled)
+  val boundsMemo = scalaz.Memo.mutableHashMapMemo((boundsInner _).tupled)
   def boundsInner(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): ((Double, Double), Double, Double) = {
     val (xs, ys) = outline(ano, abs, rt, subs).unzip
     val x = xs.min
@@ -84,11 +85,63 @@ class DisplayConv(val conv: Conv) {
     ((x, y), width, height)
   }
 
-  def group(r: Residue, subs: Map[Int, Vector[SubstituentType]], handleHover: Boolean,
-            handleMouseOver: () => Unit,
-            handleMouseOut: () => Unit,
-            handleMouseDown: ReactMouseEvent => Unit): ReactTag = {
-    val mods = residueModsMemo(r.anomer, r.absolute, r.rt, subs)
+//  def group(r: Residue, subs: Map[Int, Vector[SubstituentType]], handleHover: Boolean,
+//            handleMouseOver: () => Unit,
+//            handleMouseOut: () => Unit,
+//            handleMouseDown: ReactMouseEvent => Unit): ReactTag = {
+//    val mods = residueModsMemo(r.anomer, r.absolute, r.rt, subs)
+//
+//    val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
+//      case (map, StyleMod(style, content)) =>
+//        map + (style -> map.get(style).map(_ ++ content).getOrElse(content))
+//      case (map, _) => map
+//    }
+//
+////    val styleModPairs = for (StyleMod(style, content) <- mods) yield {
+////      style -> content
+////    }
+////    val styles = styleModPairs.groupBy(_._1).mapValues(_.map(_._2).reduce(_ ++ _))
+//
+//    val shapes = mods.collect {
+//      case ShapeMod(priority, classes, shape) =>
+//        val item = shape match {
+//          case DefinedShape(_, name) => shapeToItem(conv.shapeDefs(name))
+//          case _ => shapeToItem(shape)
+//        }
+//
+//        val styleMods = for {
+//          (style, pairs) <- styles.toSeq if classes contains style
+//          mod <- pairs.collect {
+//            case ("fill", fill) => ^.svg.fill := fill
+//            case ("stroke", stroke) => ^.svg.stroke := stroke
+//            case ("stroke-width", sw) => "strokeWidth".reactAttr := sw
+//            case ("x", x) => ^.svg.x := x
+//            case ("y", y) => ^.svg.y := y
+//          }
+//        } yield mod
+//
+//        val outlineMod = classes contains "links" ?= (^.cls := "outline")
+//        val handleMod = classes contains "handle" ?= Seq(
+//          handleHover ?= Seq(
+//            "strokeWidth".reactAttr := "3",
+//            ^.svg.stroke := "blue"
+//          ),
+//          ^.onMouseOver --> handleMouseOver(),
+//          ^.onMouseOut --> handleMouseOut(),
+//          ^.onMouseDown ==> handleMouseDown,
+//          ^.cls := "handle"
+//        )
+//
+//        priority -> item(outlineMod, styleMods, handleMod)
+//    }.sortBy(_._1).map(_._2)
+//    <.svg.g(shapes)
+//  }
+
+  def shapes(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): (ReactTag, ReactTag) =
+    shapesMemo.getOrElseUpdate((ano, abs, rt, subs).##.toString, shapesInner(ano, abs, rt, subs))
+  val shapesMemo = js.Dictionary.empty[(ReactTag, ReactTag)]
+  def shapesInner(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): (ReactTag, ReactTag) = {
+    val mods = residueModsMemo(ano, abs, rt, subs)
 
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
       case (map, StyleMod(style, content)) =>
@@ -96,7 +149,7 @@ class DisplayConv(val conv: Conv) {
       case (map, _) => map
     }
 
-    val shapes = mods.collect {
+    val (handleShapeMods, residueShapeMods) = mods.collect {
       case ShapeMod(priority, classes, shape) =>
         val item = shape match {
           case DefinedShape(_, name) => shapeToItem(conv.shapeDefs(name))
@@ -115,20 +168,12 @@ class DisplayConv(val conv: Conv) {
         } yield mod
 
         val outlineMod = classes contains "links" ?= (^.cls := "outline")
-        val handleMod = classes contains "handle" ?= Seq(
-          handleHover ?= Seq(
-            "strokeWidth".reactAttr := "3",
-            ^.svg.stroke := "blue"
-          ),
-          ^.onMouseOver --> handleMouseOver(),
-          ^.onMouseOut --> handleMouseOut(),
-          ^.onMouseDown ==> handleMouseDown,
-          ^.cls := "handle"
-        )
+        val isHandle = classes contains "handle"
+        val handleMod = isHandle ?= (^.cls := "handle")
 
-        priority -> item(outlineMod, styleMods, handleMod)
-    }.sortBy(_._1).map(_._2)
-    <.svg.g(shapes)
+        (priority, isHandle, item(outlineMod, styleMods, handleMod))
+    }.sortBy(_._1).partition(_._2)
+    (<.svg.g(residueShapeMods.map(_._3)), handleShapeMods.map(_._3).headOption.getOrElse(<.svg.g()))
   }
 }
 
