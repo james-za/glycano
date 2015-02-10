@@ -10,8 +10,8 @@ import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
 import scala.util.{Failure, Success}
-import scalatags.JsDom._
-import scalatags.JsDom.all._
+//import scalatags.JsDom._
+//import scalatags.JsDom.all._
 import scalaz.syntax.std.option._
 
 //class ConventionEditor(val modalId: String) {
