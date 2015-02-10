@@ -156,7 +156,6 @@ object GlycanoApp {
       displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
     .backend(new Backend(_))
     .render((P, S, B) => {
-
       <.div(^.cls := "container-fluid")(
         <.div(^.cls := "row")(
 

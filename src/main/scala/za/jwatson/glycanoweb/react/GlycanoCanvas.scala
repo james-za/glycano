@@ -17,11 +17,23 @@ import scalajs.js
 import org.scalajs.dom
 
 object GlycanoCanvas {
+  private val updateInterval = 16
+  private var lastUpdated: Double = js.Date.now()
+  def updateReady(): Boolean = {
+    val time = js.Date.now()
+    if (time - lastUpdated > updateInterval) {
+      lastUpdated = time
+      true
+    } else false
+  }
+
   case class Props(modGraph: (RGraph => RGraph) => Unit, setSelection: ((Set[Residue], Set[GlyAnnot])) => Unit,
                    mode: GlycanoApp.Mode, dc: DisplayConv, width: Int = 800, height: Int = 600, graph: RGraph,
                    selection: (Set[Residue], Set[GlyAnnot]), view: View = View())
 
-  @Lenses case class State(hoverHandle: Option[Residue] = None, inputState: InputState = InputState.Default)
+  def cmp(p: Props) = (p.mode, p.dc.conv, p.graph, p.view, p.selection, p.width, p.height)
+
+  @Lenses case class State(inputState: InputState = InputState.Default)
 
   @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1)
 
@@ -55,17 +67,18 @@ object GlycanoCanvas {
       case _ =>
     }
 
+
     def mouseMove(e: ReactMouseEvent): Unit = (t.props.mode, t.state.inputState) match {
       case (Mode.Selection, BoxSelect(down, _)) =>
-        for (pos <- clientToView(e.clientX, e.clientY)) {
+        if (updateReady()) for (pos <- clientToView(e.clientX, e.clientY)) {
           t.modState(State.inputState set InputState.BoxSelect(down, pos))
         }
       case (Mode.PlaceResidue(ano, abs, rt), _) =>
-        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+        if (updateReady()) for ((x, y) <- clientToView(e.clientX, e.clientY)) {
           t.modState(State.inputState set InputState.AddResidue(x, y))
         }
       case (Mode.Selection, InputState.Drag((x0, y0))) =>
-        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+        if (updateReady()) for ((x, y) <- clientToView(e.clientX, e.clientY)) {
           val (dx, dy) = (x - x0, y - y0)
           val (rs, as) = t.props.selection
           t.modState(State.inputState set InputState.Drag((x, y)))
@@ -103,7 +116,6 @@ object GlycanoCanvas {
         val residues = t.props.graph.entries.filter(e => inSelection(e._2.x, e._2.y)).keySet
         val annotations = t.props.graph.annots.filter(e => inSelection(e._2.x, e._2.y)).values.toSet
         t.props.setSelection(residues, annotations)
-        println(residues)
       case (Mode.Selection, InputState.Drag(_)) =>
         t.modState(State.inputState set InputState.Default)
       case _ =>
@@ -237,7 +249,10 @@ object GlycanoCanvas {
         )
       )
     })
+    .shouldComponentUpdate {
+      (T, P, S) =>
+        cmp(T.props) != cmp(P) || T.state != S
+    }
     //.domType[dom.SVGSVGElement]
     .build
-
 }

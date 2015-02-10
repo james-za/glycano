@@ -34,7 +34,6 @@ object SubstituentPanel {
     .initialState(State(None))
     .backend(new Backend(_))
     .render((P, S, B) => {
-
       val substPages = <.div(^.cls := "btn-group", "data-toggle".reactAttr := "buttons")(
         for (st <- SubstituentType.SubstituentTypes) yield <.span(
           <.button(
@@ -56,6 +55,7 @@ object SubstituentPanel {
         )
       )
     })
+    .shouldComponentUpdate((T, P, S) => T.state != S)
     .domType[dom.HTMLDivElement]
     .build
 }

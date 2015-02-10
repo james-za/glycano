@@ -53,7 +53,6 @@ object ResiduePanel {
     .initialState(State(Anomer.Alpha, Absolute.D, None, ResidueCategory.Aldose))
     .backend(new Backend(_))
     .render((P, S, B) => {
-
       val residueTabs = <.ul(^.cls := "nav nav-tabs", ^.role := "tablist")(
         for (cat <- ResidueCategory.ResidueCategories) yield <.li(
           <.a(
@@ -104,6 +103,10 @@ object ResiduePanel {
         )
       )
     })
+    .shouldComponentUpdate {
+      (T, P, S) =>
+        T.props.dc.conv != P.dc.conv || T.state != S
+    }
     .domType[dom.HTMLDivElement]
     .build
 }

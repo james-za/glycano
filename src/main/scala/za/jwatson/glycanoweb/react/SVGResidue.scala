@@ -28,6 +28,7 @@ object SVGResidue {
       val GraphEntry(x, y, rot, _, _, subs) = P.ge
       val (_, w, h) = P.dc.boundsMemo(P.r.anomer, P.r.absolute, P.r.rt, subs)
       val (residue, handle) = P.dc.shapes(P.r.anomer, P.r.absolute, P.r.rt, subs)
+
       <.svg.g(^.svg.transform := s"translate($x $y) rotate($rot)")(
         P.selected ?= <.svg.rect(
           ^.svg.x := -5, ^.svg.y := -5,
@@ -37,9 +38,9 @@ object SVGResidue {
           ^.svg.stroke := "#404080", "strokeWidth".reactAttr := 1
         ),
         <.svg.g(
-          ^.onMouseDown ==> P.residueMouseDown
-        )(
-          residue,
+          residue(
+            ^.onMouseDown ==> P.residueMouseDown
+          ),
           handle(
             ^.onMouseOver --> B.handleMouseOver(),
             ^.onMouseOut --> B.handleMouseOut(),
@@ -47,6 +48,13 @@ object SVGResidue {
           )
         )
       )
+    })
+    .shouldComponentUpdate((T, P, S) => {
+      T.props.dc.conv  != P.dc.conv  ||
+      T.props.r        != P.r        ||
+      T.props.ge       != P.ge       ||
+      T.props.selected != P.selected ||
+      T.state          != S
     })
     .build
 }

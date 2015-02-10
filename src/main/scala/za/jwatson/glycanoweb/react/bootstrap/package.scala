@@ -42,6 +42,7 @@ package object bootstrap {
           ^.onChange ==> P.onChange
         )(C)
       }
+      .shouldComponentUpdate((T, P, S) => T.props.`type` != P.`type`)
       .domType[dom.HTMLInputElement]
       .build
   }
