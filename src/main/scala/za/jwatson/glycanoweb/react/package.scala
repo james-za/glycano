@@ -10,8 +10,6 @@ import monocle.std._
 import monocle.macros.{Lenses, Lenser}
 import org.scalajs.dom
 
-import org.scalajs.dom.HTMLButtonElement
-
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
@@ -53,7 +51,7 @@ import scala.scalajs.js.annotation.JSName
           )
         )(C)
       })
-      .domType[dom.HTMLDivElement]
+      .domType[dom.html.Div]
       .build
   }
 
@@ -78,7 +76,7 @@ import scala.scalajs.js.annotation.JSName
         )(C)
       })
       .shouldComponentUpdate((T, P, S) => T.props.choices != P.choices || T.props.selected != P.selected || T.props.toggle != P.toggle)
-      .domType[dom.HTMLDivElement]
+      .domType[dom.html.Div]
       .build
   }
 
@@ -110,7 +108,7 @@ import scala.scalajs.js.annotation.JSName
         T.props.nav != P.nav ||
         T.props.pressed != P.pressed
       })
-      .domType[dom.HTMLButtonElement]
+      .domType[dom.html.Button]
       .build
   }
 //

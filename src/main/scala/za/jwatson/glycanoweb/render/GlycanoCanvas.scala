@@ -1,7 +1,5 @@
 package za.jwatson.glycanoweb.render
 
-import org.scalajs.dom.HTMLCanvasElement
-import za.jwatson.glycanoweb.structure.Residue
 /*
 class GlycanoCanvas(canvas: HTMLCanvasElement) {
   val undoLimit = 50

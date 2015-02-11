@@ -26,7 +26,7 @@ package object bootstrap {
           <.a(^.cls := "navbar-brand", ^.href := "#")(C)
         )
       }
-      .domType[dom.HTMLDivElement]
+      .domType[dom.html.Div]
       .build
   }
 
@@ -43,7 +43,7 @@ package object bootstrap {
         )(C)
       }
       .shouldComponentUpdate((T, P, S) => T.props.`type` != P.`type`)
-      .domType[dom.HTMLInputElement]
+      .domType[dom.html.Input]
       .build
   }
 

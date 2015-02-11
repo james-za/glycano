@@ -107,6 +107,6 @@ object ResiduePanel {
       (T, P, S) =>
         T.props.dc.conv != P.dc.conv || T.state != S
     }
-    .domType[dom.HTMLDivElement]
+    .domType[dom.html.Div]
     .build
 }

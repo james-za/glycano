@@ -56,6 +56,6 @@ object SubstituentPanel {
       )
     })
     .shouldComponentUpdate((T, P, S) => T.state != S)
-    .domType[dom.HTMLDivElement]
+    .domType[dom.html.Div]
     .build
 }

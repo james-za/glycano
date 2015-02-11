@@ -39,8 +39,8 @@ object GlycanoCanvas {
 
   class Backend(t: BackendScope[Props, State]) {
     def clientToView(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
-      svg <- Ref[dom.HTMLElement]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.SVGSVGElement])
-      view <- Ref[dom.HTMLElement]("view")(t).map(_.getDOMNode().asInstanceOf[dom.SVGGElement])
+      svg <- Ref[dom.html.Element]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.svg.SVG])
+      view <- Ref[dom.html.Element]("view")(t).map(_.getDOMNode().asInstanceOf[dom.svg.G])
     } yield {
       val p = svg.createSVGPoint()
       p.x = x
@@ -49,7 +49,7 @@ object GlycanoCanvas {
       (p2.x, p2.y)
     }
     def clientToCanvas(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
-      svg <- Ref[dom.HTMLElement]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.SVGSVGElement])
+      svg <- Ref[dom.html.Element]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.svg.SVG])
     } yield {
       val p = svg.createSVGPoint()
       p.x = x

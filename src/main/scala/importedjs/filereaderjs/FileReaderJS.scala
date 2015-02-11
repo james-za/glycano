@@ -6,7 +6,7 @@ import scalajs.js
 
 object FileReaderJS extends js.Object {
   def enabled: Boolean = js.native
-  def setupInput(element: HTMLInputElement, options: FileReaderOpts): Unit = js.native
+  def setupInput(element: html.Input, options: FileReaderOpts): Unit = js.native
   def setupDrop(node: Node, options: FileReaderOpts): Unit = js.native
   def setupClipboard(node: Node, options: FileReaderOpts): Unit = js.native
   def setSync(sync: Boolean): Unit = js.native
