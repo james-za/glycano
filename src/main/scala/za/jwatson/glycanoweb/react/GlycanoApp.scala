@@ -101,7 +101,9 @@ object GlycanoApp {
   } yield ()
 
   class Backend(t: BackendScope[Props, State]) {
-    def toggleBondLabels(): Unit = t.modState(State.bondLabels.modify(!_))
+    def toggleBondLabels(): Unit = {
+      t.modState(State.bondLabels.modify(bl => !bl))
+    }
     def undo(): Unit =
       if(t.state.undoPosition < t.state.history.size - 1)
         t.modState(State.undoPosition.modify(_ + 1))
@@ -125,7 +127,7 @@ object GlycanoApp {
       t.modState(State.mode set template.rt.fold[Mode](Mode.Selection)(Mode.PlaceResidue(template.ano, template.abs, _)))
 
     def substPanelClick(template: SubstituentPanel.State): Unit =
-      t.modState(State.mode set template.st.fold[Mode](Mode.Selection)(Mode.PlaceSubstituent(_)))
+      t.modState(State.mode set template.st.fold[Mode](Mode.Selection)(Mode.PlaceSubstituent.apply))
 
     def addAnnotation(): Unit = {
       t.modState(State.mode set Mode.PlaceAnnotation(30))
@@ -172,7 +174,7 @@ object GlycanoApp {
               <.form(^.cls := "navbar-form navbar-left")(
                 <.div(^.cls := "form-group")(
                   <.input(
-                    ^.id := "filename",
+                    ^.ref := "filename",
                     ^.`type` := "text",
                     ^.cls := "form-control",
                     ^.placeholder := "Filename",
@@ -187,11 +189,11 @@ object GlycanoApp {
                 <.div(^.cls := "form-group")(
                   <.label(^.cls := "checkbox-inline")(
                     <.input(
-                      S.bondLabels ?= (^.checked := "true"),
+                      ^.checked := S.bondLabels,
                       ^.`type` := "checkbox",
-                      ^.value := "bondlabel",
-                      ^.onClick --> B.toggleBondLabels()),
-                    "Bond Labels" + (if (S.bondLabels) " checked" else "")
+                      ^.onClick --> B.toggleBondLabels()
+                    ),
+                    "Bond Labels"
                   )
                 )
               ),
@@ -217,9 +219,19 @@ object GlycanoApp {
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(SubstituentPanel(SubstituentPanel.Props(B.substPanelClick))))
           ),
           <.div(^.cls := "col-xs-9")(
-            GlycanoCanvas(GlycanoCanvas.Props(B.modGraph, B.setSelection, S.mode, dc = S.displayConv, graph = S.history(S.undoPosition), selection = S.selection, view = S.view))
+            GlycanoCanvas(GlycanoCanvas.Props(
+              B.modGraph,
+              B.setSelection,
+              S.mode,
+              dc = S.displayConv,
+              graph = S.history(S.undoPosition),
+              selection = S.selection,
+              view = S.view,
+              bondLabels = S.bondLabels
+            ))
           )
         )
       )
-    }).build
+    })
+    .build
 }

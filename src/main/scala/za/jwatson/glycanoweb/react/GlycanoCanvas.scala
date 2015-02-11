@@ -29,9 +29,9 @@ object GlycanoCanvas {
 
   case class Props(modGraph: (RGraph => RGraph) => Unit, setSelection: ((Set[Residue], Set[GlyAnnot])) => Unit,
                    mode: GlycanoApp.Mode, dc: DisplayConv, width: Int = 800, height: Int = 600, graph: RGraph,
-                   selection: (Set[Residue], Set[GlyAnnot]), view: View = View())
+                   selection: (Set[Residue], Set[GlyAnnot]), view: View = View(), bondLabels: Boolean = false)
 
-  def cmp(p: Props) = (p.mode, p.dc.conv, p.graph, p.view, p.selection, p.width, p.height)
+  def cmp(p: Props) = (p.mode, p.dc.conv, p.graph, p.view, p.selection, p.width, p.height, p.bondLabels)
 
   @Lenses case class State(inputState: InputState = InputState.Default)
 
@@ -77,15 +77,10 @@ object GlycanoCanvas {
         if (updateReady()) for ((x, y) <- clientToView(e.clientX, e.clientY)) {
           t.modState(State.inputState set InputState.AddResidue(x, y))
         }
-      case (Mode.Selection, InputState.Drag((x0, y0))) =>
+      case (Mode.Selection, InputState.Drag(down @ (x0, y0), _)) =>
         if (updateReady()) for ((x, y) <- clientToView(e.clientX, e.clientY)) {
-          val (dx, dy) = (x - x0, y - y0)
-          val (rs, as) = t.props.selection
-          t.modState(State.inputState set InputState.Drag((x, y)))
-          t.props.modGraph(graph => graph.entries.filterKeys(rs.contains).foldLeft(graph) {
-            case (g, (r, ge)) =>
-              g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
-          })
+          val offset = (x - x0, y - y0)
+          t.modState(State.inputState set InputState.Drag(down, offset))
         }
       case _ =>
     }
@@ -116,7 +111,12 @@ object GlycanoCanvas {
         val residues = t.props.graph.entries.filter(e => inSelection(e._2.x, e._2.y)).keySet
         val annotations = t.props.graph.annots.filter(e => inSelection(e._2.x, e._2.y)).values.toSet
         t.props.setSelection(residues, annotations)
-      case (Mode.Selection, InputState.Drag(_)) =>
+      case (Mode.Selection, InputState.Drag(_, (dx, dy))) =>
+        val (rs, as) = t.props.selection
+        t.props.modGraph(graph => graph.entries.filterKeys(rs.contains).foldLeft(graph) {
+          case (g, (r, ge)) =>
+            g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
+        })
         t.modState(State.inputState set InputState.Default)
       case _ =>
     }
@@ -125,7 +125,7 @@ object GlycanoCanvas {
       t.props.mode match {
         case Mode.Selection =>
           for (down <- clientToView(e.clientX, e.clientY)) {
-            t.modState(State.inputState set InputState.Drag(down))
+            t.modState(State.inputState set InputState.Drag(down, (0, 0)))
             if (!t.props.selection._1.contains(r))
               t.props.setSelection(Set(r), Set.empty)
           }
@@ -146,7 +146,7 @@ object GlycanoCanvas {
     case class AddResidue(x: Double, y: Double) extends InputState
     case class AddSubstituent(target: Option[Link]) extends InputState
     case class BoxSelect(from: (Double, Double), to: (Double, Double)) extends InputState
-    case class Drag(last: (Double, Double)) extends InputState
+    case class Drag(down: (Double, Double), offset: (Double, Double)) extends InputState
     case object CreateBond extends InputState
     case object PostCreateBond extends InputState
     case class Hit(down: (Double, Double), item: Residue) extends InputState
@@ -180,27 +180,50 @@ object GlycanoCanvas {
     .initialState(State())
     .backend(new Backend(_))
     .render((P, C, S, B) => {
-      val View(vx, vy, vs) = P.view
+      val viewX = P.view.x
+      val viewY = P.view.y
+      val viewScale = P.view.scale
 
       val outlines = for ((r, ge) <- P.graph.entries) yield {
         r -> P.dc.outline(r.anomer, r.absolute, r.rt, ge.subs)
       }
 
+      val (drag, dx, dy) = S.inputState match {
+        case InputState.Drag(_, (ox, oy)) => (true, ox, oy)
+        case _ => (false, 0.0, 0.0)
+      }
+
+      val entriesOffset = for ((r, ge) <- P.graph.entries) yield {
+        val selected = P.selection._1.contains(r)
+        val geOffset = if (drag && selected) ge.copy(x = ge.x + dx, y = ge.y + dy) else ge
+        r -> geOffset
+      }
+
       val bonds = for {
-        (r @ Residue(_, rt, ano, abs), ge) <- P.graph.entries
+        (r @ Residue(_, rt, ano, abs), ge) <- entriesOffset.toSeq
         toLink @ Link(to, i) <- ge.parent
       } yield {
         val (x1, y1) = outlinePos(outlines(r), r, ge, 0)
-        val (x2, y2) = outlinePos(outlines(r), to, P.graph.entries(to), i)
-        <.svg.line(
-          ^.key := Bond(r, toLink).##,
-          ^.svg.x1 := x1, ^.svg.y1 := y1,
-          ^.svg.x2 := x2, ^.svg.y2 := y2,
-          ^.svg.stroke := "black", "strokeWidth".reactAttr := "7"
-        )
+        val (x2, y2) = outlinePos(outlines(r), to, entriesOffset(to), i)
+        val angle = math.toDegrees(math.atan2(y2 - y1, x2 - x1))
+        val midX = (x1 + x2) / 2
+        val midY = (y1 + y2) / 2
+        Seq(
+          <.svg.line(
+            ^.key := Bond(r, toLink).##,
+            ^.svg.x1 := x1, ^.svg.y1 := y1,
+            ^.svg.x2 := x2, ^.svg.y2 := y2,
+            ^.svg.stroke := "black", "strokeWidth".reactAttr := "7"
+          ),
+          P.bondLabels ?= <.svg.text(
+            ^.svg.transform := s"translate($midX, $midY) rotate($angle) translate(0, -6)",
+            "fontSize".reactAttr := "20",
+            "textAnchor".reactAttr := "middle"
+          )(ano.desc + i)
+        ): TagMod
       }
 
-      val residues = for ((r, ge) <- P.graph.entries) yield {
+      val residues = for ((r, ge) <- entriesOffset) yield {
         val selected = P.selection._1.contains(r)
         SVGResidue.withKey(r.id)(SVGResidue.Props(B.residueMouseDown(r), B.handleMouseDown(r), r, ge, P.dc, selected))
       }
@@ -235,7 +258,7 @@ object GlycanoCanvas {
         ^.onMouseOut ==> B.mouseOut,
         ^.onMouseUp ==> B.mouseUp
       )(
-        <.svg.g(^.svg.transform := s"translate($vx $vy) scale($vs)", ^.ref := "view")(
+        <.svg.g(^.svg.transform := s"translate($viewX $viewY) scale($viewScale)", ^.ref := "view")(
           bonds,
           <.svg.rect(
             ^.svg.fill := "transparent",
