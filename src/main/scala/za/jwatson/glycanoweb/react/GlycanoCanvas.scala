@@ -213,12 +213,12 @@ object GlycanoCanvas {
             ^.key := Bond(r, toLink).##,
             ^.svg.x1 := x1, ^.svg.y1 := y1,
             ^.svg.x2 := x2, ^.svg.y2 := y2,
-            ^.svg.stroke := "black", "strokeWidth".reactAttr := "7"
+            ^.svg.stroke := "black", ^.svg.strokeWidth := 7
           ),
           P.bondLabels ?= <.svg.text(
             ^.svg.transform := s"translate($midX, $midY) rotate($angle) translate(0, -6)",
-            "fontSize".reactAttr := "20",
-            "textAnchor".reactAttr := "middle"
+            ^.svg.fontSize := 20,
+            ^.svg.textAnchor := "middle"
           )(ano.desc + i)
         ): TagMod
       }
@@ -235,8 +235,8 @@ object GlycanoCanvas {
             ^.svg.y := math.min(y1, y2),
             ^.svg.width := math.abs(x2 - x1),
             ^.svg.height := math.abs(y2 - y1),
-            ^.svg.fill := "#8080FF", "fillOpacity".reactAttr := "50%",
-            ^.svg.stroke := "#8080FF", "strokeWidth".reactAttr := 1
+            ^.svg.fill := "#8080FF", ^.svg.fillOpacity := "50%",
+            ^.svg.stroke := "#8080FF", ^.svg.strokeWidth := 1
           ))
         case _ => None
       }

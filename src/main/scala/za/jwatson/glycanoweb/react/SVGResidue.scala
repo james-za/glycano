@@ -34,8 +34,8 @@ object SVGResidue {
           ^.svg.x := -5, ^.svg.y := -5,
           ^.svg.width := w + 10, ^.svg.height := h + 10,
           ^.svg.rx := 5, ^.svg.ry := 5,
-          ^.svg.fill := "#404080", "fillOpacity".reactAttr := "50%",
-          ^.svg.stroke := "#404080", "strokeWidth".reactAttr := 1
+          ^.svg.fill := "#404080", ^.svg.fillOpacity := "50%",
+          ^.svg.stroke := "#404080", ^.svg.strokeWidth := 1
         ),
         <.svg.g(
           residue(
@@ -44,7 +44,7 @@ object SVGResidue {
           handle(
             ^.onMouseOver --> B.handleMouseOver(),
             ^.onMouseOut --> B.handleMouseOut(),
-            S ?= Seq("strokeWidth".reactAttr := "3", ^.svg.stroke := "blue")
+            S ?= Seq(^.svg.strokeWidth := "3", ^.svg.stroke := "blue")
           )
         )
       )

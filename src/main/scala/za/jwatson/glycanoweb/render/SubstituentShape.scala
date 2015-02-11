@@ -9,7 +9,7 @@ object SubstituentShape {
   def apply(st: ST, scale: Double) = st match {
     case ST.n => <.svg.svg(^.svg.width := 24 * scale, ^.svg.height := 30 * scale, ^.svg.viewBox := "0 0 24 30")(
       <.svg.rect(^.svg.width := 24, ^.svg.height := 30, ^.svg.rx := 5, ^.svg.ry := 5, ^.svg.fill := "#86CEFF", ^.svg.stroke := "black"),
-      <.svg.text("textAnchor".reactAttr := "middle", "textShadow".reactStyle := "none", "fontSize".reactAttr := 30, ^.svg.x := 12, ^.svg.y := 26, ^.svg.fill := "black")("N")
+      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 12, ^.svg.y := 26, ^.svg.fill := "black")("N")
     )
     case ST.cooh => <.svg.svg(^.svg.width := 26 * scale, ^.svg.height := 26 * scale, ^.svg.viewBox := "0 0 26 26")(
       <.svg.circle(^.svg.cx := 13, ^.svg.cy := 13, ^.svg.r := 13, ^.svg.fill := "white", ^.svg.stroke := "black"),
@@ -21,20 +21,20 @@ object SubstituentShape {
     )
     case ST.deoxy => <.svg.svg(^.svg.width := 20 * scale, ^.svg.height := 20 * scale, ^.svg.viewBox := "0 0 20 20")(
       <.svg.circle(^.svg.cx := 10, ^.svg.cy := 10, ^.svg.r := 10, ^.svg.fill := "white", ^.svg.stroke := "black"),
-      <.svg.line(^.svg.x1 := 4, ^.svg.y1 := 4, ^.svg.x2 := 16, ^.svg.y2 := 16, "strokeWidth".reactAttr := 3, ^.svg.stroke := "black"),
-      <.svg.line(^.svg.x1 := 4, ^.svg.y1 := 16, ^.svg.x2 := 16, ^.svg.y2 := 4, "strokeWidth".reactAttr := 3, ^.svg.stroke := "black")
+      <.svg.line(^.svg.x1 := 4, ^.svg.y1 := 4, ^.svg.x2 := 16, ^.svg.y2 := 16, ^.svg.strokeWidth := 3, ^.svg.stroke := "black"),
+      <.svg.line(^.svg.x1 := 4, ^.svg.y1 := 16, ^.svg.x2 := 16, ^.svg.y2 := 4, ^.svg.strokeWidth := 3, ^.svg.stroke := "black")
     )
     case ST.s => <.svg.svg(^.svg.width := 30 * scale, ^.svg.height := 30 * scale, ^.svg.viewBox := "0 0 30 30")(
       <.svg.circle(^.svg.cx := 15, ^.svg.cy := 15, ^.svg.r := 15, ^.svg.fill := "#FFFF00", ^.svg.stroke := "black"),
-      <.svg.text("textAnchor".reactAttr := "middle", "textShadow".reactStyle := "none", "fontSize".reactAttr := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "black")("S")
+      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "black")("S")
     )
     case ST.p => <.svg.svg(^.svg.width := 30 * scale, ^.svg.height := 30 * scale, ^.svg.viewBox := "0 0 30 30")(
       <.svg.circle(^.svg.cx := 15, ^.svg.cy := 15, ^.svg.r := 15, ^.svg.fill := "#8E008E", ^.svg.stroke := "black"),
-      <.svg.text("textAnchor".reactAttr := "middle", "textShadow".reactStyle := "none", "fontSize".reactAttr := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "white")("P")
+      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "white")("P")
     )
     case ST.ac => <.svg.svg(^.svg.width := 44 * scale, ^.svg.height := 40 * scale, ^.svg.viewBox := "0 0 44 40")(
       <.svg.polygon(^.svg.points := "22,0 0,40 44,40", ^.svg.fill := "white", ^.svg.stroke := "black"),
-      <.svg.text("textAnchor".reactAttr := "middle", "textShadow".reactStyle := "none", "fontSize".reactAttr := 24, ^.svg.x := 22, ^.svg.y := 36, ^.svg.fill := "black")("Ac")
+      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 24, ^.svg.x := 22, ^.svg.y := 36, ^.svg.fill := "black")("Ac")
     )
   }
 }

@@ -4,6 +4,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ReactComponentB
 import monocle.macros.Lenses
+import za.jwatson.glycanoweb.react.bootstrap.RadioGroupMap
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure._
 import org.scalajs.dom

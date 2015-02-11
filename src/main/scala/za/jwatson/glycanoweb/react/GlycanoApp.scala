@@ -8,7 +8,7 @@ import monocle.macros.{Lenser, Lenses}
 import monocle.Monocle._
 import za.jwatson.glycanoweb.GlyAnnot
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
-import za.jwatson.glycanoweb.react.bootstrap.{FormInput, NavbarHeader}
+import za.jwatson.glycanoweb.react.bootstrap.{GlyphIcon, Button, FormInput, NavbarHeader}
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._

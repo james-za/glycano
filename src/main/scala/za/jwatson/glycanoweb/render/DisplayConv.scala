@@ -114,7 +114,7 @@ class DisplayConv(val conv: Conv) {
 //          mod <- pairs.collect {
 //            case ("fill", fill) => ^.svg.fill := fill
 //            case ("stroke", stroke) => ^.svg.stroke := stroke
-//            case ("stroke-width", sw) => "strokeWidth".reactAttr := sw
+//            case ("stroke-width", sw) => ^.svg.strokeWidth := sw
 //            case ("x", x) => ^.svg.x := x
 //            case ("y", y) => ^.svg.y := y
 //          }
@@ -123,7 +123,7 @@ class DisplayConv(val conv: Conv) {
 //        val outlineMod = classes contains "links" ?= (^.cls := "outline")
 //        val handleMod = classes contains "handle" ?= Seq(
 //          handleHover ?= Seq(
-//            "strokeWidth".reactAttr := "3",
+//            ^.svg.strokeWidth := "3",
 //            ^.svg.stroke := "blue"
 //          ),
 //          ^.onMouseOver --> handleMouseOver(),
@@ -161,7 +161,7 @@ class DisplayConv(val conv: Conv) {
           mod <- pairs.collect {
             case ("fill", fill) => ^.svg.fill := fill
             case ("stroke", stroke) => ^.svg.stroke := stroke
-            case ("stroke-width", sw) => "strokeWidth".reactAttr := sw
+            case ("stroke-width", sw) => ^.svg.strokeWidth := sw
             case ("x", x) => ^.svg.x := x
             case ("y", y) => ^.svg.y := y
           }
