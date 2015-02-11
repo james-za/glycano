@@ -82,6 +82,7 @@ object RGraph {
     children <- State.gets[RGraph, IList[Residue]]((entryL(r) ^|-> GraphEntry.children ^|->> each).getAll)
     _ <- State.modify(children.foldLeft(_: RGraph)((g, c) => g &|-? entryL(c) ^|-> GraphEntry.parent set None))
     _ <- State.modify(parent.foldLeft(_: RGraph)((g, link) => g &|-? entryL(link.residue) ^|-> GraphEntry.children ^|-> at(link.position) set Maybe.empty))
+    _ <- State.modify(entries.modify(_ - r))
   } yield ()
 
   def setPlacement(r: Residue, placement: Placement): State[RGraph, Unit] = for {
@@ -92,7 +93,7 @@ object RGraph {
 
   
   implicit class RGraphOps(g: RGraph) {
-    def -(residue: Residue): RGraph = g &|-> entries modify (_ - residue)
+    def -(residue: Residue): RGraph = removeResidue(residue).exec(g)
     def -(bond: Bond): RGraph = removeBond(bond) exec g
     def -(link: Link): RGraph = removeLink(link) exec g
     def -(subst: (Link, Int)): RGraph = removeSubst(subst._1)(subst._2)(g)

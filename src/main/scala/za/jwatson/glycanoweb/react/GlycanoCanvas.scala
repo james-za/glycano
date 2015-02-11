@@ -112,11 +112,13 @@ object GlycanoCanvas {
         val annotations = t.props.graph.annots.filter(e => inSelection(e._2.x, e._2.y)).values.toSet
         t.props.setSelection(residues, annotations)
       case (Mode.Selection, InputState.Drag(_, (dx, dy))) =>
-        val (rs, as) = t.props.selection
-        t.props.modGraph(graph => graph.entries.filterKeys(rs.contains).foldLeft(graph) {
-          case (g, (r, ge)) =>
-            g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
-        })
+        if (dx != 0 && dy != 0) {
+          val (rs, as) = t.props.selection
+          t.props.modGraph(graph => graph.entries.filterKeys(rs.contains).foldLeft(graph) {
+            case (g, (r, ge)) =>
+              g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
+          })
+        }
         t.modState(State.inputState set InputState.Default)
       case _ =>
     }

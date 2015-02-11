@@ -36,7 +36,13 @@ object GlycanoApp {
   }
 
   object StateL {
-    val graph = Lens[State, RGraph](s => s.history(s.undoPosition))(g => s => State.history.modify(g +: _.drop(s.undoPosition) take 50/*t.props.historyLimit*/)(s))
+    def graph(s: State): RGraph = s.history(s.undoPosition)
+    def setGraph(g: RGraph)(s: State): State = {
+      val s2 = State.history.modify(g +: _.drop(s.undoPosition).take(50))(s)
+      State.undoPosition.set(0)(s2)
+    }
+    def modGraph(f: RGraph => RGraph)(s: State): State = setGraph(f(graph(s)))(s)
+    //val graph = Lens[State, RGraph](s => s.history(s.undoPosition))(g => s => State.history.modify(g +: _.drop(s.undoPosition).take(50/*t.props.historyLimit*/))(s))
   }
 
   val ST = ReactS.Fix[State]
@@ -45,7 +51,7 @@ object GlycanoApp {
 
   val copyS = for {
     sel <- ST.gets(_.selection)
-    g <- ST.gets(StateL.graph.get)
+    g <- ST.gets(StateL.graph)
     dr = g.entries.keySet diff sel._1
     da = g.annots.values.toSet diff sel._2
     _ <- ST.mod(State.buffer set removeSelection(dr, da)(g))
@@ -53,10 +59,13 @@ object GlycanoApp {
 
   val deleteS = for {
     sel <- ST.gets(_.selection)
-    _ <- ST.mod(StateL.graph modify removeSelection(sel))
+    _ <- ST.mod(StateL.modGraph(removeSelection(sel)))
   } yield ()
 
-  val cutS = copyS >> deleteS
+  val cutS = for {
+    _ <- copyS
+    _ <- deleteS
+  } yield ()
   //  val cutS = for {
   //    (rs, as) <- ST.gets(_.selection)
   //    g <- ST.gets(StateL.graph.get)
@@ -69,7 +78,7 @@ object GlycanoApp {
   val pasteS = for {
     buf <- ST.gets(_.buffer)
     gSel <- ST.gets { s =>
-      var g = StateL.graph.get(s)
+      var g = StateL.graph(s)
       def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]], x: Double, y: Double, rot: Double): Residue = {
         val added = Residue.next(rt, ano, abs)
         g += added
@@ -86,7 +95,7 @@ object GlycanoApp {
         Link(srcParent, position) <- ge.parent
         added <- lookup.get(src)
         addedParent <- lookup.get(srcParent)
-      } addBond(Bond(added, Link(addedParent, position)))
+      } g = addBond(Bond(added, Link(addedParent, position))).exec(g)
 
       val addedAnnotations = for (a <- buf.annots.values) yield {
         val added = GlyAnnot.next(a.x, a.y, a.rot, a.text, a.size)
@@ -96,7 +105,7 @@ object GlycanoApp {
 
       (g, (addedResidues.toSet, addedAnnotations.toSet))
     }
-    _ <- ST.mod(StateL.graph set gSel._1)
+    _ <- ST.mod(StateL setGraph gSel._1)
     _ <- ST.mod(State.selection set gSel._2)
   } yield ()
 
@@ -116,12 +125,12 @@ object GlycanoApp {
     def zoomReset(): Unit = t.modState(State.view ^|-> View.scale set 1.0)
     //def zoomWheel(e: ReactWheelEvent): Unit = t.modState(State.view ^|-> View.scale modify (_ + e.deltaY(e.nativeEvent)))
 
-    def cut(): Unit = t.runState(deleteS).unsafePerformIO()
+    def cut(): Unit = t.runState(cutS).unsafePerformIO()
     def copy(): Unit = t.runState(copyS).unsafePerformIO()
     def paste(): Unit = t.runState(pasteS).unsafePerformIO()
     def delete(): Unit = t.runState(deleteS).unsafePerformIO()
 
-    def clearAll(): Unit = t.modState(StateL.graph set RGraph())
+    def clearAll(): Unit = t.modState(StateL setGraph RGraph())
 
     def residuePanelClick(template: ResiduePanel.State): Unit =
       t.modState(State.mode set template.rt.fold[Mode](Mode.Selection)(Mode.PlaceResidue(template.ano, template.abs, _)))
@@ -134,7 +143,7 @@ object GlycanoApp {
     }
 
     def modGraph(mod: RGraph => RGraph): Unit =
-      t.modState(StateL.graph modify mod)
+      t.modState(StateL modGraph mod)
 
     def setSelection(selection: (Set[Residue], Set[GlyAnnot])): Unit =
       t.modState(State.selection set selection)

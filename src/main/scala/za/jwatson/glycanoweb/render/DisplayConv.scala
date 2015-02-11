@@ -14,6 +14,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import scala.util.{Success, Failure, Try}
 
 class DisplayConv(val conv: Conv) {
+
   val shapeToItem: Shape => ReactTag = {
     case DefinedShape(position, name) =>
       throw new UnsupportedOperationException("ShapeDef cannot refer to another ShapeDef")
@@ -174,6 +175,20 @@ class DisplayConv(val conv: Conv) {
         (priority, isHandle, item(outlineMod, styleMods, handleMod))
     }.sortBy(_._1).partition(_._2)
     (<.svg.g(residueShapeMods.map(_._3)), handleShapeMods.map(_._3).headOption.getOrElse(<.svg.g()))
+  }
+
+  def canEqual(other: Any): Boolean = other.isInstanceOf[DisplayConv]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: DisplayConv =>
+      (that canEqual this) &&
+        conv == that.conv
+    case _ => false
+  }
+
+  override def hashCode(): Int = {
+    val state = Seq(conv)
+    state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
   }
 }
 
