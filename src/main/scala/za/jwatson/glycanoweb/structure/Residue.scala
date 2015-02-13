@@ -1,29 +1,37 @@
 package za.jwatson.glycanoweb.structure
 
-case class Residue(id: Int, rt: ResidueType, anomer: Anomer, absolute: Absolute) {
+import monocle.macros.Lenses
+
+@Lenses case class Residue(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]] = Map.empty) {
+  def substSymbol = (for {
+    (i, sts) <- subs
+    st <- sts
+  } yield s"$i${st.name}").mkString
+  
   def symbol: String = rt match {
-    case ResidueType.Begin => anomer.symbol + rt.symbol
+    case ResidueType.Begin => ano.symbol + rt.symbol
     case ResidueType.End => rt.symbol
-    case _ => anomer.symbol + absolute.symbol + rt.symbol
+    case _ => ano.symbol + abs.symbol + rt.symbol + substSymbol
   }
+  
   def desc: String = rt match {
-    case ResidueType.Begin => s"${anomer.desc}-${rt.desc}"
+    case ResidueType.Begin => s"${ano.desc}-${rt.desc}"
     case ResidueType.End => rt.desc
-    case _ => s"${anomer.desc}-${absolute.desc}-${rt.desc}"
+    case _ => s"${ano.desc}-${abs.desc}-${rt.desc}"
   }
   
   override def toString: String = desc
 }
 
-object Residue {
-  var nextId: Int = 0
-  def getNextId: Int = { nextId += 1; nextId }
-  def next(rt: ResidueType, anomer: Anomer, absolute: Absolute): Residue =
-    Residue(getNextId, rt, anomer, absolute)
+case class ResidueId(id: Int) extends AnyVal
 
+object ResidueId {
+  var id: Int = 0
+  def nextId(): Int = { id += 1; id }
+  def next(): ResidueId = ResidueId(nextId())
 }
 
-case class Link(residue: Residue, position: Int)
+@Lenses case class Link(r: ResidueId, position: Int)
 
 
 

@@ -1,6 +1,6 @@
 package za.jwatson.glycanoweb
 
-import za.jwatson.glycanoweb.structure.{ResidueType, Residue, RGraph, Link}
+import za.jwatson.glycanoweb.structure._
 
 import scala.annotation.tailrec
 import scalaz.std.option._
@@ -9,8 +9,8 @@ import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
 import RGraph._
 
 object CASPER {
-  def findRoot(r: Residue)(implicit graph: RGraph): Option[Residue] = findRootRec(r, Set.empty)
-  @tailrec def findRootRec(r: Residue, rs: Set[Residue])(implicit graph: RGraph): Option[Residue] = {
+  def findRoot(r: ResidueId)(implicit graph: RGraph): Option[ResidueId] = findRootRec(r, Set.empty)
+  @tailrec def findRootRec(r: ResidueId, rs: Set[ResidueId])(implicit graph: RGraph): Option[ResidueId] = {
     r.parent match {
       case None =>
         r.some
@@ -19,7 +19,7 @@ object CASPER {
     }
   }
 
-  @tailrec def findRoots(rs: Set[Residue], visited: Set[Residue] = Set.empty)(implicit graph: RGraph): Set[Residue] = {
+  @tailrec def findRoots(rs: Set[ResidueId], visited: Set[ResidueId] = Set.empty)(implicit graph: RGraph): Set[ResidueId] = {
     val next = rs.flatMap(r => r.parent.fold(r.some){
       case Link(p, 1) => none
       case Link(p, _) if rs.contains(p) || visited.contains(p) => none
@@ -28,27 +28,27 @@ object CASPER {
     if (rs == next) rs else findRoots(next, visited ++ rs)
   }
 
-  def getStrings(residues: Set[Residue])(implicit graph: RGraph): Map[Residue, String] = {
+  def getStrings(residues: Set[ResidueId])(implicit graph: RGraph): Map[ResidueId, String] = {
     val roots = findRoots(residues).toSeq
     val strings = roots map (getString(graph, _))
     Map(roots zip strings: _*)
   }
 
-  def getString(graph: RGraph, root: Residue): String = {
+  def getString(graph: RGraph, root: ResidueId): String = {
     implicit val rg = graph
     val strs = rec(root)
     strs.mkString
   }
 
-  def containsBeginRepeat(r: Residue)(implicit graph: RGraph): Boolean = {
-    if (r.rt == ResidueType.Begin) {
+  def containsBeginRepeat(r: ResidueId)(implicit graph: RGraph): Boolean = {
+    if (r.rt.contains(ResidueType.Begin)) {
       true
     } else {
-      r.children.getOrElse(Map.empty[Int, Residue]).values.exists(containsBeginRepeat)
+      r.children.getOrElse(Map.empty[Int, ResidueId]).values.exists(containsBeginRepeat)
     }
   }
 
-  def resCompare(a: (Int, Residue), b: (Int, Residue))(implicit g: RGraph): Boolean = {
+  def resCompare(a: (Int, ResidueId), b: (Int, ResidueId))(implicit g: RGraph): Boolean = {
     (containsBeginRepeat(a._2), containsBeginRepeat(b._2)) match {
       case (true, false) => true
       case (false, true) => false
@@ -56,18 +56,18 @@ object CASPER {
     }
   }
 
-  def arrowString(b: Bond): String = {
-    val first = if (b.from.rt == ResidueType.Begin) "" else "(1"
-    val last = if (b.to.residue.rt == ResidueType.End) "" else b.to.position + ")"
+  def arrowString(b: Bond)(implicit g: RGraph): String = {
+    val first = if (b.from.rt.contains(ResidueType.Begin)) "" else "(1"
+    val last = if (b.to.r.rt.contains(ResidueType.End)) "" else b.to.position + ")"
     first + "->" + last
   }
 
-  def rec(r: Residue, tail: Boolean = false)(implicit g: RGraph): Vector[String] = {
+  def rec(r: ResidueId, tail: Boolean = false)(implicit g: RGraph): Vector[String] = {
     val substs = for {
       (i, stack) <- r.substituents
       st <- stack
     } yield i + st.symbol
-    val str = r.symbol + substs.mkString + r.bond.map(arrowString).getOrElse("")
+    val str = r.residue.map(_.symbol).getOrElse("") + r.bond.map(arrowString).getOrElse("")
     val children = for {
       children <- r.children.to[Vector]
       (_, c) <- children.toSeq.sortWith((a, b) => resCompare(a, b))

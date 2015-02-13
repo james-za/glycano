@@ -13,6 +13,7 @@ import za.jwatson.glycanoweb.structure.RGraph._
 
 import za.jwatson.glycanoweb.structure._
 
+import scala.scalajs.js.Dynamic
 import scalajs.js
 import org.scalajs.dom
 
@@ -27,9 +28,9 @@ object GlycanoCanvas {
     } else false
   }
 
-  case class Props(modGraph: (RGraph => RGraph) => Unit, setSelection: ((Set[Residue], Set[GlyAnnot])) => Unit,
+  case class Props(modGraph: (RGraph => RGraph) => Unit, setSelection: ((Set[ResidueId], Set[AnnotId])) => Unit,
                    mode: GlycanoApp.Mode, dc: DisplayConv, width: Int = 800, height: Int = 600, graph: RGraph,
-                   selection: (Set[Residue], Set[GlyAnnot]), view: View = View(), bondLabels: Boolean = false)
+                   selection: (Set[ResidueId], Set[AnnotId]), view: View = View(), bondLabels: Boolean = false)
 
   def cmp(p: Props) = (p.mode, p.dc.conv, p.graph, p.view, p.selection, p.width, p.height, p.bondLabels)
 
@@ -59,28 +60,44 @@ object GlycanoCanvas {
     }
 
     def mouseClick(e: ReactMouseEvent): Unit = (t.props.mode, t.state.inputState) match {
-      case (Mode.PlaceResidue(ano, abs, rt), InputState.AddResidue(x, y)) =>
-        val r = Residue.next(rt, ano, abs)
-        t.props.modGraph(g => (g + r).updated(r, Placement(x, y, 0)))
+      case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
+        t.props.modGraph { _ + GraphEntry(residue, x, y) }
       case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(Some(link))) =>
 
       case _ =>
     }
 
+    def mouseDown(e: ReactMouseEvent): Unit = {
+      val button: Int = e.asInstanceOf[Dynamic].button.asInstanceOf[Int]
+      if (button == 2) {
+        e.preventDefault()
+        (t.props.mode, t.state.inputState) match {
+          case (Mode.Selection, InputState.CreateBond(_, _, _)) =>
+            t.modState(State.inputState set InputState.Default)
+          case _ =>
+        }
+      }
+    }
 
-    def mouseMove(e: ReactMouseEvent): Unit = (t.props.mode, t.state.inputState) match {
+
+    def mouseMove(e: ReactMouseEvent): Unit = if (updateReady()) (t.props.mode, t.state.inputState) match {
       case (Mode.Selection, BoxSelect(down, _)) =>
-        if (updateReady()) for (pos <- clientToView(e.clientX, e.clientY)) {
+        for (pos <- clientToView(e.clientX, e.clientY)) {
           t.modState(State.inputState set InputState.BoxSelect(down, pos))
         }
-      case (Mode.PlaceResidue(ano, abs, rt), _) =>
-        if (updateReady()) for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+      case (Mode.PlaceResidue(_), _) =>
+        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
           t.modState(State.inputState set InputState.AddResidue(x, y))
         }
       case (Mode.Selection, InputState.Drag(down @ (x0, y0), _)) =>
-        if (updateReady()) for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
           val offset = (x - x0, y - y0)
           t.modState(State.inputState set InputState.Drag(down, offset))
+        }
+      case (Mode.Selection, InputState.CreateBond(r, last, _)) =>
+        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+          val target: Option[Link] = None
+          t.modState(State.inputState set InputState.CreateBond(r, (x, y), target))
         }
       case _ =>
     }
@@ -108,22 +125,26 @@ object GlycanoCanvas {
         val (xMin, xMax) = if (x1 < x2) (x1, x2) else (x2, x1)
         val (yMin, yMax) = if (y1 < y2) (y1, y2) else (y2, y1)
         def inSelection(x: Double, y: Double) = xMin <= x && x < xMax && yMin <= y && y < yMax
-        val residues = t.props.graph.entries.filter(e => inSelection(e._2.x, e._2.y)).keySet
-        val annotations = t.props.graph.annots.filter(e => inSelection(e._2.x, e._2.y)).values.toSet
+        val residues = t.props.graph.residues.filter(e => inSelection(e._2.x, e._2.y)).keySet
+        val annotations = t.props.graph.annotations.filter(e => inSelection(e._2.x, e._2.y)).keySet
         t.props.setSelection(residues, annotations)
       case (Mode.Selection, InputState.Drag(_, (dx, dy))) =>
-        if (dx != 0 && dy != 0) {
+        if (dx != 0 || dy != 0) {
           val (rs, as) = t.props.selection
-          t.props.modGraph(graph => graph.entries.filterKeys(rs.contains).foldLeft(graph) {
+          t.props.modGraph(graph => graph.residues.filterKeys(rs.contains).foldLeft(graph) {
             case (g, (r, ge)) =>
               g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
           })
         }
         t.modState(State.inputState set InputState.Default)
+      case (Mode.Selection, InputState.PreCreateBond(r)) =>
+        for (to <- clientToView(e.clientX, e.clientY)) {
+          t.modState(State.inputState set InputState.CreateBond(r, to, None))
+        }
       case _ =>
     }
 
-    def residueMouseDown(r: Residue)(e: ReactMouseEvent): Unit = {
+    def residueMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit = {
       t.props.mode match {
         case Mode.Selection =>
           for (down <- clientToView(e.clientX, e.clientY)) {
@@ -135,8 +156,12 @@ object GlycanoCanvas {
       }
     }
 
-    def handleMouseDown(r: Residue)(e: ReactMouseEvent): Unit = {
-
+    def handleMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit = {
+      t.props.mode match {
+        case Mode.Selection =>
+          t.modState(State.inputState set InputState.PreCreateBond(r))
+        case _ =>
+      }
     }
     
     def modInputState(inputState: InputState): Unit = t.modState(State.inputState set inputState)
@@ -149,7 +174,8 @@ object GlycanoCanvas {
     case class AddSubstituent(target: Option[Link]) extends InputState
     case class BoxSelect(from: (Double, Double), to: (Double, Double)) extends InputState
     case class Drag(down: (Double, Double), offset: (Double, Double)) extends InputState
-    case object CreateBond extends InputState
+    case class PreCreateBond(r: ResidueId) extends InputState
+    case class CreateBond(r: ResidueId, to: (Double, Double), target: Option[Link]) extends InputState
     case object PostCreateBond extends InputState
     case class Hit(down: (Double, Double), item: Residue) extends InputState
     case class Rotate(item: Residue) extends InputState
@@ -157,7 +183,7 @@ object GlycanoCanvas {
     case object Out extends InputState
   }
 
-  def outlinePos(outline: IndexedSeq[(Double, Double)], r: Residue, ge: GraphEntry, i: Int): (Double, Double) = {
+  def outlinePos(outline: IndexedSeq[(Double, Double)], ge: GraphEntry, i: Int): (Double, Double) = {
     val (x, y) = rotatePoint(outline(i), ge.rotation)
     (ge.x + x, ge.y + y)
   }
@@ -186,8 +212,8 @@ object GlycanoCanvas {
       val viewY = P.view.y
       val viewScale = P.view.scale
 
-      val outlines = for ((r, ge) <- P.graph.entries) yield {
-        r -> P.dc.outline(r.anomer, r.absolute, r.rt, ge.subs)
+      val outlines = for ((r, ge) <- P.graph.residues) yield {
+        r -> P.dc.outline(ge.residue)
       }
 
       val (drag, dx, dy) = S.inputState match {
@@ -195,18 +221,18 @@ object GlycanoCanvas {
         case _ => (false, 0.0, 0.0)
       }
 
-      val entriesOffset = for ((r, ge) <- P.graph.entries) yield {
+      val entriesOffset = for ((r, ge) <- P.graph.residues) yield {
         val selected = P.selection._1.contains(r)
         val geOffset = if (drag && selected) ge.copy(x = ge.x + dx, y = ge.y + dy) else ge
         r -> geOffset
       }
 
       val bonds = for {
-        (r @ Residue(_, rt, ano, abs), ge) <- entriesOffset.toSeq
+        (r, ge) <- entriesOffset.toSeq
         toLink @ Link(to, i) <- ge.parent
       } yield {
-        val (x1, y1) = outlinePos(outlines(r), r, ge, 0)
-        val (x2, y2) = outlinePos(outlines(r), to, entriesOffset(to), i)
+        val (x1, y1) = outlinePos(outlines(r), ge, 0)
+        val (x2, y2) = outlinePos(outlines(r), entriesOffset(to), i)
         val angle = math.toDegrees(math.atan2(y2 - y1, x2 - x1))
         val midX = (x1 + x2) / 2
         val midY = (y1 + y2) / 2
@@ -221,13 +247,13 @@ object GlycanoCanvas {
             ^.svg.transform := s"translate($midX, $midY) rotate($angle) translate(0, -6)",
             ^.svg.fontSize := 20,
             ^.svg.textAnchor := "middle"
-          )(ano.desc + i)
+          )(ge.residue.ano.desc + i)
         ): TagMod
       }
 
       val residues = for ((r, ge) <- entriesOffset) yield {
         val selected = P.selection._1.contains(r)
-        SVGResidue.withKey(r.id)(SVGResidue.Props(B.residueMouseDown(r), B.handleMouseDown(r), r, ge, P.dc, selected))
+        SVGResidue.withKey(r.id)(SVGResidue.Props(B.residueMouseDown(r), B.handleMouseDown(r), ge, P.dc, selected))
       }
 
       val selectionBox = S.inputState match {
@@ -244,10 +270,9 @@ object GlycanoCanvas {
       }
 
       val tempResidue = (P.mode, S.inputState) match {
-        case (Mode.PlaceResidue(ano, abs, rt), InputState.AddResidue(x, y)) =>
-          val r = Residue(0, rt, ano, abs)
-          val ge = GraphEntry(x, y, 0)
-          Some(SVGResidue.withKey(0)(SVGResidue.Props(_ => (), _ => (), r, ge, P.dc, selected = false)))
+        case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
+          val ge = GraphEntry(residue, x, y, 0)
+          Some(SVGResidue.withKey(0)(SVGResidue.Props(_ => (), _ => (), ge, P.dc, selected = false)))
         case _ => None
       }
 
@@ -258,7 +283,8 @@ object GlycanoCanvas {
         ^.onMouseMove ==> B.mouseMove,
         ^.onClick ==> B.mouseClick,
         ^.onMouseOut ==> B.mouseOut,
-        ^.onMouseUp ==> B.mouseUp
+        ^.onMouseUp ==> B.mouseUp,
+        ^.onMouseDown ==> B.mouseDown
       )(
         <.svg.g(^.svg.transform := s"translate($viewX $viewY) scale($viewScale)", ^.ref := "view")(
           bonds,
@@ -278,6 +304,12 @@ object GlycanoCanvas {
       (T, P, S) =>
         cmp(T.props) != cmp(P) || T.state != S
     }
+    .componentDidMount(scope => {
+      scope.getDOMNode().addEventListener("contextmenu", (e: org.scalajs.dom.Event) => {
+        e.preventDefault()
+        false
+      })
+    })
     //.domType[dom.SVGSVGElement]
     .build
 }

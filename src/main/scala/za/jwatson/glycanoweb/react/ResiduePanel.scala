@@ -75,9 +75,10 @@ object ResiduePanel {
         <.div(^.cls := "tab-content")(
           <.div(^.role := "tabpanel", ^.cls := "tab-pane active")(
             for (rt <- ResidueType.ResidueTypeCategories(S.page)) yield {
-              val (_, w, h) = P.dc.boundsMemo(S.ano, S.abs, rt, Map.empty)
+              val res: Residue = Residue(S.ano, S.abs, rt)
+              val (_, w, h) = P.dc.boundsMemo(res)
               val scale = 0.4
-              val (residue, handle) = P.dc.shapes(S.ano, S.abs, rt, Map.empty)
+              val (residue, handle) = P.dc.shapes(res)
               <.span(
                 <.button(^.cls := s"btn btn-default", S.rt.contains(rt) ?= (^.cls := "active"), ^.title := rt.desc, ^.padding := 2.px, ^.onClick --> B.clickResidue(rt))(
                   <.svg.svg(

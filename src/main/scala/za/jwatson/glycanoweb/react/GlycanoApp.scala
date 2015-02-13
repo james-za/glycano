@@ -19,7 +19,7 @@ object GlycanoApp {
   @Lenses case class State(
     undoPosition: Int = 0,
     history: Vector[RGraph] = Vector(RGraph()),
-    selection: (Set[Residue], Set[GlyAnnot]) = (Set.empty, Set.empty),
+    selection: (Set[ResidueId], Set[AnnotId]) = (Set.empty, Set.empty),
     bondLabels: Boolean = false,
     view: View = View(),
     buffer: RGraph = RGraph(),
@@ -30,7 +30,7 @@ object GlycanoApp {
   sealed trait Mode
   object Mode {
     case object Selection extends Mode
-    case class PlaceResidue(ano: Anomer, abs: Absolute, rt: ResidueType) extends Mode
+    case class PlaceResidue(residue: Residue) extends Mode
     case class PlaceSubstituent(st: SubstituentType) extends Mode
     case class PlaceAnnotation(size: Double) extends Mode
   }
@@ -47,13 +47,13 @@ object GlycanoApp {
 
   val ST = ReactS.Fix[State]
 
-  def removeSelection(sel: (Set[Residue], Set[GlyAnnot])) = (sel._1.foldLeft(_: RGraph)(_ - _)) andThen (sel._2.foldLeft(_: RGraph)(_ - _))
+  def removeSelection(sel: (Set[ResidueId], Set[AnnotId])) = (sel._1.foldLeft(_: RGraph)(_ - _)) andThen (sel._2.foldLeft(_: RGraph)(_ - _))
 
   val copyS = for {
     sel <- ST.gets(_.selection)
     g <- ST.gets(StateL.graph)
-    dr = g.entries.keySet diff sel._1
-    da = g.annots.values.toSet diff sel._2
+    dr = g.residues.keySet diff sel._1
+    da = g.annotations.keySet diff sel._2
     _ <- ST.mod(State.buffer set removeSelection(dr, da)(g))
   } yield ()
 
@@ -78,32 +78,23 @@ object GlycanoApp {
   val pasteS = for {
     buf <- ST.gets(_.buffer)
     gSel <- ST.gets { s =>
-      var g = StateL.graph(s)
-      def addResidue(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]], x: Double, y: Double, rot: Double): Residue = {
-        val added = Residue.next(rt, ano, abs)
-        g += added
-        g = g.updated(added, Placement(x, y, rot))
-        g = g &|-? RGraph.entryL(added) ^|-> GraphEntry.subs set subs
-        added
-      }
-      val addedResidues = for ((src, ge) <- buf.entries) yield {
-        addResidue(src.anomer, src.absolute, src.rt, ge.subs, ge.x, ge.y, ge.rotation)
-      }
-      val lookup = (buf.entries.keys zip addedResidues).toMap
-      for {
-        (src, ge) <- buf.entries
-        Link(srcParent, position) <- ge.parent
-        added <- lookup.get(src)
-        addedParent <- lookup.get(srcParent)
-      } g = addBond(Bond(added, Link(addedParent, position))).exec(g)
+      val old = StateL.graph(s)
+      var g = old
 
-      val addedAnnotations = for (a <- buf.annots.values) yield {
-        val added = GlyAnnot.next(a.x, a.y, a.rot, a.text, a.size)
-        g += added
-        added
+      val lookupR = buf.residues.map { case (id, _) => id -> ResidueId.next() }
+      val lookupA = buf.annotations.map { case (id, _) => id -> AnnotId.next() }
+
+      for ((r, ge) <- buf.residues) {
+        val modChildren = GraphEntry.children ^|->> each modify lookupR
+        val modParent = GraphEntry.parent ^<-? some ^|-> Link.r modify lookupR
+        g = g &|-> RGraph.residues modify { _ + (lookupR(r) -> (modChildren andThen modParent)(ge)) }
       }
 
-      (g, (addedResidues.toSet, addedAnnotations.toSet))
+      for ((id, annot) <- buf.annotations) {
+        g = g &|-> RGraph.annotations modify { _ + (lookupA(id) -> annot) }
+      }
+
+      (g, (lookupR.values.toSet, lookupA.values.toSet))
     }
     _ <- ST.mod(StateL setGraph gSel._1)
     _ <- ST.mod(State.selection set gSel._2)
@@ -133,7 +124,7 @@ object GlycanoApp {
     def clearAll(): Unit = t.modState(StateL setGraph RGraph())
 
     def residuePanelClick(template: ResiduePanel.State): Unit =
-      t.modState(State.mode set template.rt.fold[Mode](Mode.Selection)(Mode.PlaceResidue(template.ano, template.abs, _)))
+      t.modState(State.mode set template.rt.fold[Mode](Mode.Selection)(rt => Mode.PlaceResidue(Residue(template.ano, template.abs, rt))))
 
     def substPanelClick(template: SubstituentPanel.State): Unit =
       t.modState(State.mode set template.st.fold[Mode](Mode.Selection)(Mode.PlaceSubstituent.apply))
@@ -145,19 +136,15 @@ object GlycanoApp {
     def modGraph(mod: RGraph => RGraph): Unit =
       t.modState(StateL modGraph mod)
 
-    def setSelection(selection: (Set[Residue], Set[GlyAnnot])): Unit =
+    def setSelection(selection: (Set[ResidueId], Set[AnnotId])): Unit =
       t.modState(State.selection set selection)
   }
 
   val testGraph = {
-    val r1 = Residue.next(ResidueType.Glc, Anomer.Alpha, Absolute.D)
-    val r2 = Residue.next(ResidueType.Man, Anomer.Beta, Absolute.D)
-    val r3 = Residue.next(ResidueType.Ido, Anomer.Alpha, Absolute.L)
-    val b1 = Bond(r1, Link(r2, 2))
-    (Seq(r1, r2, r3).foldLeft(RGraph())((g, r) => g + r) + b1)
-      .updated(r1, Placement(50, 100, 0))
-      .updated(r2, Placement(350, 50, 0))
-      .updated(r3, Placement(200, 300, 45))
+    val r1 @ (rId1, _) = ResidueId.next() -> GraphEntry(Residue(Anomer.Alpha, Absolute.D, ResidueType.Glc), x = 50, y = 100)
+    val r2 @ (rId2, _) = ResidueId.next() -> GraphEntry(Residue(Anomer.Beta, Absolute.D, ResidueType.Man), x = 350, y = 50)
+    val r3 = ResidueId.next() -> GraphEntry(Residue(Anomer.Alpha, Absolute.L, ResidueType.Ido), x = 200, y = 300, rotation = 45)
+    RGraph(residues = Map(r1, r2, r3)) + Bond(rId1, Link(rId2, 2))
   }
 
   def apply(props: Props, children: ReactNode*) = component(props, children)

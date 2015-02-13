@@ -270,27 +270,27 @@ object ConventionEditor {
   case class Conv(name: String, shapeDefs: Map[String, Shape] = Map.empty, rules: Seq[ConvRule] = Seq.empty)
 
   case class ConvRule(conds: Seq[RuleCond], mods: Seq[RuleMod])
-  sealed trait RuleCond { def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): Boolean }
+  sealed trait RuleCond { def matches(residue: Residue): Boolean }
   object RuleCond {
     case class AnoCond(allowed: Anomer) extends RuleCond {
-      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = allowed == ano
+      def matches(residue: Residue) = allowed == residue.ano
     }
     case class AbsCond(allowed: Absolute) extends RuleCond {
-      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = allowed == abs
+      def matches(residue: Residue) = allowed == residue.abs
     }
     case class ResCond(allowed: Seq[String]) extends RuleCond {
-      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = allowed contains rt.symbol
+      def matches(residue: Residue) = allowed contains residue.rt.symbol
     }
     case class SubCond(allowed: Seq[String]) extends RuleCond {
-      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = {
+      def matches(residue: Residue) = {
         //allowed.forall(a => subs.values.flatten.exists(_.st.symbol == a))
         val allowedSet = allowed.map(_.toLowerCase).toSet
-        val subsSet = subs.values.toVector.flatten.map(_.symbol.toLowerCase).toSet
+        val subsSet = residue.subs.values.toVector.flatten.map(_.symbol.toLowerCase).toSet
         allowedSet == subsSet
       }
     }
     case object DefaultCond extends RuleCond {
-      def matches(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = false
+      def matches(residue: Residue) = false
     }
   }
   sealed trait RuleMod

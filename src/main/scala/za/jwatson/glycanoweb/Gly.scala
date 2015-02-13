@@ -24,19 +24,17 @@ object GlyAnnot {
 object Gly {
   def from(g: RGraph): Gly = {
     implicit val graph = g
-    val rs = g.residues.toList
-    val rp = rs.zipWithIndex.toMap
+    val entries = g.residues.values.toList
+    val lookup = g.residues.keys.zipWithIndex.toMap
     val residues = for {
-      r <- rs
-      x <- r.x
-      y <- r.y
-      rot <- r.rotation
-      tr = r.parent.fold(-1)(l => rp(l.residue))
-      tp = r.parent.fold(-1)(_.position)
-      subs = r.substituents
-    } yield GlyRes(r.anomer, r.absolute, r.rt, x, y, rot, tr, tp, subs)
+      GraphEntry(Residue(ano, abs, rt, subs), x, y, rot, _, parent) <- entries
+      tr = parent.fold(-1)(l => lookup(l.r))
+      tp = parent.fold(-1)(_.position)
+    } yield GlyRes(ano, abs, rt, x, y, rot, tr, tp, subs)
 
-    val annotations = g.annots.values.toList
+    val annotations = for {
+      (a, Annot(text, size, x, y, rot)) <- g.annotations.toList
+    } yield GlyAnnot(a.id, x, y, rot, text, size)
 
     Gly(residues, annotations)
   }

@@ -11,7 +11,7 @@ import scalajs.js
 object SVGResidue {
   case class Props(residueMouseDown: ReactMouseEvent => Unit,
                    handleMouseDown: ReactMouseEvent => Unit,
-                   r: Residue, ge: GraphEntry, dc: DisplayConv,
+                   ge: GraphEntry, dc: DisplayConv,
                    selected: Boolean)
 
   class Backend(t: BackendScope[Props, Boolean]) {
@@ -25,9 +25,9 @@ object SVGResidue {
     .initialState(false)
     .backend(new Backend(_))
     .render((P, C, S, B) => {
-      val GraphEntry(x, y, rot, _, _, subs) = P.ge
-      val (_, w, h) = P.dc.boundsMemo(P.r.anomer, P.r.absolute, P.r.rt, subs)
-      val (residue, handle) = P.dc.shapes(P.r.anomer, P.r.absolute, P.r.rt, subs)
+      val GraphEntry(_, x, y, rot, _, _) = P.ge
+      val (_, w, h) = P.dc.boundsMemo(P.ge.residue)
+      val (residue, handle) = P.dc.shapes(P.ge.residue)
 
       <.svg.g(^.svg.transform := s"translate($x $y) rotate($rot)")(
         P.selected ?= <.svg.rect(
@@ -44,6 +44,7 @@ object SVGResidue {
           handle(
             ^.onMouseOver --> B.handleMouseOver(),
             ^.onMouseOut --> B.handleMouseOut(),
+            ^.onMouseDown ==> P.handleMouseDown,
             S ?= Seq(^.svg.strokeWidth := "3", ^.svg.stroke := "blue")
           )
         )
@@ -51,7 +52,6 @@ object SVGResidue {
     })
     .shouldComponentUpdate((T, P, S) => {
       T.props.dc.conv  != P.dc.conv  ||
-      T.props.r        != P.r        ||
       T.props.ge       != P.ge       ||
       T.props.selected != P.selected ||
       T.state          != S
