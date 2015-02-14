@@ -215,16 +215,20 @@ object GlycanoApp {
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(SubstituentPanel(SubstituentPanel.Props(B.substPanelClick))))
           ),
           <.div(^.cls := "col-xs-9")(
-            GlycanoCanvas(GlycanoCanvas.Props(
-              B.modGraph,
-              B.setSelection,
-              S.mode,
-              dc = S.displayConv,
-              graph = S.history(S.undoPosition),
-              selection = S.selection,
-              view = S.view,
-              bondLabels = S.bondLabels
-            ))
+            <.div(^.cls := "panel panel-default")(
+              <.div(^.cls := "panel-body")(
+                GlycanoCanvas(GlycanoCanvas.Props(
+                  B.modGraph,
+                  B.setSelection,
+                  S.mode,
+                  dc = S.displayConv,
+                  graph = S.history(S.undoPosition),
+                  selection = S.selection,
+                  view = S.view,
+                  bondLabels = S.bondLabels
+                ))
+              )
+            )
           )
         )
       )

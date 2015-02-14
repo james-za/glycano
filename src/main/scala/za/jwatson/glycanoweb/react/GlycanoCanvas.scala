@@ -49,6 +49,7 @@ object GlycanoCanvas {
       val p2 = p.matrixTransform(view.getScreenCTM().inverse())
       (p2.x, p2.y)
     }
+
     def clientToCanvas(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
       svg <- Ref[dom.html.Element]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.svg.SVG])
     } yield {
@@ -61,7 +62,9 @@ object GlycanoCanvas {
 
     def mouseClick(e: ReactMouseEvent): Unit = (t.props.mode, t.state.inputState) match {
       case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
-        t.props.modGraph { _ + GraphEntry(residue, x, y) }
+        t.props.modGraph {
+          _ + GraphEntry(residue, x, y)
+        }
       case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(Some(link))) =>
 
       case _ =>
@@ -89,7 +92,7 @@ object GlycanoCanvas {
         for ((x, y) <- clientToView(e.clientX, e.clientY)) {
           t.modState(State.inputState set InputState.AddResidue(x, y))
         }
-      case (Mode.Selection, InputState.Drag(down @ (x0, y0), _)) =>
+      case (Mode.Selection, InputState.Drag(down@(x0, y0), _)) =>
         for ((x, y) <- clientToView(e.clientX, e.clientY)) {
           val offset = (x - x0, y - y0)
           t.modState(State.inputState set InputState.Drag(down, offset))
@@ -104,11 +107,15 @@ object GlycanoCanvas {
 
     def inBounds(x: Double, y: Double) =
       0 <= x && x < t.props.width &&
-      0 <= y && y < t.props.height
+        0 <= y && y < t.props.height
 
-    def mouseOut(e: ReactMouseEvent): Unit = for ((x, y) <- clientToCanvas(e.clientX, e.clientY)) {
-      if (!inBounds(x, y))
-        t.modState(State.inputState set InputState.Out)
+    def mouseOut(e: ReactMouseEvent): Unit = t.props.mode match {
+      case Mode.PlaceResidue(_) | Mode.PlaceSubstituent(_) | Mode.PlaceAnnotation(_) =>
+        for ((x, y) <- clientToCanvas(e.clientX, e.clientY)) {
+          if (!inBounds(x, y))
+            t.modState(State.inputState set InputState.Out)
+        }
+      case _ =>
     }
 
     def boxSelectDown(e: ReactMouseEvent): Unit = t.props.mode match {
@@ -184,7 +191,7 @@ object GlycanoCanvas {
   }
 
   def outlinePos(outline: IndexedSeq[(Double, Double)], ge: GraphEntry, i: Int): (Double, Double) = {
-    val (x, y) = rotatePoint(outline(i), ge.rotation)
+    val (x, y) = rotatePoint(outline(i), math.toRadians(ge.rotation))
     (ge.x + x, ge.y + y)
   }
 
@@ -208,6 +215,8 @@ object GlycanoCanvas {
     .initialState(State())
     .backend(new Backend(_))
     .render((P, C, S, B) => {
+      implicit val graph = P.graph
+
       val viewX = P.view.x
       val viewY = P.view.y
       val viewScale = P.view.scale
@@ -229,26 +238,25 @@ object GlycanoCanvas {
 
       val bonds = for {
         (r, ge) <- entriesOffset.toSeq
-        toLink @ Link(to, i) <- ge.parent
+        toLink @ Link(toRes, i) <- ge.parent
       } yield {
-        val (x1, y1) = outlinePos(outlines(r), ge, 0)
-        val (x2, y2) = outlinePos(outlines(r), entriesOffset(to), i)
-        val angle = math.toDegrees(math.atan2(y2 - y1, x2 - x1))
-        val midX = (x1 + x2) / 2
-        val midY = (y1 + y2) / 2
-        Seq(
-          <.svg.line(
-            ^.key := Bond(r, toLink).##,
-            ^.svg.x1 := x1, ^.svg.y1 := y1,
-            ^.svg.x2 := x2, ^.svg.y2 := y2,
-            ^.svg.stroke := "black", ^.svg.strokeWidth := 7
-          ),
-          P.bondLabels ?= <.svg.text(
-            ^.svg.transform := s"translate($midX, $midY) rotate($angle) translate(0, -6)",
-            ^.svg.fontSize := 20,
-            ^.svg.textAnchor := "middle"
-          )(ge.residue.ano.desc + i)
-        ): TagMod
+        val from = outlinePos(outlines(r), ge, 0)
+        val to = outlinePos(outlines(r), entriesOffset(toRes), i)
+        SVGBond.withKey(r.id)(SVGBond.Props(ge.residue.ano, Some(i), from, to, P.bondLabels))
+      }
+
+      val tempBond = (P.mode, S.inputState) match {
+        case (Mode.Selection, InputState.CreateBond(r, mouse, target)) =>
+          for (ge <- r.graphEntry) yield {
+            val from = outlinePos(outlines(r), ge, 0)
+            val to = target match {
+              case Some(link) => outlinePos(outlines(link.r), ge, link.position)
+              case None => mouse
+            }
+            SVGBond.withKey("tempBond")(SVGBond.Props(ge.residue.ano, None, from, to, P.bondLabels))
+          }
+        case _ =>
+          None
       }
 
       val residues = for ((r, ge) <- entriesOffset) yield {
@@ -272,7 +280,7 @@ object GlycanoCanvas {
       val tempResidue = (P.mode, S.inputState) match {
         case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
           val ge = GraphEntry(residue, x, y, 0)
-          Some(SVGResidue.withKey(0)(SVGResidue.Props(_ => (), _ => (), ge, P.dc, selected = false)))
+          Some(SVGResidue.withKey("tempResidue")(SVGResidue.Props(_ => (), _ => (), ge, P.dc, selected = false)))
         case _ => None
       }
 
@@ -288,6 +296,7 @@ object GlycanoCanvas {
       )(
         <.svg.g(^.svg.transform := s"translate($viewX $viewY) scale($viewScale)", ^.ref := "view")(
           bonds,
+          tempBond,
           <.svg.rect(
             ^.svg.fill := "transparent",
             ^.svg.width := P.width,
