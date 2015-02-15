@@ -39,6 +39,8 @@ object GlycanoCanvas {
   @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1)
 
   class Backend(t: BackendScope[Props, State]) {
+    implicit def graph = t.props.graph
+
     def clientToView(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
       svg <- Ref[dom.html.Element]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.svg.SVG])
       view <- Ref[dom.html.Element]("view")(t).map(_.getDOMNode().asInstanceOf[dom.svg.G])
@@ -82,6 +84,17 @@ object GlycanoCanvas {
       }
     }
 
+    def closestLinkDsq(r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
+      import scalaz.syntax.std.boolean._
+      val links = for {
+        ge <- r.graphEntry.toIterable
+        (offset, i) <- t.props.dc.outline(ge.residue).zipWithIndex
+        (ox, oy) = rotatePoint(offset, ge.rotation)
+        (dx, dy) = (ge.x + ox - x, ge.y + oy - y)
+        dsq = dx * dx + dy * dy if dsq < tsq
+      } yield Link(r, i) -> dsq
+      links.nonEmpty option links.minBy(_._2)
+    }
 
     def mouseMove(e: ReactMouseEvent): Unit = if (updateReady()) (t.props.mode, t.state.inputState) match {
       case (Mode.Selection, BoxSelect(down, _)) =>
@@ -98,8 +111,13 @@ object GlycanoCanvas {
           t.modState(State.inputState set InputState.Drag(down, offset))
         }
       case (Mode.Selection, InputState.CreateBond(r, last, _)) =>
+        import scalaz.syntax.std.boolean._
         for ((x, y) <- clientToView(e.clientX, e.clientY)) {
-          val target: Option[Link] = None
+          val links = for {
+            r <- t.props.graph.residues.keys
+            linkDsq <- closestLinkDsq(r, x, y, 400)
+          } yield linkDsq
+          val target = links.nonEmpty option links.minBy(_._2)._1
           t.modState(State.inputState set InputState.CreateBond(r, (x, y), target))
         }
       case _ =>
@@ -249,10 +267,11 @@ object GlycanoCanvas {
         case (Mode.Selection, InputState.CreateBond(r, mouse, target)) =>
           for (ge <- r.graphEntry) yield {
             val from = outlinePos(outlines(r), ge, 0)
-            val to = target match {
-              case Some(link) => outlinePos(outlines(link.r), ge, link.position)
-              case None => mouse
-            }
+            val targetLink = for {
+              Link(rLink, pos) <- target
+              geLink <- rLink.graphEntry
+            } yield outlinePos(outlines(rLink), geLink, pos)
+            val to = targetLink getOrElse mouse
             SVGBond.withKey("tempBond")(SVGBond.Props(ge.residue.ano, None, from, to, P.bondLabels))
           }
         case _ =>
