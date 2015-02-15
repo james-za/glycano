@@ -90,6 +90,10 @@ object RGraph {
     _ <- State.modify(entryL(r) ^|-> GraphEntry.rotation set placement.rotation)
   } yield ()
 
+  def addBondRemovingOld(from: ResidueId)(to: Link): State[RGraph, Unit] = for {
+    _ <- RGraph.removeLink(to)
+    _ <- RGraph.addBond(from)(to)
+  } yield ()
   
   implicit class RGraphOps(g: RGraph) {
     def -(r: ResidueId): RGraph = removeResidue(r) exec g

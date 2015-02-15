@@ -4,7 +4,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import monocle.macros.Lenses
-import za.jwatson.glycanoweb.GlyAnnot
+import za.jwatson.glycanoweb._
 import za.jwatson.glycanoweb.react.GlycanoApp.Mode
 import za.jwatson.glycanoweb.react.GlycanoApp.Mode.{PlaceAnnotation, PlaceSubstituent, PlaceResidue, Selection}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.InputState.BoxSelect
@@ -28,7 +28,7 @@ object GlycanoCanvas {
     } else false
   }
 
-  def button(e: ReactMouseEvent): Int = e.asInstanceOf[Dynamic].button.asInstanceOf[Int]
+  def button(e: ReactMouseEvent): Int = e.dynamic[Int](_.button)
 
   object Mouse {
     val Left = 0
@@ -85,7 +85,10 @@ object GlycanoCanvas {
       (button(e), t.props.mode, t.state.inputState) match {
         case (Mouse.Right, Mode.PlaceResidue(_), _) =>
           t.modState(State.inputState set InputState.Default)
-        case (Mouse.Right, Mode.Selection, InputState.CreateBond(_, _, _)) =>
+        case (Mouse.Left, Mode.Selection, InputState.CreateBond(from, (x, y), target)) =>
+          for (to <- target) {
+            t.props.modGraph(RGraph.addBondRemovingOld(from)(to).exec)
+          }
           t.modState(State.inputState set InputState.Default)
         case _ =>
       }
@@ -98,7 +101,7 @@ object GlycanoCanvas {
         (ox, oy) = rotatePoint(offset, ge.rotation)
         (dx, dy) = (ge.x + ox - x, ge.y + oy - y)
         dsq = dx * dx + dy * dy if dsq < tsq
-      } yield Link(r, i) -> dsq
+      } yield Link(r, i + 1) -> dsq
       links.nonEmpty option links.minBy(_._2)
     }
 
@@ -180,8 +183,8 @@ object GlycanoCanvas {
       }
 
     def residueMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit =
-      (button(e), t.props.mode) match {
-        case (Mouse.Left, Mode.Selection) =>
+      (button(e), t.props.mode, t.state.inputState) match {
+        case (Mouse.Left, Mode.Selection, InputState.Default) =>
           for (down <- clientToView(e.clientX, e.clientY)) {
             t.modState(State.inputState set InputState.Drag(down, (0, 0)))
             if (!t.props.selection._1.contains(r))
@@ -194,6 +197,7 @@ object GlycanoCanvas {
       (button(e), t.props.mode) match {
         case (Mouse.Left, Mode.Selection) =>
           t.modState(State.inputState set InputState.PreCreateBond(r))
+          for (link <- r.parent) t.props.modGraph(_ - link)
         case _ =>
       }
     
@@ -217,7 +221,7 @@ object GlycanoCanvas {
   }
 
   def outlinePos(outline: IndexedSeq[(Double, Double)], ge: GraphEntry, i: Int): (Double, Double) = {
-    val (x, y) = rotatePoint(outline(i), math.toRadians(ge.rotation))
+    val (x, y) = rotatePoint(outline(i - 1), math.toRadians(ge.rotation))
     (ge.x + x, ge.y + y)
   }
 
@@ -266,7 +270,7 @@ object GlycanoCanvas {
         (r, ge) <- entriesOffset.toSeq
         toLink @ Link(toRes, i) <- ge.parent
       } yield {
-        val from = outlinePos(outlines(r), ge, 0)
+        val from = outlinePos(outlines(r), ge, 1)
         val to = outlinePos(outlines(r), entriesOffset(toRes), i)
         SVGBond.withKey(r.id)(SVGBond.Props(ge.residue.ano, Some(i), from, to, P.bondLabels))
       }
@@ -274,7 +278,7 @@ object GlycanoCanvas {
       val tempBond = (P.mode, S.inputState) match {
         case (Mode.Selection, InputState.CreateBond(r, mouse, target)) =>
           for (ge <- r.graphEntry) yield {
-            val from = outlinePos(outlines(r), ge, 0)
+            val from = outlinePos(outlines(r), ge, 1)
             val targetLink = for {
               Link(rLink, pos) <- target
               geLink <- rLink.graphEntry

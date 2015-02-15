@@ -34,18 +34,25 @@ object SubstituentPanel {
     .initialState(State(None))
     .backend(new Backend(_))
     .render((P, S, B) => {
+      val scale = 1.0
       val substPages = <.div(^.cls := "btn-group", "data-toggle".reactAttr := "buttons")(
-        for (st <- SubstituentType.SubstituentTypes) yield <.span(
-          <.button(
-            ^.cls := s"btn btn-default",
-            S.st.contains(st) ?= (^.cls := "active"),
-            ^.title := st.name,
-            ^.padding := 2.px,
-            ^.onClick --> B.clickSubstituent(st)
-          )(
-            SubstituentShape(st, scale = 1.0)
+        for (st <- SubstituentType.SubstituentTypes) yield {
+          val (shape, (w, h)) = SubstituentShape(st)
+          val icon = <.svg.svg(
+            ^.svg.width := w * scale,
+            ^.svg.height := h * scale,
+            ^.svg.viewBox := s"0 0 $w $h"
+          )(shape)
+          <.span(
+            <.button(
+              ^.cls := s"btn btn-default",
+              S.st.contains(st) ?= (^.cls := "active"),
+              ^.title := st.name,
+              ^.padding := 2.px,
+              ^.onClick --> B.clickSubstituent(st)
+            )(icon)
           )
-        )
+        }
       )
 
       <.div(^.cls := "panel panel-default")(

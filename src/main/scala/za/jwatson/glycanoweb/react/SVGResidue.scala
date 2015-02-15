@@ -29,6 +29,16 @@ object SVGResidue {
       val (_, w, h) = P.dc.boundsMemo(P.ge.residue)
       val (residue, handle) = P.dc.shapes(P.ge.residue)
 
+      val outline = P.dc.outline(P.ge.residue)
+      val substituents = for {
+        (i, sts) <- P.ge.residue.subs.toSeq
+      } yield {
+        val (x0, y0) = outline(i - 1)
+        <.svg.g(^.svg.transform := s"translate($x0, $y0)")(
+          SVGSubstituentStack.withKey(i)(SVGSubstituentStack.Props(sts))
+        )
+      }
+
       <.svg.g(^.svg.transform := s"translate($x $y) rotate($rot)")(
         P.selected ?= <.svg.rect(
           ^.svg.x := -5, ^.svg.y := -5,
@@ -46,7 +56,8 @@ object SVGResidue {
             ^.onMouseOut --> B.handleMouseOut(),
             ^.onMouseDown ==> P.handleMouseDown,
             S ?= Seq(^.svg.strokeWidth := "3", ^.svg.stroke := "blue")
-          )
+          ),
+          substituents
         )
       )
     })
