@@ -28,6 +28,14 @@ object GlycanoCanvas {
     } else false
   }
 
+  def button(e: ReactMouseEvent): Int = e.asInstanceOf[Dynamic].button.asInstanceOf[Int]
+
+  object Mouse {
+    val Left = 0
+    val Middle = 1
+    val Right = 2
+  }
+
   case class Props(modGraph: (RGraph => RGraph) => Unit, setSelection: ((Set[ResidueId], Set[AnnotId])) => Unit,
                    mode: GlycanoApp.Mode, dc: DisplayConv, width: Int = 800, height: Int = 600, graph: RGraph,
                    selection: (Set[ResidueId], Set[AnnotId]), view: View = View(), bondLabels: Boolean = false)
@@ -39,7 +47,7 @@ object GlycanoCanvas {
   @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1)
 
   class Backend(t: BackendScope[Props, State]) {
-    implicit def graph = t.props.graph
+    implicit def graph: RGraph = t.props.graph
 
     def clientToView(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
       svg <- Ref[dom.html.Element]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.svg.SVG])
@@ -62,27 +70,25 @@ object GlycanoCanvas {
       (p2.x, p2.y)
     }
 
-    def mouseClick(e: ReactMouseEvent): Unit = (t.props.mode, t.state.inputState) match {
-      case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
-        t.props.modGraph {
-          _ + GraphEntry(residue, x, y)
-        }
-      case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(Some(link))) =>
+    def mouseClick(e: ReactMouseEvent): Unit =
+      (button(e), t.props.mode, t.state.inputState) match {
+        case (Mouse.Left, Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
+          t.props.modGraph {
+            _ + GraphEntry(residue, x, y)
+          }
+        case (Mouse.Left, Mode.PlaceSubstituent(st), InputState.AddSubstituent(Some(link))) =>
 
-      case _ =>
-    }
-
-    def mouseDown(e: ReactMouseEvent): Unit = {
-      val button: Int = e.asInstanceOf[Dynamic].button.asInstanceOf[Int]
-      if (button == 2) {
-        e.preventDefault()
-        (t.props.mode, t.state.inputState) match {
-          case (Mode.Selection, InputState.CreateBond(_, _, _)) =>
-            t.modState(State.inputState set InputState.Default)
-          case _ =>
-        }
+        case _ =>
       }
-    }
+
+    def mouseDown(e: ReactMouseEvent): Unit =
+      (button(e), t.props.mode, t.state.inputState) match {
+        case (Mouse.Right, Mode.PlaceResidue(_), _) =>
+          t.modState(State.inputState set InputState.Default)
+        case (Mouse.Right, Mode.Selection, InputState.CreateBond(_, _, _)) =>
+          t.modState(State.inputState set InputState.Default)
+        case _ =>
+      }
 
     def closestLinkDsq(r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
       import scalaz.syntax.std.boolean._
@@ -96,82 +102,86 @@ object GlycanoCanvas {
       links.nonEmpty option links.minBy(_._2)
     }
 
-    def mouseMove(e: ReactMouseEvent): Unit = if (updateReady()) (t.props.mode, t.state.inputState) match {
-      case (Mode.Selection, BoxSelect(down, _)) =>
-        for (pos <- clientToView(e.clientX, e.clientY)) {
-          t.modState(State.inputState set InputState.BoxSelect(down, pos))
-        }
-      case (Mode.PlaceResidue(_), _) =>
-        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
-          t.modState(State.inputState set InputState.AddResidue(x, y))
-        }
-      case (Mode.Selection, InputState.Drag(down@(x0, y0), _)) =>
-        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
-          val offset = (x - x0, y - y0)
-          t.modState(State.inputState set InputState.Drag(down, offset))
-        }
-      case (Mode.Selection, InputState.CreateBond(r, last, _)) =>
-        import scalaz.syntax.std.boolean._
-        for ((x, y) <- clientToView(e.clientX, e.clientY)) {
-          val links = for {
-            r <- t.props.graph.residues.keys
-            linkDsq <- closestLinkDsq(r, x, y, 400)
-          } yield linkDsq
-          val target = links.nonEmpty option links.minBy(_._2)._1
-          t.modState(State.inputState set InputState.CreateBond(r, (x, y), target))
-        }
-      case _ =>
-    }
+    def mouseMove(e: ReactMouseEvent): Unit =
+      if (updateReady()) (t.props.mode, t.state.inputState) match {
+        case (Mode.Selection, BoxSelect(down, _)) =>
+          for (pos <- clientToView(e.clientX, e.clientY)) {
+            t.modState(State.inputState set InputState.BoxSelect(down, pos))
+          }
+        case (Mode.PlaceResidue(_), _) =>
+          for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+            t.modState(State.inputState set InputState.AddResidue(x, y))
+          }
+        case (Mode.Selection, InputState.Drag(down@(x0, y0), _)) =>
+          for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+            val offset = (x - x0, y - y0)
+            t.modState(State.inputState set InputState.Drag(down, offset))
+          }
+        case (Mode.Selection, InputState.CreateBond(r, last, _)) =>
+          import scalaz.syntax.std.boolean._
+          for ((x, y) <- clientToView(e.clientX, e.clientY)) {
+            val links = for {
+              r <- t.props.graph.residues.keys
+              linkDsq <- closestLinkDsq(r, x, y, 400)
+            } yield linkDsq
+            val target = links.nonEmpty option links.minBy(_._2)._1
+            t.modState(State.inputState set InputState.CreateBond(r, (x, y), target))
+          }
+        case _ =>
+      }
 
     def inBounds(x: Double, y: Double) =
       0 <= x && x < t.props.width &&
         0 <= y && y < t.props.height
 
-    def mouseOut(e: ReactMouseEvent): Unit = t.props.mode match {
-      case Mode.PlaceResidue(_) | Mode.PlaceSubstituent(_) | Mode.PlaceAnnotation(_) =>
-        for ((x, y) <- clientToCanvas(e.clientX, e.clientY)) {
-          if (!inBounds(x, y))
-            t.modState(State.inputState set InputState.Out)
-        }
-      case _ =>
-    }
-
-    def boxSelectDown(e: ReactMouseEvent): Unit = t.props.mode match {
-      case Selection =>
-        for (down <- clientToView(e.clientX, e.clientY)) {
-          t.modState(State.inputState set InputState.BoxSelect(down, down))
-        }
-      case _ =>
-    }
-
-    def mouseUp(e: ReactMouseEvent): Unit = (t.props.mode, t.state.inputState) match {
-      case (Selection, BoxSelect((x1, y1), (x2, y2))) =>
-        t.modState(State.inputState set InputState.Default)
-        val (xMin, xMax) = if (x1 < x2) (x1, x2) else (x2, x1)
-        val (yMin, yMax) = if (y1 < y2) (y1, y2) else (y2, y1)
-        def inSelection(x: Double, y: Double) = xMin <= x && x < xMax && yMin <= y && y < yMax
-        val residues = t.props.graph.residues.filter(e => inSelection(e._2.x, e._2.y)).keySet
-        val annotations = t.props.graph.annotations.filter(e => inSelection(e._2.x, e._2.y)).keySet
-        t.props.setSelection(residues, annotations)
-      case (Mode.Selection, InputState.Drag(_, (dx, dy))) =>
-        if (dx != 0 || dy != 0) {
-          val (rs, as) = t.props.selection
-          t.props.modGraph(graph => graph.residues.filterKeys(rs.contains).foldLeft(graph) {
-            case (g, (r, ge)) =>
-              g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
-          })
-        }
-        t.modState(State.inputState set InputState.Default)
-      case (Mode.Selection, InputState.PreCreateBond(r)) =>
-        for (to <- clientToView(e.clientX, e.clientY)) {
-          t.modState(State.inputState set InputState.CreateBond(r, to, None))
-        }
-      case _ =>
-    }
-
-    def residueMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit = {
+    def mouseOut(e: ReactMouseEvent): Unit =
       t.props.mode match {
-        case Mode.Selection =>
+        case Mode.PlaceResidue(_) | Mode.PlaceSubstituent(_) | Mode.PlaceAnnotation(_) =>
+          for ((x, y) <- clientToCanvas(e.clientX, e.clientY)) {
+            if (!inBounds(x, y))
+              t.modState(State.inputState set InputState.Out)
+          }
+        case _ =>
+      }
+
+    def boxSelectDown(e: ReactMouseEvent): Unit =
+      (button(e), t.props.mode) match {
+        case (Mouse.Left, Selection) =>
+          for (down <- clientToView(e.clientX, e.clientY)) {
+            t.modState(State.inputState set InputState.BoxSelect(down, down))
+          }
+        case _ =>
+      }
+
+    def mouseUp(e: ReactMouseEvent): Unit =
+      (t.props.mode, t.state.inputState) match {
+        case (Selection, BoxSelect((x1, y1), (x2, y2))) =>
+          t.modState(State.inputState set InputState.Default)
+          val (xMin, xMax) = if (x1 < x2) (x1, x2) else (x2, x1)
+          val (yMin, yMax) = if (y1 < y2) (y1, y2) else (y2, y1)
+          def inSelection(x: Double, y: Double) = xMin <= x && x < xMax && yMin <= y && y < yMax
+          val residues = t.props.graph.residues.filter(e => inSelection(e._2.x, e._2.y)).keySet
+          val annotations = t.props.graph.annotations.filter(e => inSelection(e._2.x, e._2.y)).keySet
+          t.props.setSelection(residues, annotations)
+        case (Mode.Selection, InputState.Drag(_, (dx, dy))) =>
+          if (dx != 0 || dy != 0) {
+            val (rs, as) = t.props.selection
+            t.props.modGraph(graph => graph.residues.filterKeys(rs.contains).foldLeft(graph) {
+              case (g, (r, ge)) =>
+                g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
+            })
+          }
+          t.modState(State.inputState set InputState.Default)
+        case (Mode.Selection, InputState.PreCreateBond(r)) =>
+          for (to <- clientToView(e.clientX, e.clientY)) {
+            t.modState(State.inputState set InputState.CreateBond(r, to, None))
+          }
+        case _ =>
+      }
+
+    def residueMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit =
+      (button(e), t.props.mode) match {
+        case (Mouse.Left, Mode.Selection) =>
           for (down <- clientToView(e.clientX, e.clientY)) {
             t.modState(State.inputState set InputState.Drag(down, (0, 0)))
             if (!t.props.selection._1.contains(r))
@@ -179,15 +189,13 @@ object GlycanoCanvas {
           }
         case _ =>
       }
-    }
 
-    def handleMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit = {
-      t.props.mode match {
-        case Mode.Selection =>
+    def handleMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit =
+      (button(e), t.props.mode) match {
+        case (Mouse.Left, Mode.Selection) =>
           t.modState(State.inputState set InputState.PreCreateBond(r))
         case _ =>
       }
-    }
     
     def modInputState(inputState: InputState): Unit = t.modState(State.inputState set inputState)
   }
