@@ -6,7 +6,9 @@ import za.jwatson.glycanoweb.structure.{SubstituentType => ST}
 import scalajs.js
 
 object SubstituentShape {
-  def apply(st: ST): (ReactTag, (Double, Double)) = st match {
+  def apply(st: ST): (ReactTag, (Double, Double)) = memo.getOrElseUpdate(st.symbol, of(st))
+  val memo = js.Dictionary.empty[(ReactTag, (Double, Double))]
+  def of(st: ST): (ReactTag, (Double, Double)) = st match {
     case ST.n => (<.svg.g(
       <.svg.rect(^.svg.width := 24, ^.svg.height := 30, ^.svg.rx := 5, ^.svg.ry := 5, ^.svg.fill := "#86CEFF", ^.svg.stroke := "black"),
       <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 12, ^.svg.y := 26, ^.svg.fill := "black")("N")
