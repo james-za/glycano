@@ -15,12 +15,12 @@ object SVGSubstituentStack {
   val component = ReactComponentB[Props]("SVGBond")
     .render((P, C) => {
       val (shapes, sizes) = P.sts.map(SubstituentShape.apply).unzip
+      val (widths, heights) = sizes.unzip
       val stack = for {
-        (w0, h0) <- sizes.headOption.toSeq
-        positions = sizes.scanLeft((-w0 / 2.0, -h0 / 2.0)) {
-          case ((x, y), (w, h)) => (-w / 2.0, y + h)
-        }
-        (shape, (x, y)) <- shapes zip positions
+        h0 <- heights.headOption.toSeq
+        ys = heights.scanLeft(-h0 / 2.0)(_ + _)
+        xs = widths.map(-_ / 2.0)
+        (shape, (x, y)) <- shapes zip (xs zip ys)
       } yield {
         shape(^.svg.transform := s"translate($x, $y)")
       }

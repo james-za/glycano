@@ -31,8 +31,7 @@ object SVGBond {
           ^.svg.fontSize := 20,
           ^.svg.textAnchor := "middle"
         )(
-          P.ano.desc,
-          P.target
+          P.ano.desc + P.target.fold("")(_.toString)
         )
       )
     })

@@ -95,22 +95,24 @@ package object bootstrap {
     case class Props[A](onChange: Option[A] => Unit, choices: Map[A, String], selected: A, toggle: Boolean = false)
 
     class Backend[A](t: BackendScope[Props[A], Unit]) {
-      def handleClick(a: A): Unit =
+      def handleClick(a: A)(e: ReactMouseEvent): Unit = {
         t.props.onChange(if (t.props.toggle && t.props.selected == a) None else Some(a))
+      }
     }
 
     def apply[A] = ReactComponentB[Props[A]]("RadioGroupMap")
       .stateless
       .backend(new Backend(_))
       .render((P, C, S, B) => {
-      <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
-        for ((value, label) <- P.choices) yield <.button(label)(
-          ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
-          ^.onClick --> B.handleClick(value),
-          ^.key := value.##
-        )
-      )(C)
-    })
+        <.div(^.cls := "btn-group")(
+          for ((value, label) <- P.choices) yield <.label(label)(
+            ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
+            ^.onClick ==> B.handleClick(value),
+            ^.key := value.##
+          )
+        )(C)
+      })
+      .shouldComponentUpdate((T, P, S) => T.props.choices != P.choices || T.props.selected != P.selected || T.props.toggle != P.toggle)
       .domType[dom.html.Div]
       .build
   }
@@ -128,13 +130,13 @@ package object bootstrap {
       .stateless
       .backend(new Backend(_))
       .render((P, C, S, B) => {
-      <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
-        for (value <- P.choices) yield <.button(value)(
-          ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
-          ^.onClick --> B.handleClick(value)
-        )
-      )(C)
-    })
+        <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
+          for (value <- P.choices) yield <.button(value)(
+            ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
+            ^.onClick --> B.handleClick(value)
+          )
+        )(C)
+      })
       .shouldComponentUpdate((T, P, S) => T.props.choices != P.choices || T.props.selected != P.selected || T.props.toggle != P.toggle)
       .domType[dom.html.Div]
       .build

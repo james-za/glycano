@@ -14,12 +14,13 @@ import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
 object GlycanoApp {
-  case class Props(conventions: Map[String, DisplayConv]/*, historyLimit: Int = 50*/)
+  case class Props(conventions: Map[String, DisplayConv])
 
   @Lenses case class State(
     undoPosition: Int = 0,
     history: Vector[RGraph] = Vector(RGraph()),
     selection: (Set[ResidueId], Set[AnnotId]) = (Set.empty, Set.empty),
+    placeAnomer: Anomer = Anomer.Alpha, placeAbsolute: Absolute = Absolute.D,
     bondLabels: Boolean = false,
     view: View = View(),
     buffer: RGraph = RGraph(),
@@ -101,6 +102,8 @@ object GlycanoApp {
   } yield ()
 
   class Backend(t: BackendScope[Props, State]) {
+    def modState(mod: State => State): Unit = t.modState(mod)
+
     def toggleBondLabels(): Unit = {
       t.modState(State.bondLabels.modify(bl => !bl))
     }
@@ -123,11 +126,11 @@ object GlycanoApp {
 
     def clearAll(): Unit = t.modState(StateL setGraph RGraph())
 
-    def residuePanelClick(template: ResiduePanel.State): Unit =
-      t.modState(State.mode set template.rt.fold[Mode](Mode.Selection)(rt => Mode.PlaceResidue(Residue(template.ano, template.abs, rt))))
+    def residuePanelClick(template: Option[Residue]): Unit =
+      t.modState(State.mode set template.fold[Mode](Mode.Selection)(Mode.PlaceResidue))
 
     def substPanelClick(template: SubstituentPanel.State): Unit =
-      t.modState(State.mode set template.st.fold[Mode](Mode.Selection)(Mode.PlaceSubstituent.apply))
+      t.modState(State.mode set template.st.fold[Mode](Mode.Selection)(Mode.PlaceSubstituent))
 
     def addAnnotation(): Unit = {
       t.modState(State.mode set Mode.PlaceAnnotation(30))
@@ -135,6 +138,9 @@ object GlycanoApp {
 
     def modGraph(mod: RGraph => RGraph): Unit =
       t.modState(StateL modGraph mod)
+
+    def setMode(mode: Mode): Unit =
+      t.modState(State.mode set mode)
 
     def setSelection(selection: (Set[ResidueId], Set[AnnotId])): Unit =
       t.modState(State.selection set selection)
@@ -154,64 +160,26 @@ object GlycanoApp {
       displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
     .backend(new Backend(_))
     .render((P, S, B) => {
+      val rtTemplate = S.mode match {
+        case Mode.PlaceResidue(res) => Some(res.rt)
+        case _ => None
+      }
       <.div(^.cls := "container-fluid")(
         <.div(^.cls := "row")(
-
-          <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
-            NavbarHeader("glycano-navbar-collapse", "Glycano"),
-            <.div(^.cls := "collapse navbar-collapse", ^.id := "glycano-navbar-collapse")(
-              <.p(^.cls := "navbar-text", "Load:"),
-              <.form(^.cls := "navbar-form navbar-left")(
-                <.div(^.cls := "form-group")(
-                  FormInput(FormInput.Props("file", e => println(e.target.files(0).name)))
-                )
-              ),
-              <.p(^.cls := "navbar-text")("Filename:"),
-              <.form(^.cls := "navbar-form navbar-left")(
-                <.div(^.cls := "form-group")(
-                  <.input(
-                    ^.ref := "filename",
-                    ^.`type` := "text",
-                    ^.cls := "form-control",
-                    ^.placeholder := "Filename",
-                    ^.value := "glycano",
-                    ^.readOnly := "true")
-                )
-              ),
-              <.ul(^.cls := "nav navbar-nav")(
-                //saveDropdown
-              ),
-              <.form(^.cls := "navbar-form navbar-left")(
-                <.div(^.cls := "form-group")(
-                  <.label(^.cls := "checkbox-inline")(
-                    <.input(
-                      ^.checked := S.bondLabels,
-                      ^.`type` := "checkbox",
-                      ^.onClick --> B.toggleBondLabels()
-                    ),
-                    "Bond Labels"
-                  )
-                )
-              ),
-              " ",
-              Button.withKey("b00")(Button.Props(() => B.clearAll(), nav = true), "Clear All"), " ",
-              Button.withKey("b01")(Button.Props(() => B.delete(), nav = true), "Delete"), " ",
-              Button.withKey("b02")(Button.Props(() => B.cut(), nav = true), "Cut"), " ",
-              Button.withKey("b03")(Button.Props(() => B.copy(), nav = true), "Copy"), " ",
-              Button.withKey("b04")(Button.Props(() => B.paste(), nav = true), "Paste"), " ",
-              Button.withKey("b05")(Button.Props(() => B.undo(), nav = true), GlyphIcon("chevron-left"), " Undo"), " ",
-              Button.withKey("b06")(Button.Props(() => B.redo(), nav = true), GlyphIcon("chevron-right"), " Redo"), " ",
-              Button.withKey("b07")(Button.Props(() => B.addAnnotation(), nav = true), GlyphIcon("font"), " Add Annotation"), " ",
-              Button.withKey("b08")(Button.Props(() => B.zoomOut(), nav = true), GlyphIcon("zoom-out")), " ",
-              Button.withKey("b09")(Button.Props(() => B.zoomReset(), nav = true), "Reset Zoom"), " ",
-              Button.withKey("b10")(Button.Props(() => B.zoomIn(), nav = true), GlyphIcon("zoom-in")), " "
-            )
-          ))
+          Navbar(Navbar.Props(B, S.bondLabels))
         ),
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(ResiduePanel(ResiduePanel.Props(S.displayConv, B.residuePanelClick)))),
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+              ResiduePanel(ResiduePanel.Props(
+                S.displayConv,
+                S.placeAnomer,
+                S.placeAbsolute,
+                rtTemplate,
+                B.modState
+              ))
+            )),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(SubstituentPanel(SubstituentPanel.Props(B.substPanelClick))))
           ),
           <.div(^.cls := "col-xs-9")(
@@ -219,6 +187,7 @@ object GlycanoApp {
               <.div(^.cls := "panel-body")(
                 GlycanoCanvas(GlycanoCanvas.Props(
                   B.modGraph,
+                  B.setMode,
                   B.setSelection,
                   S.mode,
                   dc = S.displayConv,
