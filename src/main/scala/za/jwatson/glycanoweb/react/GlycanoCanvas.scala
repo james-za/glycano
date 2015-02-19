@@ -330,8 +330,9 @@ object GlycanoCanvas {
       val tempSubstituent = (P.mode, S.inputState) match {
         case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(x, y, None))=>
           val (shape, (w, h)) = SubstituentShape(st)
-          val (mx, my) = (x - w / 2.0, y - h / 2.0)
-          Some(shape(^.svg.transform := s"scale(${P.scaleSubstituents}) translate($mx, $my)"))
+          val scale = P.scaleSubstituents
+          val (mx, my) = (-w / 2.0, -h / 2.0)
+          Some(shape(^.svg.transform := s"translate($x, $y) scale($scale) translate($mx, $my)"))
         case _ => None
       }
 

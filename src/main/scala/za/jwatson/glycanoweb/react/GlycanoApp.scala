@@ -14,6 +14,8 @@ import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
+import scala.util.Try
+
 object GlycanoApp {
   case class Props(conventions: Map[String, DisplayConv])
 
@@ -164,7 +166,7 @@ object GlycanoApp {
 
     def scaleSubstituents(ref: String): Unit = {
       for (input <- t.refs[dom.html.Input](ref)) {
-        val scale = input.getDOMNode().value.toDouble
+        val scale = Try(input.getDOMNode().value.toDouble).getOrElse(1.0)
         t.modState(State.scaleSubstituents set scale)
       }
     }
@@ -208,9 +210,6 @@ object GlycanoApp {
                 B.modState
               ))
             )),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              SubstituentPanel(SubstituentPanel.Props(B.substPanelClick, S.scaleSubstituents))
-            )),
             <.div(^.cls := "row")(
               <.div(^.cls := "col-xs-8")(
                 <.input(
@@ -232,6 +231,9 @@ object GlycanoApp {
                 )
               )
             ),
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+              SubstituentPanel(SubstituentPanel.Props(B.substPanelClick, S.scaleSubstituents))
+            )),
             <.div(^.cls := "row")(
               <.div(^.cls := "checkbox")(
                 <.label(

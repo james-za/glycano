@@ -62,7 +62,7 @@ object SubstituentPanel {
         )
       )
     })
-    .shouldComponentUpdate((T, P, S) => T.state != S)
+    .shouldComponentUpdate((T, P, S) => T.props.scaleSubstituents != P.scaleSubstituents || T.state != S)
     .domType[dom.html.Div]
     .build
 }
