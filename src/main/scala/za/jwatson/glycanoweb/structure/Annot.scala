@@ -1,6 +1,8 @@
 package za.jwatson.glycanoweb.structure
 
-case class Annot(text: String, size: Double, x: Double = 0, y: Double = 0, rot: Double = 0)
+import monocle.macros.Lenses
+
+@Lenses case class Annot(text: String, size: Double, x: Double = 0, y: Double = 0, rot: Double = 0)
 
 case class AnnotId(id: Int)
 

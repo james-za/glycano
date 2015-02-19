@@ -1,13 +1,13 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.ReactComponentB
+import japgolly.scalajs.react.{ReactNode, ReactComponentB}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
 
 object Navbar {
   case class Props(B: GlycanoApp.Backend, bondLabels: Boolean)
 
-  def apply(props: Props, children: ReactTag*) = component(props, children)
+  def apply(props: Props, children: ReactNode*) = component(props, children: _*)
   val component = ReactComponentB[Props]("Navbar")
     .render((P, C) => {
       <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
@@ -48,16 +48,16 @@ object Navbar {
           ),
           " ",
           Button.withKey("b00")(Button.Props(() => P.B.clearAll(), nav = true), "Clear All"), " ",
-          Button.withKey("b01")(Button.Props(() => P.B.delete(), nav = true), "Delete"), " ",
-          Button.withKey("b02")(Button.Props(() => P.B.cut(), nav = true), "Cut"), " ",
-          Button.withKey("b03")(Button.Props(() => P.B.copy(), nav = true), "Copy"), " ",
-          Button.withKey("b04")(Button.Props(() => P.B.paste(), nav = true), "Paste"), " ",
-          Button.withKey("b05")(Button.Props(() => P.B.undo(), nav = true), GlyphIcon("chevron-left"), " Undo"), " ",
-          Button.withKey("b06")(Button.Props(() => P.B.redo(), nav = true), GlyphIcon("chevron-right"), " Redo"), " ",
-          Button.withKey("b07")(Button.Props(() => P.B.addAnnotation(), nav = true), GlyphIcon("font"), " Add Annotation"), " ",
-          Button.withKey("b08")(Button.Props(() => P.B.zoomOut(), nav = true), GlyphIcon("zoom-out")), " ",
+          Button.withKey("b01")(Button.Props(() => P.B.delete(), nav = true), <.i(^.cls := "fa fa-lg fa-trash"), " Delete"), " ",
+          Button.withKey("b02")(Button.Props(() => P.B.cut(), nav = true), <.i(^.cls := "fa fa-lg fa-cut"), " Cut"), " ",
+          Button.withKey("b03")(Button.Props(() => P.B.copy(), nav = true), <.i(^.cls := "fa fa-lg fa-copy"), " Copy"), " ",
+          Button.withKey("b04")(Button.Props(() => P.B.paste(), nav = true), <.i(^.cls := "fa fa-lg fa-paste"), " Paste"), " ",
+          Button.withKey("b05")(Button.Props(() => P.B.undo(), nav = true), <.i(^.cls := "fa fa-lg fa-undo"), " Undo"), " ",
+          Button.withKey("b06")(Button.Props(() => P.B.redo(), nav = true), <.i(^.cls := "fa fa-lg fa-repeat"), " Redo"), " ",
+          Button.withKey("b07")(Button.Props(() => P.B.addAnnotation(), nav = true), <.i(^.cls := "fa fa-lg fa-edit"), " Add Annotation"), " ",
+          Button.withKey("b08")(Button.Props(() => P.B.zoomOut(), nav = true), <.i(^.cls := "fa fa-lg fa-search-minus")), " ",
           Button.withKey("b09")(Button.Props(() => P.B.zoomReset(), nav = true), "Reset Zoom"), " ",
-          Button.withKey("b10")(Button.Props(() => P.B.zoomIn(), nav = true), GlyphIcon("zoom-in")), " ",
+          Button.withKey("b10")(Button.Props(() => P.B.zoomIn(), nav = true), <.i(^.cls := "fa fa-lg fa-search-plus")), " ",
           C
         )
       ))

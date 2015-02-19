@@ -8,7 +8,7 @@ import za.jwatson.glycanoweb.render.{SubstituentShape, DisplayConv}
 import za.jwatson.glycanoweb.structure._
 
 object SubstituentPanel {
-  case class Props(/*dc: DisplayConv, */onChange: State => Unit)
+  case class Props(onChange: State => Unit, scaleSubstituents: Double)
 
   @Lenses case class State(st: Option[SubstituentType])
 
@@ -29,12 +29,12 @@ object SubstituentPanel {
   val choicesAno = Anomer.Anomers.map(ano => ano -> ano.desc).toMap
   val choicesAbs = Absolute.Absolutes.map(abs => abs -> abs.desc).toMap
 
-  def apply(props: Props, children: ReactTag*) = component(props, children)
+  def apply(props: Props, children: ReactNode*) = component(props, children: _*)
   val component = ReactComponentB[Props]("ResiduePanel")
     .initialState(State(None))
     .backend(new Backend(_))
     .render((P, S, B) => {
-      val scale = 1.0
+      val scale = P.scaleSubstituents
       val substPages = <.div(^.cls := "btn-group", "data-toggle".reactAttr := "buttons")(
         for (st <- SubstituentType.SubstituentTypes) yield {
           val (shape, (w, h)) = SubstituentShape(st)

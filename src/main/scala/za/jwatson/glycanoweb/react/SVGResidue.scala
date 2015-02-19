@@ -12,7 +12,7 @@ object SVGResidue {
   case class Props(residueMouseDown: ReactMouseEvent => Unit,
                    handleMouseDown: ReactMouseEvent => Unit,
                    ge: GraphEntry, dc: DisplayConv,
-                   selected: Boolean)
+                   selected: Boolean, scaleSubstituents: Double)
 
   class Backend(t: BackendScope[Props, Boolean]) {
     def handleMouseOver(): Unit = t.setState(true)
@@ -34,7 +34,7 @@ object SVGResidue {
         (i, sts) <- P.ge.residue.subs.toSeq
       } yield {
         val (x0, y0) = outline(i - 1)
-        <.svg.g(^.svg.transform := s"translate($x0, $y0)")(
+        <.svg.g(^.svg.transform := s"translate($x0, $y0) scale(${P.scaleSubstituents})")(
           SVGSubstituentStack.withKey(i)(SVGSubstituentStack.Props(sts))
         )
       }
@@ -62,10 +62,11 @@ object SVGResidue {
       )
     })
     .shouldComponentUpdate((T, P, S) => {
-      T.props.dc.conv  != P.dc.conv  ||
-      T.props.ge       != P.ge       ||
+      T.props.dc.conv != P.dc.conv ||
+      T.props.ge != P.ge ||
       T.props.selected != P.selected ||
-      T.state          != S
+      T.props.scaleSubstituents != P.scaleSubstituents ||
+      T.state != S
     })
     .build
 }

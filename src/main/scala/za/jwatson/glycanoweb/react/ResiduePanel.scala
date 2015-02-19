@@ -26,10 +26,11 @@ object ResiduePanel {
     }
 
     def clickResidue(rt: ResidueType): Unit = t.props.modState {
-      if (t.props.rt.contains[ResidueType](rt))
+      if (!t.props.rt.contains[ResidueType](rt)) {
         GlycanoApp.State.mode set Mode.PlaceResidue(Residue(t.props.ano, t.props.abs, rt))
-      else
+      } else {
         GlycanoApp.State.mode set Mode.Selection
+      }
     }
 
     def clickPage(cat: ResidueCategory): Unit = {
@@ -40,7 +41,7 @@ object ResiduePanel {
   val choicesAno = Anomer.Anomers.map(ano => ano -> ano.desc).toMap
   val choicesAbs = Absolute.Absolutes.map(abs => abs -> abs.desc).toMap
 
-  def apply(props: Props, children: ReactTag*) = component(props, children)
+  def apply(props: Props, children: ReactNode*) = component(props, children: _*)
   val component = ReactComponentB[Props]("ResiduePanel")
     .initialState(State(ResidueCategory.Aldose))
     .backend(new Backend(_))
@@ -98,7 +99,11 @@ object ResiduePanel {
     })
     .shouldComponentUpdate {
       (T, P, S) =>
-        T.props.dc.conv != P.dc.conv || T.props.rt != P.rt || T.state != S
+        T.props.dc.conv != P.dc.conv ||
+        T.props.ano != P.ano ||
+        T.props.abs != P.abs ||
+        T.props.rt != P.rt ||
+        T.state != S
     }
     .domType[dom.html.Div]
     .build

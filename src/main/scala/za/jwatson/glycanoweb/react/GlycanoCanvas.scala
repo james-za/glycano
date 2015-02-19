@@ -43,9 +43,10 @@ object GlycanoCanvas {
 
   case class Props(modGraph: (RGraph => RGraph) => Unit, setMode: Mode => Unit, setSelection: ((Set[ResidueId], Set[AnnotId])) => Unit,
                    mode: GlycanoApp.Mode, dc: DisplayConv, width: Int = 800, height: Int = 600, graph: RGraph,
-                   selection: (Set[ResidueId], Set[AnnotId]), view: View = View(), bondLabels: Boolean = false)
+                   selection: (Set[ResidueId], Set[AnnotId]), view: View = View(), bondLabels: Boolean = false,
+                   scaleSubstituents: Double = 1.0, limitUpdateRate: Boolean = true)
 
-  def cmp(p: Props) = (p.mode, p.dc.conv, p.graph, p.view, p.selection, p.width, p.height, p.bondLabels)
+  def cmp(p: Props) = (p.mode, p.dc.conv, p.graph, p.view, p.selection, p.width, p.height, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate)
 
   @Lenses case class State(inputState: InputState = InputState.Default)
 
@@ -131,7 +132,7 @@ object GlycanoCanvas {
     }
 
     def mouseMove(e: ReactMouseEvent): Unit =
-      if (updateReady()) (t.props.mode, t.state.inputState) match {
+      if (!t.props.limitUpdateRate || updateReady()) (t.props.mode, t.state.inputState) match {
         case (Mode.Selection, BoxSelect(down, _)) =>
           for (pos <- clientToView(e.clientX, e.clientY)) {
             t.modState(State.inputState set InputState.BoxSelect(down, pos))
@@ -323,14 +324,14 @@ object GlycanoCanvas {
 
       val residues = for ((r, ge) <- entriesOffset) yield {
         val selected = P.selection._1.contains(r)
-        SVGResidue.withKey("residue" + r.id)(SVGResidue.Props(B.residueMouseDown(r), B.handleMouseDown(r), ge, P.dc, selected))
+        SVGResidue.withKey("residue" + r.id)(SVGResidue.Props(B.residueMouseDown(r), B.handleMouseDown(r), ge, P.dc, selected, P.scaleSubstituents))
       }
 
       val tempSubstituent = (P.mode, S.inputState) match {
         case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(x, y, None))=>
           val (shape, (w, h)) = SubstituentShape(st)
           val (mx, my) = (x - w / 2.0, y - h / 2.0)
-          Some(shape(^.svg.transform := s"translate($mx, $my)"))
+          Some(shape(^.svg.transform := s"scale(${P.scaleSubstituents}) translate($mx, $my)"))
         case _ => None
       }
 
@@ -350,7 +351,7 @@ object GlycanoCanvas {
       val tempResidue = (P.mode, S.inputState) match {
         case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
           val ge = GraphEntry(residue, x, y, 0)
-          Some(SVGResidue.withKey("tempResidue")(SVGResidue.Props(_ => (), _ => (), ge, P.dc, selected = false)))
+          Some(SVGResidue.withKey("tempResidue")(SVGResidue.Props(_ => (), _ => (), ge, P.dc, selected = false, P.scaleSubstituents)))
         case _ => None
       }
 

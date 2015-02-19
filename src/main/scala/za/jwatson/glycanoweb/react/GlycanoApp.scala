@@ -6,6 +6,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.{Getter, Lens}
 import monocle.macros.{Lenser, Lenses}
 import monocle.Monocle._
+import org.scalajs.dom
 import za.jwatson.glycanoweb.GlyAnnot
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{GlyphIcon, Button, FormInput, NavbarHeader}
@@ -25,7 +26,9 @@ object GlycanoApp {
     view: View = View(),
     buffer: RGraph = RGraph(),
     mode: Mode = Mode.Selection,
-    displayConv: DisplayConv = DisplayConv.convUCT
+    displayConv: DisplayConv = DisplayConv.convUCT,
+    scaleSubstituents: Double = 1.0,
+    limitUpdateRate: Boolean = true
   )
 
   sealed trait Mode
@@ -76,6 +79,14 @@ object GlycanoApp {
   //    _ <- ST.mod(StateL.graph modify removeSelection(rs, as))
   //  } yield ()
 
+  val offsetAmount = 20
+  val offsetBufferResidues = RGraph.residues ^|->> each modify {
+    (GraphEntry.x modify (_ + offsetAmount)) andThen (GraphEntry.y modify (_ + offsetAmount))
+  }
+  val offsetBufferAnnotations = RGraph.annotations ^|->> each modify {
+    (Annot.x modify (_ + offsetAmount)) andThen (Annot.y modify (_ + offsetAmount))
+  }
+  val offsetBuffer = offsetBufferResidues andThen offsetBufferAnnotations
   val pasteS = for {
     buf <- ST.gets(_.buffer)
     gSel <- ST.gets { s =>
@@ -99,10 +110,13 @@ object GlycanoApp {
     }
     _ <- ST.mod(StateL setGraph gSel._1)
     _ <- ST.mod(State.selection set gSel._2)
+    _ <- ST.mod(State.buffer modify offsetBuffer)
   } yield ()
 
   class Backend(t: BackendScope[Props, State]) {
-    def modState(mod: State => State): Unit = t.modState(mod)
+    def modState(mod: State => State): Unit = {
+      t.modState(mod)
+    }
 
     def toggleBondLabels(): Unit = {
       t.modState(State.bondLabels.modify(bl => !bl))
@@ -144,6 +158,20 @@ object GlycanoApp {
 
     def setSelection(selection: (Set[ResidueId], Set[AnnotId])): Unit =
       t.modState(State.selection set selection)
+
+    def scaleSubstituentsSlider(): Unit = scaleSubstituents("ssSlider")
+    def scaleSubstituentsNumber(): Unit = scaleSubstituents("ssNumber")
+
+    def scaleSubstituents(ref: String): Unit = {
+      for (input <- t.refs[dom.html.Input](ref)) {
+        val scale = input.getDOMNode().value.toDouble
+        t.modState(State.scaleSubstituents set scale)
+      }
+    }
+
+    def toggleLimitUpdateRate(): Unit = {
+      t.modState(State.limitUpdateRate modify { v => !v })
+    }
   }
 
   val testGraph = {
@@ -180,24 +208,66 @@ object GlycanoApp {
                 B.modState
               ))
             )),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(SubstituentPanel(SubstituentPanel.Props(B.substPanelClick))))
-          ),
-          <.div(^.cls := "col-xs-9")(
-            <.div(^.cls := "panel panel-default")(
-              <.div(^.cls := "panel-body")(
-                GlycanoCanvas(GlycanoCanvas.Props(
-                  B.modGraph,
-                  B.setMode,
-                  B.setSelection,
-                  S.mode,
-                  dc = S.displayConv,
-                  graph = S.history(S.undoPosition),
-                  selection = S.selection,
-                  view = S.view,
-                  bondLabels = S.bondLabels
-                ))
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+              SubstituentPanel(SubstituentPanel.Props(B.substPanelClick, S.scaleSubstituents))
+            )),
+            <.div(^.cls := "row")(
+              <.div(^.cls := "col-xs-8")(
+                <.input(
+                  ^.ref := "ssSlider",
+                  ^.`type` := "range",
+                  "min".reactAttr := 0.1,
+                  "max".reactAttr := 2.0,
+                  ^.step := 0.01,
+                  ^.value := S.scaleSubstituents,
+                  ^.onChange --> B.scaleSubstituentsSlider
+                )
+              ),
+              <.div(^.cls := "col-xs-4")(
+                <.input(
+                  ^.ref := "ssNumber",
+                  ^.`type` := "number",
+                  ^.value := S.scaleSubstituents,
+                  ^.onChange --> B.scaleSubstituentsNumber
+                )
+              )
+            ),
+            <.div(^.cls := "row")(
+              <.div(^.cls := "checkbox")(
+                <.label(
+                  <.input(
+                    ^.`type` := "checkbox",
+                    ^.checked := S.limitUpdateRate,
+                    ^.onChange --> B.toggleLimitUpdateRate
+                  ),
+                  "Limit Update Rate"
+                )
               )
             )
+          ),
+          <.div(^.cls := "col-xs-9")(
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+              CASPERDisplay(CASPERDisplay.Props(S.history(S.undoPosition), S.selection._1))
+            )),
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+              <.div(^.cls := "panel panel-default")(
+                <.div(^.cls := "panel-body")(
+                  GlycanoCanvas(GlycanoCanvas.Props(
+                    B.modGraph,
+                    B.setMode,
+                    B.setSelection,
+                    S.mode,
+                    dc = S.displayConv,
+                    graph = S.history(S.undoPosition),
+                    selection = S.selection,
+                    view = S.view,
+                    bondLabels = S.bondLabels,
+                    scaleSubstituents = S.scaleSubstituents,
+                    limitUpdateRate = S.limitUpdateRate
+                  ))
+                )
+              )
+            ))
           )
         )
       )

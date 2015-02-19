@@ -6,7 +6,7 @@ import monocle.macros.Lenses
   def substSymbol = (for {
     (i, sts) <- subs
     st <- sts
-  } yield s"$i${st.name}").mkString
+  } yield "" + i + st.symbol).mkString
   
   def symbol: String = rt match {
     case ResidueType.Begin => ano.symbol + rt.symbol
