@@ -1,14 +1,16 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.{ReactComponentB, _}
 import japgolly.scalajs.react.vdom.prefix_<^._
+import japgolly.scalajs.react.{ReactComponentB, _}
 import monocle.macros.Lenses
 import org.scalajs.dom
-import za.jwatson.glycanoweb.render.{SubstituentShape, DisplayConv}
+import za.jwatson.glycanoweb.macros.AltEq
+import za.jwatson.glycanoweb.macros.AltEq.{altEq, exclude}
+import za.jwatson.glycanoweb.render.SubstituentShape
 import za.jwatson.glycanoweb.structure._
 
 object SubstituentPanel {
-  case class Props(onChange: State => Unit, scaleSubstituents: Double)
+  @altEq case class Props(@exclude onChange: State => Unit, scaleSubstituents: Double) extends AltEq[Props]
 
   @Lenses case class State(st: Option[SubstituentType])
 
@@ -62,7 +64,7 @@ object SubstituentPanel {
         )
       )
     })
-    .shouldComponentUpdate((T, P, S) => T.props.scaleSubstituents != P.scaleSubstituents || T.state != S)
+    .shouldComponentUpdate((T, P, S) => T.props.altEq(P) || T.state != S)
     .domType[dom.html.Div]
     .build
 }

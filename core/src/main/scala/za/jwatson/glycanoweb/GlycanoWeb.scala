@@ -1,6 +1,8 @@
 package za.jwatson.glycanoweb
 
 import org.scalajs.dom
+import za.jwatson.glycanoweb.macros.AltEq
+import za.jwatson.glycanoweb.macros.AltEq.{exclude, altEq}
 import za.jwatson.glycanoweb.react.GlycanoApp
 import za.jwatson.glycanoweb.render.DisplayConv
 
@@ -8,6 +10,12 @@ import scala.scalajs.js.JSApp
 
 object GlycanoWeb extends JSApp {
   def main(): Unit = {
+    @altEq case class A(a: Int, @exclude b: Int, c: List[Boolean] = Nil) extends AltEq[Any] {
+
+    }
+    val a1 = A(1, 2)
+    val a2 = A(1, 3, List(false))
+    a1.altEq(a2)
     //DisplayConv.refresh()
 
     val props = GlycanoApp.Props(conventions = DisplayConv.conventions)
