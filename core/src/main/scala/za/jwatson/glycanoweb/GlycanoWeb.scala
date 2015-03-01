@@ -10,12 +10,12 @@ import scala.scalajs.js.JSApp
 
 object GlycanoWeb extends JSApp {
   def main(): Unit = {
-    @altEq case class A(a: Int, @exclude b: Int, c: List[Boolean] = Nil) extends AltEq[Any] {
-
-    }
-    val a1 = A(1, 2)
-    val a2 = A(1, 3, List(false))
-    a1.altEq(a2)
+//    @altEq case class A(a: Int, @exclude b: Int, c: List[Boolean] = Nil) extends AltEq[A]
+//    val a1 = A(1, 2)
+//    val a2 = A(1, 3, List(false))
+//    val a3 = A(1, 3, Nil)
+//    assert(!a1.altEq(a2))
+//    assert(a1.altEq(a3))
     //DisplayConv.refresh()
 
     val props = GlycanoApp.Props(conventions = DisplayConv.conventions)

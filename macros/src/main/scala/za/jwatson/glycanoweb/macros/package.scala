@@ -7,7 +7,16 @@ import scala.reflect.macros.whitebox
 package object macros {
   class MacrosImpl(val c: whitebox.Context) {
     import c.universe._
-    //def extractCaseClassDef(trees: Seq[Tree]): Option[(Modifiers, TypeName, List[])]
+
+    type CaseClassDefs = (Modifiers, TypeName, List[Tree], Modifiers, List[List[ValDef]], List[Tree], List[Tree], Tree, List[Tree])
+    def extractCaseClassDef(trees: Seq[Tree]): Option[CaseClassDefs] = for {
+      q"""
+        ${mods: Modifiers} class ${tpeName: TypeName}[..${tpeParams: List[Tree]}] ${ctorMods: Modifiers}(...${ctorParamLists: List[List[ValDef]]})
+        extends { ..${earlyDefns: List[Tree]} } with ..${parents: List[Tree]} { ${self: Tree} =>
+          ..${body: List[Tree]}
+        }
+      """ <- trees.headOption if mods.hasFlag(Flag.CASE)
+    } yield (mods, tpeName, tpeParams, ctorMods, ctorParamLists, earlyDefns, parents, self, body)
 
     def debug1(targs: List[Type], tpname: TypeName): Boolean = {
       val ttargs = targs
@@ -22,20 +31,13 @@ package object macros {
       implicit val positionMonoid = Monoid.instance[Position]((_, _) => c.enclosingPosition, c.enclosingPosition)
 
       val cls: (Option[Position], String) \/ Tree = for {
-        q"""
-          $mods class ${tpname: TypeName}[..$tparams] $ctorMods(...${paramss: List[List[ValDef]]})
-          extends { ..$earlydefns } with ..${parents: List[Tree]} { $self =>
-            ..${body: List[c.Tree]}
-          }
-        """ <- annottees.headOption \/> (annottees.headOption.map(_.pos), "must annotate a case class definition")
-        _ = {
-          println(parents.mkString("\n"))
-        }
+        (mods, tpeName, tpeParams, ctorMods, ctorParamLists, earlyDefns, parents, self, body) <- extractCaseClassDef(annottees) \/>
+          (annottees.headOption.map(_.pos), "must annotate a case class definition")
         _ <- parents.collectFirst {
-          case tq"AltEq[${ttpname: TypeName}]" if ttpname == tpname => ()
-          case q"${tq"AltEq[${ttpname: TypeName}]"}(...$argss)" if ttpname == tpname => ()
-        } \/> (parents.headOption.map(_.pos) -> s"$tpname must extend AltEq[$tpname]")
-        paramList <- paramss.headOption \/> (None, "case class has no constructor")
+          case tq"AltEq[${tpeArgParent: TypeName}]" if tpeArgParent == tpeName => ()
+          case q"${tq"AltEq[${tpeArgParent: TypeName}]"}(...$_)" if tpeArgParent == tpeName => ()
+        } \/> (parents.headOption.map(_.pos) -> s"$tpeName must extend AltEq[$tpeName]")
+        paramList <- ctorParamLists.headOption \/> (None, "case class has no constructor")
         paramFirst <- paramList.headOption \/> (None, "empty case class")
         paramRest = paramList.tail
       } yield {
@@ -48,12 +50,12 @@ package object macros {
           q"$pname.!=(other.$pname)"
         }
         val inequality = checks.reduceLeft((a, b) => q"$a.||($b)")
-        val tpt = tq"$tpname[..$tparams]"
-        val method = q"override def altEq[..$tparams](other: $tpt): Boolean = $inequality"
+        val tpt = tq"$tpeName[..$tpeParams]"
+        val method = q"override def altEq[..$tpeParams](other: $tpt): Boolean = $inequality"
 
         val result = q"""
-          $mods class $tpname[..$tparams] $ctorMods(...$paramss)
-          extends { ..$earlydefns } with ..$parents { $self =>
+          $mods class $tpeName[..$tpeParams] $ctorMods(...$ctorParamLists)
+          extends { ..$earlyDefns } with ..$parents { $self =>
             ..${method :: body}
           }
         """

@@ -1,7 +1,9 @@
 package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react.ScalazReact._
+import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react._
+import japgolly.scalajs.react.extra.ExternalVar
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.{Getter, Lens}
 import monocle.macros.{Lenser, Lenses}
@@ -48,7 +50,7 @@ object GlycanoApp {
       State.undoPosition.set(0)(s2)
     }
     def modGraph(f: RGraph => RGraph)(s: State): State = setGraph(f(graph(s)))(s)
-    //val graph = Lens[State, RGraph](s => s.history(s.undoPosition))(g => s => State.history.modify(g +: _.drop(s.undoPosition).take(50/*t.props.historyLimit*/))(s))
+    val graphL = Lens[State, RGraph](graph)(setGraph)
   }
 
   val ST = ReactS.Fix[State]
@@ -145,9 +147,6 @@ object GlycanoApp {
     def residuePanelClick(template: Option[Residue]): Unit =
       t.modState(State.mode set template.fold[Mode](Mode.Selection)(Mode.PlaceResidue))
 
-    def substPanelClick(template: SubstituentPanel.State): Unit =
-      t.modState(State.mode set template.st.fold[Mode](Mode.Selection)(Mode.PlaceSubstituent))
-
     def addAnnotation(): Unit = {
       t.modState(State.mode set Mode.PlaceAnnotation(30))
     }
@@ -189,25 +188,25 @@ object GlycanoApp {
       history = Vector(testGraph),
       displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
     .backend(new Backend(_))
-    .render((P, S, B) => {
-      val rtTemplate = S.mode match {
+    .render($ => {
+      val rtTemplate = $.state.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
         case _ => None
       }
       <.div(^.cls := "container-fluid")(
         <.div(^.cls := "row")(
-          Navbar(Navbar.Props(B, S.bondLabels))
+          Navbar(Navbar.Props($.backend, $.state.bondLabels))
         ),
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               ResiduePanel(ResiduePanel.Props(
-                S.displayConv,
-                S.placeAnomer,
-                S.placeAbsolute,
+                $.state.displayConv,
+                $.state.placeAnomer,
+                $.state.placeAbsolute,
                 rtTemplate,
-                B.modState
+                $.backend.modState
               ))
             )),
             <.div(^.cls := "row")(
@@ -218,29 +217,32 @@ object GlycanoApp {
                   "min".reactAttr := 0.1,
                   "max".reactAttr := 2.0,
                   ^.step := 0.01,
-                  ^.value := S.scaleSubstituents,
-                  ^.onChange --> B.scaleSubstituentsSlider
+                  ^.value := $.state.scaleSubstituents,
+                  ^.onChange --> $.backend.scaleSubstituentsSlider
                 )
               ),
               <.div(^.cls := "col-xs-4")(
                 <.input(
                   ^.ref := "ssNumber",
                   ^.`type` := "number",
-                  ^.value := S.scaleSubstituents,
-                  ^.onChange --> B.scaleSubstituentsNumber
+                  ^.value := $.state.scaleSubstituents,
+                  ^.onChange --> $.backend.scaleSubstituentsNumber
                 )
               )
             ),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              SubstituentPanel(SubstituentPanel.Props(B.substPanelClick, S.scaleSubstituents))
+              SubstituentPanel(SubstituentPanel.Props(
+                ExternalVar.state($.focusStateL(State.mode)),
+                $.state.scaleSubstituents
+              ))
             )),
             <.div(^.cls := "row")(
               <.div(^.cls := "checkbox")(
                 <.label(
                   <.input(
                     ^.`type` := "checkbox",
-                    ^.checked := S.limitUpdateRate,
-                    ^.onChange --> B.toggleLimitUpdateRate
+                    ^.checked := $.state.limitUpdateRate,
+                    ^.onChange --> $.backend.toggleLimitUpdateRate
                   ),
                   "Limit Update Rate"
                 )
@@ -249,23 +251,20 @@ object GlycanoApp {
           ),
           <.div(^.cls := "col-xs-9")(
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              CASPERDisplay(CASPERDisplay.Props(S.history(S.undoPosition), S.selection._1))
+              CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
             )),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               <.div(^.cls := "panel panel-default")(
                 <.div(^.cls := "panel-body")(
                   GlycanoCanvas(GlycanoCanvas.Props(
-                    B.modGraph,
-                    B.setMode,
-                    B.setSelection,
-                    S.mode,
-                    dc = S.displayConv,
-                    graph = S.history(S.undoPosition),
-                    selection = S.selection,
-                    view = S.view,
-                    bondLabels = S.bondLabels,
-                    scaleSubstituents = S.scaleSubstituents,
-                    limitUpdateRate = S.limitUpdateRate
+                    mode = ExternalVar.state($.focusStateL(State.mode)),
+                    dc = $.state.displayConv,
+                    graph = ExternalVar.state($.focusStateL(StateL.graphL)),
+                    selection = ExternalVar.state($.focusStateL(State.selection)),
+                    view = $.state.view,
+                    bondLabels = $.state.bondLabels,
+                    scaleSubstituents = $.state.scaleSubstituents,
+                    limitUpdateRate = $.state.limitUpdateRate
                   ))
                 )
               )
