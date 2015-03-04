@@ -103,7 +103,16 @@ object RGraph {
     def -(a: AnnotId): RGraph = g &|-> annotations modify { _ - a }
     def --(links: Iterable[Link]): RGraph = links.foldLeft(g)(_ - _)
 
-    def +(ge: GraphEntry): RGraph = g &|-> residues modify { _ + (ResidueId.next() -> ge) }
+    def +(ge: GraphEntry): RGraph = {
+      val id = ResidueId.next()
+      val g2 = g &|-> residues modify { _ + (id -> ge) }
+      val g3 = ge.parent.fold(g2)(link => g2 + Bond(id, link))
+      val g4 = ge.children.foldLeft(g3) {
+        case (g0, (i, cid)) =>
+          g0 + Bond(cid, Link(id, i))
+      }
+      g4
+    }
     def +(residue: Residue): RGraph = addResidue(residue)(g)
     def +(bond: Bond): RGraph = addBond(bond) exec g
     //def +(bond: (Residue, Link)): RGraph = addBond(bond._1)(bond._2) exec g

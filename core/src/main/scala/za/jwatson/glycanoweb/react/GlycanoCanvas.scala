@@ -15,6 +15,7 @@ import za.jwatson.glycanoweb.render.{DisplayConv, SubstituentShape}
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
+import scala.annotation.tailrec
 import scala.scalajs.js
 import scalaz.Maybe.Just
 import scalaz.{Semigroup, Monoid, OptionT}
@@ -25,6 +26,7 @@ import scalaz.std.vector._
 import scalaz.syntax.monad.ApplicativeIdV
 import scalaz.syntax.std.option._
 import scalaz.syntax.id._
+import scalaz.syntax.std.boolean._
 
 object GlycanoCanvas {
   private val updateInterval = 16
@@ -101,9 +103,9 @@ object GlycanoCanvas {
 
     def mouseClick(e: ReactMouseEvent): IO[Unit] =
       (button(e), t.props.mode.value, t.state.inputState) match {
-        case (Mouse.Left, Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
-          t.props.graph.mod {
-            _ + GraphEntry(residue, x, y)
+        case (Mouse.Left, Mode.PlaceResidue(residue), InputState.AddResidue(x, y, children, parent)) =>
+          t.props.graph.mod { g =>
+            g + GraphEntry(residue, x, y, 0, children, parent)
           }
         case (Mouse.Left, Mode.PlaceSubstituent(st), InputState.AddSubstituent(_, _, Some(link))) =>
           t.props.graph.mod {
@@ -130,7 +132,6 @@ object GlycanoCanvas {
       }
 
     def closestLinkDsq(r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
-      import scalaz.syntax.std.boolean._
       val links = for {
         ge <- r.graphEntry.toIterable
         (offset, i) <- t.props.dc.outline(ge.residue).zipWithIndex
@@ -150,6 +151,16 @@ object GlycanoCanvas {
       links.nonEmpty option links.minBy(_._2)._1
     }
 
+    def linkPosition(link: Link): Option[(Double, Double)] = {
+      for {
+        GraphEntry(residue, x, y, rot, _, _) <- graph.residues.get(link.r)
+      } yield {
+        val offset = t.props.dc.outline(residue)(link.position - 1)
+        val (ox, oy) = rotatePointRadians(offset, math.toRadians(rot))
+        (x + ox, y + oy)
+      }
+    }
+
     def mouseMove(e: ReactMouseEvent): IO[Unit] =
       if (!t.props.limitUpdateRate || updateReady()) (t.props.mode.value, t.state.inputState) match {
         case (Mode.Selection, BoxSelect(down, _)) =>
@@ -157,10 +168,61 @@ object GlycanoCanvas {
             case pos =>
               t.modStateIO(State.inputState set InputState.BoxSelect(down, pos))
           }
-        case (Mode.PlaceResidue(_), _) =>
+        case (Mode.PlaceResidue(residue), _) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
-              t.modStateIO(State.inputState set InputState.AddResidue(x, y))
+              val (_, w, h) = t.props.dc.boundsMemo(residue)
+              val dsqThreshold: Double = 500 * 500
+              val facing: (Double, Double) = (1, 0)
+              val outline = t.props.dc.outline(residue)
+              val outlinePositions = for (((ox, oy), i) <- outline.zipWithIndex) yield (x + ox, y + oy)
+              val (hx, hy) = outlinePositions.head
+
+              val lefts = for {
+                (id, ge) <- graph.residues
+                if ge.parent.isEmpty
+                linkPos @ (lx, ly) <- linkPosition(Link(id, 1))
+                if facing._1 * (lx - hx) + facing._2 * (ly - hy) < 0
+
+                (dx, dy) = (lx - x + w / 2, ly - y + h / 2)
+                dsq = dx * dx + dy * dy
+                //todo: limit using bounds or closest link
+                if dsq < dsqThreshold
+              } yield (id, linkPos, dsq)
+
+              def linkMappings(src: Seq[(ResidueId, (Double, Double), Double)], dst: Seq[((Double, Double), Int)]): Map[Int, ResidueId] = {
+                src match {
+                  case (id, (x1, y1), _) :: rest =>
+                    val mapping = (dst.nonEmpty option dst.minBy {
+                      case ((x2, y2), _) =>
+                        val (dx, dy) = (x2 - x1, y2 - y1)
+                        dx * dx + dy * dy
+                    }).filter(_._2 != 0).map(m => (m._2 + 1) -> id)
+                    linkMappings(rest, dst.filterNot(m => mapping.exists(_._1 == m._2))) ++ mapping
+                  case _ => Map.empty
+                }
+              }
+              val children = linkMappings(lefts.toList.sortBy(_._3), outlinePositions.zipWithIndex)
+
+              val parents = for {
+                (id, ge) <- graph.residues
+                if linkPosition(Link(id, 1)).exists {
+                  case (thx, thy) =>
+                    facing._1 * (thx - hx) + facing._2 * (thy - hy) >= 0
+                }
+                i <- 2 to ge.residue.rt.linkage
+                if !ge.children.contains(i)
+                link = Link(id, i)
+                (tx, ty) <- linkPosition(link)
+                (dx, dy) = (tx - hx, ty - hy)
+                dsq = dx * dx + dy * dy
+                if dsq < dsqThreshold
+              } yield (link, dsq)
+              val parent = (parents.nonEmpty option parents.minBy(_._2)).map(_._1)
+
+              for {
+                _ <- t.modStateIO(State.inputState set InputState.AddResidue(x, y, children, parent))
+              } yield ()
           }
         case (Mode.PlaceSubstituent(_), _) =>
           clientToViewIO(e.clientX, e.clientY) {
@@ -168,7 +230,7 @@ object GlycanoCanvas {
               val link = closestLink(x, y)
               t.modStateIO(State.inputState set InputState.AddSubstituent(x, y, link))
           }
-        case (Mode.Selection, InputState.Drag(down@(x0, y0), _)) =>
+        case (Mode.Selection, InputState.Drag(down @ (x0, y0), _)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
               val offset = (x - x0, y - y0)
@@ -197,13 +259,13 @@ object GlycanoCanvas {
         case _ => IO.ioUnit
       }
 
-    def boxSelectDown(e: ReactMouseEvent): Unit =
+    def boxSelectDown(e: ReactMouseEvent): IO[Unit] =
       (button(e), t.props.mode.value) match {
         case (Mouse.Left, Selection) =>
-          for (down <- clientToView(e.clientX, e.clientY)) {
-            t.modState(State.inputState set InputState.BoxSelect(down, down))
+          clientToViewIO(e.clientX, e.clientY) { down =>
+            t.modStateIO(State.inputState set InputState.BoxSelect(down, down))
           }
-        case _ =>
+        case _ => IO.ioUnit
       }
 
     def mouseUp(e: ReactMouseEvent): IO[Unit] =
@@ -262,7 +324,7 @@ object GlycanoCanvas {
   sealed trait InputState
   object InputState {
     case object Default extends InputState
-    case class AddResidue(x: Double, y: Double) extends InputState
+    case class AddResidue(x: Double, y: Double, children: Map[Int, ResidueId], parent: Option[Link]) extends InputState
     case class AddSubstituent(x: Double, y: Double, target: Option[Link]) extends InputState
     case class BoxSelect(from: (Double, Double), to: (Double, Double)) extends InputState
     case class Drag(down: (Double, Double), offset: (Double, Double)) extends InputState
@@ -336,9 +398,9 @@ object GlycanoCanvas {
         SVGBond.withKey("bond" + r.id)(SVGBond.Props(ge.residue.ano, Some(i), from, to, P.bondLabels))
       }
 
-      val tempBond = (P.mode.value, S.inputState) match {
+      val tempBonds = (P.mode.value, S.inputState) match {
         case (Mode.Selection, InputState.CreateBond(r, mouse, target)) =>
-          for (ge <- r.graphEntry) yield {
+          for (ge <- r.graphEntry.toSeq) yield {
             val from = outlinePos(outlines(r), ge, 1)
             val targetLink = for {
               Link(rLink, pos) <- target
@@ -347,8 +409,30 @@ object GlycanoCanvas {
             val to = targetLink getOrElse mouse
             SVGBond.withKey("tempBond")(SVGBond.Props(ge.residue.ano, target.map(_.position), from, to, P.bondLabels))
           }
+        case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y, children, parent)) =>
+          val from = for {
+            (i, id) <- children.toSeq
+            ge <- graph.residues.get(id)
+          } yield {
+            val fromPos = outlinePos(outlines(id), ge, 1)
+            val (ox, oy) = P.dc.outline(residue)(i - 1)
+            val toPos = (x + ox, y + oy)
+            SVGBond.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, P.bondLabels))
+          }
+
+          val to = for {
+            Link(id, i) <- parent.toSeq
+            ge <- graph.residues.get(id)
+          } yield {
+            val (ox, oy) = P.dc.outline(residue).head
+            val fromPos = (x + ox, y + oy)
+            val toPos = outlinePos(outlines(id), ge, i)
+            SVGBond.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, P.bondLabels))
+          }
+
+          from ++ to
         case _ =>
-          None
+          Seq.empty
       }
 
       val residues = for ((r, ge) <- entriesOffset) yield {
@@ -379,7 +463,7 @@ object GlycanoCanvas {
       }
 
       val tempResidue = (P.mode.value, S.inputState) match {
-        case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y)) =>
+        case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y, _, _)) =>
           val ge = GraphEntry(residue, x, y, 0)
           Some(SVGResidue.withKey("tempResidue")(SVGResidue.Props(_ => (), _ => (), ge, P.dc, selected = false, P.scaleSubstituents)))
         case _ => None
@@ -397,12 +481,12 @@ object GlycanoCanvas {
       )(
         <.svg.g(^.svg.transform := s"translate($viewX $viewY) scale($viewScale)", ^.ref := "view")(
           bonds,
-          tempBond,
+          tempBonds,
           <.svg.rect(
             ^.svg.fill := "transparent",
             ^.svg.width := P.width,
             ^.svg.height := P.height,
-            ^.onMouseDown ==> B.boxSelectDown
+            ^.onMouseDown ~~> B.boxSelectDown _
           ),
           residues,
           tempSubstituent,
