@@ -59,10 +59,10 @@ object GlycanoCanvas {
   }
 
   case class Props(mode: ExternalVar[Mode], dc: DisplayConv, width: Int = 800, height: Int = 600, graph: ExternalVar[RGraph],
-                   selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: View = View(), bondLabels: Boolean = false,
+                   selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: ExternalVar[View], bondLabels: Boolean = false,
                    scaleSubstituents: Double = 1.0, limitUpdateRate: Boolean = true)
 
-  def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.view, p.selection.value, p.width, p.height, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate)
+  def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.view.value, p.selection.value, p.width, p.height, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate)
 
   @Lenses case class State(inputState: InputState = InputState.Default)
 
@@ -126,7 +126,7 @@ object GlycanoCanvas {
         case (Mouse.Left, Mode.Selection, InputState.CreateBond(from, (x, y), target)) =>
           for {
             _ <- target.map(to => t.props.graph.mod(RGraph.addBondRemovingOld(from)(to).exec)).orZero
-            _ <- t.modStateIO(State.inputState set InputState.Default andThen {s => println("asdf"); s})
+            _ <- t.modStateIO(State.inputState set InputState.Default)
           } yield ()
         case _ => IO.ioUnit
       }
@@ -236,6 +236,17 @@ object GlycanoCanvas {
               val offset = (x - x0, y - y0)
               t.modStateIO(State.inputState set InputState.Drag(down, offset))
           }
+        case (_, InputState.DragView(down @ (x0, y0), (ox, oy))) =>
+          if (true/*e.shiftKey*/) clientToCanvasIO(e.clientX, e.clientY) {
+            case (x, y) =>
+              val offset = (x - x0, y - y0)
+              t.modStateIO(State.inputState set InputState.DragView(down, offset))
+          } else {
+            for {
+              _ <- t.modStateIO(State.inputState set InputState.Default)
+              _ <- t.props.view.mod({ View.x modify (_ + ox) } andThen { View.y modify (_ + oy) })
+            } yield ()
+          }
         case (Mode.Selection, InputState.CreateBond(r, last, _)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
@@ -259,14 +270,25 @@ object GlycanoCanvas {
         case _ => IO.ioUnit
       }
 
-    def boxSelectDown(e: ReactMouseEvent): IO[Unit] =
-      (button(e), t.props.mode.value) match {
-        case (Mouse.Left, Selection) =>
-          clientToViewIO(e.clientX, e.clientY) { down =>
-            t.modStateIO(State.inputState set InputState.BoxSelect(down, down))
-          }
-        case _ => IO.ioUnit
+    def boxSelectDown(e: ReactMouseEvent): IO[Unit] = {
+      if (e.shiftKey) {
+        t.state.inputState match {
+          case InputState.DragView(_, _) => IO.ioUnit
+          case _ =>
+            clientToCanvasIO(e.clientX, e.clientY) { down =>
+              t.modStateIO(State.inputState set InputState.DragView(down, (0, 0)))
+            }
+        }
+      } else {
+        (button(e), t.props.mode.value) match {
+          case (Mouse.Left, Selection) =>
+            clientToViewIO(e.clientX, e.clientY) { down =>
+              t.modStateIO(State.inputState set InputState.BoxSelect(down, down))
+            }
+          case _ => IO.ioUnit
+        }
       }
+    }
 
     def mouseUp(e: ReactMouseEvent): IO[Unit] =
       (t.props.mode.value, t.state.inputState) match {
@@ -291,6 +313,11 @@ object GlycanoCanvas {
             } else IO.ioUnit
             _ <- t.modStateIO(State.inputState set InputState.Default)
           } yield ()
+        case (_, InputState.DragView(_, (ox, oy))) =>
+          for {
+            _ <- t.modStateIO(State.inputState set InputState.Default)
+            _ <- t.props.view.mod({ View.x modify (_ + ox) } andThen { View.y modify (_ + oy) })
+          } yield ()
         case (Mode.Selection, InputState.PreCreateBond(r)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case to =>
@@ -303,7 +330,7 @@ object GlycanoCanvas {
       (button(e), t.props.mode.value, t.state.inputState) match {
         case (Mouse.Left, Mode.Selection, InputState.Default) =>
           for (down <- clientToView(e.clientX, e.clientY)) {
-            t.modState(State.inputState set InputState.Drag(down, (0, 0)))
+            t.modState(State.inputState set InputState.Drag(down, (0.0, 0.0)))
             if (!t.props.selection.value._1.contains(r))
               t.props.selection.set((Set(r), Set.empty)).unsafePerformIO()
           }
@@ -328,6 +355,7 @@ object GlycanoCanvas {
     case class AddSubstituent(x: Double, y: Double, target: Option[Link]) extends InputState
     case class BoxSelect(from: (Double, Double), to: (Double, Double)) extends InputState
     case class Drag(down: (Double, Double), offset: (Double, Double)) extends InputState
+    case class DragView(down: (Double, Double), offset: (Double, Double)) extends InputState
     case class PreCreateBond(r: ResidueId) extends InputState
     case class CreateBond(r: ResidueId, to: (Double, Double), target: Option[Link]) extends InputState
     case object PostCreateBond extends InputState
@@ -364,9 +392,13 @@ object GlycanoCanvas {
     .render((P, C, S, B) => {
       implicit val graph: RGraph = P.graph.value
 
-      val viewX = P.view.x
-      val viewY = P.view.y
-      val viewScale = P.view.scale
+      val (voX, voY) = S.inputState match {
+        case InputState.DragView(down, offset) => offset
+        case _ => (0.0, 0.0)
+      }
+      val viewX = P.view.value.x + voX
+      val viewY = P.view.value.y + voY
+      val viewScale = P.view.value.scale
 
       val outlines = for ((r, ge) <- P.graph.value.residues) yield {
         r -> P.dc.outline(ge.residue)
@@ -477,7 +509,9 @@ object GlycanoCanvas {
         ^.onClick ~~> B.mouseClick _,
         ^.onMouseOut ~~> B.mouseOut _,
         ^.onMouseUp ~~> B.mouseUp _,
-        ^.onMouseDown ~~> B.mouseDown _
+        ^.onMouseDown ~~> B.mouseDown _,
+        ^.borderWidth := 1.px,
+        ^.borderColor := "black"
       )(
         <.svg.g(^.svg.transform := s"translate($viewX $viewY) scale($viewScale)", ^.ref := "view")(
           bonds,

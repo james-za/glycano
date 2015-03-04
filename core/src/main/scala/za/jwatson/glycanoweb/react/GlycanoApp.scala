@@ -195,7 +195,7 @@ object GlycanoApp {
       }
       <.div(^.cls := "container-fluid")(
         <.div(^.cls := "row")(
-          Navbar(Navbar.Props($.backend, $.state.bondLabels))
+          Navbar(Navbar.Props($.backend, $.state.bondLabels, $.state.view.scale))
         ),
 
         <.div(^.cls := "row")(
@@ -261,7 +261,7 @@ object GlycanoApp {
                     dc = $.state.displayConv,
                     graph = ExternalVar.state($.focusStateL(StateL.graphL)),
                     selection = ExternalVar.state($.focusStateL(State.selection)),
-                    view = $.state.view,
+                    view = ExternalVar.state($.focusStateL(State.view)),
                     bondLabels = $.state.bondLabels,
                     scaleSubstituents = $.state.scaleSubstituents,
                     limitUpdateRate = $.state.limitUpdateRate

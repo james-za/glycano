@@ -5,7 +5,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
 
 object Navbar {
-  case class Props(B: GlycanoApp.Backend, bondLabels: Boolean)
+  case class Props(B: GlycanoApp.Backend, bondLabels: Boolean, zoom: Double)
 
   def apply(props: Props, children: ReactNode*) = component(props, children: _*)
   val component = ReactComponentB[Props]("Navbar")
@@ -56,12 +56,13 @@ object Navbar {
           Button.withKey("b06")(Button.Props(() => P.B.redo(), nav = true), <.i(^.cls := "fa fa-lg fa-repeat"), " Redo"), " ",
           Button.withKey("b07")(Button.Props(() => P.B.addAnnotation(), nav = true), <.i(^.cls := "fa fa-lg fa-edit"), " Add Annotation"), " ",
           Button.withKey("b08")(Button.Props(() => P.B.zoomOut(), nav = true), <.i(^.cls := "fa fa-lg fa-search-minus")), " ",
-          Button.withKey("b09")(Button.Props(() => P.B.zoomReset(), nav = true), "Reset Zoom"), " ",
+          <.span(f"${P.zoom * 100}%.2f" + "%"), " ",
           Button.withKey("b10")(Button.Props(() => P.B.zoomIn(), nav = true), <.i(^.cls := "fa fa-lg fa-search-plus")), " ",
+          Button.withKey("b09")(Button.Props(() => P.B.zoomReset(), nav = true), "Reset Zoom"), " ",
           C
         )
       ))
     })
-    .shouldComponentUpdate((T, P, S) => T.props.bondLabels != P.bondLabels)
+    .shouldComponentUpdate((T, P, S) => T.props.bondLabels != P.bondLabels || T.props.zoom != P.zoom)
     .build
 }
