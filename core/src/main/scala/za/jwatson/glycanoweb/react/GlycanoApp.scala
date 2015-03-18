@@ -34,7 +34,8 @@ object GlycanoApp {
     mode: Mode = Mode.Selection,
     displayConv: DisplayConv = DisplayConv.convUCT,
     scaleSubstituents: Double = 1.0,
-    limitUpdateRate: Boolean = true
+    limitUpdateRate: Boolean = true,
+    annotationFontSize: Double = 24
   )
 
   sealed trait Mode
@@ -42,7 +43,7 @@ object GlycanoApp {
     case object Selection extends Mode
     case class PlaceResidue(residue: Residue) extends Mode
     case class PlaceSubstituent(st: SubstituentType) extends Mode
-    case class PlaceAnnotation(size: Double) extends Mode
+    case object PlaceAnnotation extends Mode
   }
 
   object AppStateL {
@@ -139,16 +140,8 @@ object GlycanoApp {
 
     def clearAll(): Unit = t.modState(AppStateL setGraph RGraph())
 
-    def residuePanelClick(template: Option[Residue]): Unit =
-      t.modState(AppState.mode set template.fold[Mode](Mode.Selection)(Mode.PlaceResidue))
-
-    def addAnnotation(): Unit = {
-      t.modState(AppState.mode set Mode.PlaceAnnotation(30))
-    }
-
     def scaleSubstituentsSlider(): Unit = scaleSubstituents("ssSlider")
     def scaleSubstituentsNumber(): Unit = scaleSubstituents("ssNumber")
-
     def scaleSubstituents(ref: String): Unit = {
       for (input <- t.refs[dom.html.Input](ref)) {
         val scale = Try(input.getDOMNode().value.toDouble).getOrElse(1.0)
@@ -165,7 +158,7 @@ object GlycanoApp {
     def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")(t)) {
       val rect = p.getDOMNode().getBoundingClientRect()
       val setw = AppState.view ^|-> View.width set rect.width.toInt + 1
-      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 + 1)
+      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
       t.modState(setw andThen seth)
     }
   }
@@ -261,7 +254,8 @@ object GlycanoApp {
                     view = ExternalVar.state($.focusStateL(AppState.view)),
                     bondLabels = $.state.bondLabels,
                     scaleSubstituents = $.state.scaleSubstituents,
-                    limitUpdateRate = $.state.limitUpdateRate
+                    limitUpdateRate = $.state.limitUpdateRate,
+                    annotationFontSize = $.state.annotationFontSize
                   ))
                 )
               )

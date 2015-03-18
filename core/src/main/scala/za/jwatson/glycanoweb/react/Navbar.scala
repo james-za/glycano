@@ -1,14 +1,15 @@
 package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react.extra.ExternalVar
-import japgolly.scalajs.react.{ReactNode, ReactComponentB}
+import japgolly.scalajs.react.{ReactEventI, ReactNode, ReactComponentB}
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
-import za.jwatson.glycanoweb.react.GlycanoApp.{AppStateL, AppState}
+import za.jwatson.glycanoweb.react.GlycanoApp.{Mode, AppStateL, AppState}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
 import za.jwatson.glycanoweb.structure.{ResidueId, AnnotId, RGraph}
 
+import scala.util.Try
 import scalaz.effect.IO
 
 object Navbar {
@@ -80,7 +81,19 @@ object Navbar {
           " ", navbtn("paste", "Paste", state.mod(GlycanoApp.deleteS.exec)),
           " ", navbtn("undo", "Undo", state.mod(GlycanoApp.undo)),
           " ", navbtn("repeat", "Redo", state.mod(GlycanoApp.redo)),
-          " ", navbtn("edit", "Add Annotation", IO.ioUnit),
+          " ", navbtn("edit", "Add Annotation", state.mod(AppState.mode set Mode.PlaceAnnotation)),
+          " ", <.form(^.cls := "navbar-form navbar-left")(
+            <.div(^.cls := "form-group")(
+              <.label("Annotation Font Size", ^.paddingRight := 5.px),
+              <.input(
+                ^.cls := "form-control",
+                ^.value := state.value.annotationFontSize,
+                ^.`type` := "number",
+                ^.onChange ~~> ((e: ReactEventI) => state.setL(GlycanoApp.AppState.annotationFontSize)(Try(e.target.value.toDouble).getOrElse(24))),
+                ^.width := 80.px
+              )
+            )
+          ),
           " ", navbtn("search-minus", "", state.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
           " ", <.span(f"${state.value.view.scale * 100}%.2f" + "%"),
           " ", navbtn("search-plus", "", state.modL(AppState.view ^|-> View.scale)(_ * 1.1)),

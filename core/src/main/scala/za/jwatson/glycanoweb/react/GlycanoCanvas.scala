@@ -59,10 +59,10 @@ object GlycanoCanvas {
   }
 
   case class Props(mode: ExternalVar[Mode], dc: DisplayConv, graph: ExternalVar[RGraph],
-                   selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: ExternalVar[View], bondLabels: Boolean = false,
-                   scaleSubstituents: Double = 1.0, limitUpdateRate: Boolean = true)
+                   selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: ExternalVar[View], bondLabels: Boolean,
+                   scaleSubstituents: Double, limitUpdateRate: Boolean, annotationFontSize: Double)
 
-  def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.selection.value, p.view.value, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate)
+  def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.selection.value, p.view.value, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate, p.annotationFontSize)
 
   @Lenses case class State(inputState: InputState = InputState.Default)
 
@@ -112,6 +112,11 @@ object GlycanoCanvas {
             RGraph.residues ^|-? index(link.r) ^|-> GraphEntry.residue ^|-> Residue.subs ^|->
               at(link.position) modify { m => Just(m.orZero :+ st) }
           }
+        case (Mouse.Left, Mode.PlaceAnnotation, InputState.AddAnnotation(x, y)) =>
+          t.props.graph.mod {
+            val entry = AnnotId.next() -> Annot("Annotation", t.props.annotationFontSize, x, y)
+            RGraph.annotations modify (_ + entry)
+          }
         case _ =>
           IO.ioUnit
       }
@@ -120,7 +125,7 @@ object GlycanoCanvas {
       (button(e), t.props.mode.value, t.state.inputState) match {
         case (Mouse.Right, Mode.PlaceResidue(_), _) => resetMode()
         case (Mouse.Right, Mode.PlaceSubstituent(_), _) => resetMode()
-        case (Mouse.Right, Mode.PlaceAnnotation(_), _) => resetMode()
+        case (Mouse.Right, Mode.PlaceAnnotation, _) => resetMode()
         case (Mouse.Right, Mode.Selection, InputState.CreateBond(_, _, _)) =>
           t.modStateIO(State.inputState set InputState.Default)
         case (Mouse.Left, Mode.Selection, InputState.CreateBond(from, (x, y), target)) =>
@@ -230,6 +235,11 @@ object GlycanoCanvas {
               val link = closestLink(x, y)
               t.modStateIO(State.inputState set InputState.AddSubstituent(x, y, link))
           }
+        case (Mode.PlaceAnnotation, _) =>
+          clientToViewIO(e.clientX, e.clientY) {
+            case (x, y) =>
+              t.modStateIO(State.inputState set InputState.AddAnnotation(x, y))
+          }
         case (Mode.Selection, InputState.Drag(down @ (x0, y0), _)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
@@ -262,7 +272,7 @@ object GlycanoCanvas {
 
     def mouseOut(e: ReactMouseEvent): IO[Unit] =
       t.props.mode.value match {
-        case Mode.PlaceResidue(_) | Mode.PlaceSubstituent(_) | Mode.PlaceAnnotation(_) =>
+        case Mode.PlaceResidue(_) | Mode.PlaceSubstituent(_) | Mode.PlaceAnnotation =>
           clientToCanvasIO(e.clientX, e.clientY) {
             case (x, y) if !inBounds(x, y) => t.modStateIO(State.inputState set InputState.Out)
             case _ => IO.ioUnit
@@ -306,10 +316,17 @@ object GlycanoCanvas {
           for {
             _ <- if (dx != 0 || dy != 0) {
               val (rs, as) = t.props.selection.value
-              t.props.graph.mod(graph => graph.residues.filterKeys(rs.contains).foldLeft(graph) {
-                case (g, (r, ge)) =>
-                  g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
-              })
+              t.props.graph.mod { graph =>
+                val g2 = graph.residues.filterKeys(rs.contains).foldLeft(graph) {
+                  case (g, (r, ge)) =>
+                    g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
+                }
+                val g3 = g2.annotations.filterKeys(as.contains).foldLeft(g2) {
+                  case (g, (id, annot)) =>
+                    (RGraph.annotations ^|-? index(id) modify (a => a.copy(x = a.x + dx, y = a.y + dy)))(g)
+                }
+                g3
+              }
             } else IO.ioUnit
             _ <- t.modStateIO(State.inputState set InputState.Default)
           } yield ()
@@ -335,6 +352,19 @@ object GlycanoCanvas {
               t.props.selection.set((Set(r), Set.empty)).unsafePerformIO()
           }
         case _ =>
+      }
+
+    def annotationMouseDown(id: AnnotId)(e: ReactMouseEvent): IO[Unit] =
+      (button(e), t.props.mode.value, t.state.inputState) match {
+        case (Mouse.Left, Mode.Selection, InputState.Default) =>
+          clientToViewIO(e.clientX, e.clientY) {
+            case down =>
+              t.modState(State.inputState set InputState.Drag(down, (0.0, 0.0)))
+              if (!t.props.selection.value._2.contains(id))
+                t.props.selection.set((Set.empty, Set(id)))
+              else IO.ioUnit
+          }
+        case _ => IO.ioUnit
       }
 
     def handleMouseDown(r: ResidueId)(e: ReactMouseEvent): Unit =
@@ -382,6 +412,36 @@ object GlycanoCanvas {
 
     (nx + c._1, ny + c._2)
   }
+
+  val Annotation = ReactComponentB[(ReactMouseEvent => IO[Unit], AnnotId, Annot, Boolean)]("Annotation")
+    .initialState[(Double, Double)]((0, 0))
+    .render { $ =>
+      val (io, id, Annot(text, size, x, y, rot), selected) = $.props
+      val (bw, bh) = $.state
+      <.svg.g(
+        ^.onMouseDown ~~> io,
+        <.svg.text(text)(
+          ^.svg.fontSize := size,
+          ^.svg.x := x,
+          ^.svg.y := y,
+          ^.svg.transform := s"rotate($rot)"
+        ),
+        selected ?= <.svg.rect(
+          ^.svg.x := x - 3, ^.svg.y := y - 3 - bh + 4,
+          ^.svg.width := bw + 6, ^.svg.height := bh + 6,
+          ^.svg.rx := 3, ^.svg.ry := 3,
+          ^.svg.fill := "#404080", ^.svg.fillOpacity := "50%",
+          ^.svg.stroke := "#404080", ^.svg.strokeWidth := 1
+        )
+      )
+    }
+    .componentDidMount { $ =>
+      val e = $.getDOMNode().asInstanceOf[dom.svg.G]
+      val bb = e.firstElementChild.asInstanceOf[dom.svg.Text].getBBox()
+      $.setState((bb.width, bb.height))
+    }
+    .shouldComponentUpdate((T, P, S) => T.props._2 != P._2 || T.props._3 != P._3 || T.props._4 != P._4)
+    .build
 
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
@@ -501,6 +561,18 @@ object GlycanoCanvas {
         case _ => None
       }
 
+      val annotations = for ((id, annot) <- P.graph.value.annotations.toSeq) yield {
+        val selected = P.selection.value._2.contains(id)
+        val annot2 = if (drag && selected) annot.copy(x = annot.x + dx, y = annot.y + dy) else annot
+        Annotation.withKey(id.id)((B.annotationMouseDown(id), id, annot2, selected))
+      }
+
+      val tempAnnotation = (P.mode.value, S.inputState) match {
+        case (Mode.PlaceAnnotation, InputState.AddAnnotation(x, y)) =>
+          Some(<.svg.text("Annotation", ^.svg.fontSize := P.annotationFontSize, ^.svg.fillOpacity := "50%", ^.svg.x := x, ^.svg.y := y))
+        case _ => None
+      }
+
       <.svg.svg(
         ^.svg.width := P.view.value.width,
         ^.svg.height := P.view.value.height,
@@ -523,7 +595,9 @@ object GlycanoCanvas {
           residues,
           tempSubstituent,
           selectionBox,
-          tempResidue
+          tempResidue,
+          annotations,
+          tempAnnotation
         )
       )
     })
