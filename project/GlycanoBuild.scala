@@ -12,7 +12,7 @@ object GlycanoBuildSettings {
 
   val buildSettings = Seq(
     incOptions := incOptions.value.withNameHashing(nameHashing = false),
-    scalaVersion := "2.11.5",
+    scalaVersion := "2.11.6",
     scalacOptions ++= Seq(
       "-deprecation",
       "-unchecked",

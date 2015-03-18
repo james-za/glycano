@@ -12,6 +12,8 @@ import za.jwatson.glycanoweb.react.GlycanoApp.Mode
 import za.jwatson.glycanoweb.render.SubstituentShape
 import za.jwatson.glycanoweb.structure._
 
+import scalaz.std.AllInstances._, scalaz.syntax.equal._
+
 object SubstituentPanel {
   case class Props(mode: ExternalVar[Mode], scaleSubstituents: Double)
 
@@ -55,7 +57,7 @@ object SubstituentPanel {
         )
       )
     }
-    .shouldComponentUpdate((T, P, S) => T.props != P || T.state != S)
+    .shouldComponentUpdate((T, P, S) => T.props.mode.value != P.mode.value || T.props.scaleSubstituents != P.scaleSubstituents)
     .domType[dom.html.Div]
     .build
 }

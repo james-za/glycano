@@ -1,15 +1,42 @@
 package za.jwatson.glycanoweb.react
 
+import japgolly.scalajs.react.extra.ExternalVar
 import japgolly.scalajs.react.{ReactNode, ReactComponentB}
+import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
+import za.jwatson.glycanoweb.react.GlycanoApp.{AppStateL, AppState}
+import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
+import za.jwatson.glycanoweb.structure.{ResidueId, AnnotId, RGraph}
+
+import scalaz.effect.IO
 
 object Navbar {
-  case class Props(B: GlycanoApp.Backend, bondLabels: Boolean, zoom: Double)
+  case class Props(
+    state: ExternalVar[GlycanoApp.AppState]
+//    bondLabels: ExternalVar[Boolean],
+//    zoom: ExternalVar[Double],
+//    graph: ExternalVar[RGraph],
+//    selection: ExternalVar[(Set[ResidueId], Set[AnnotId])]
+  )
+
+  def navbtn(name: String, action: IO[Unit]) =
+    <.button(
+      name,
+      ^.cls := "btn btn-default navbar-btn",
+      ^.onClick ~~> action)
+  def navbtn(icon: String, name: String, action: IO[Unit]) =
+    <.button(
+      <.i(^.cls := "fa fa-lg fa-" + icon), " ", name,
+      ^.cls := "btn btn-default navbar-btn",
+      ^.onClick ~~> action)
 
   def apply(props: Props, children: ReactNode*) = component(props, children: _*)
   val component = ReactComponentB[Props]("Navbar")
-    .render((P, C) => {
+    .stateless
+    .render($ => {
+      val state = $.props.state
+
       <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
         NavbarHeader("glycano-navbar-collapse", "Glycano"),
         <.div(^.cls := "collapse navbar-collapse", ^.id := "glycano-navbar-collapse")(
@@ -38,31 +65,30 @@ object Navbar {
             <.div(^.cls := "form-group")(
               <.label(^.cls := "checkbox-inline")(
                 <.input(
-                  ^.checked := P.bondLabels,
+                  ^.checked := state.value.bondLabels,
                   ^.`type` := "checkbox",
-                  ^.onChange --> P.B.toggleBondLabels()
+                  ^.onChange ~~> state.modL(GlycanoApp.AppState.bondLabels)(!_)
                 ),
                 "Bond Labels"
               )
             )
           ),
-          " ",
-          Button.withKey("b00")(Button.Props(() => P.B.clearAll(), nav = true), "Clear All"), " ",
-          Button.withKey("b01")(Button.Props(() => P.B.delete(), nav = true), <.i(^.cls := "fa fa-lg fa-trash"), " Delete"), " ",
-          Button.withKey("b02")(Button.Props(() => P.B.cut(), nav = true), <.i(^.cls := "fa fa-lg fa-cut"), " Cut"), " ",
-          Button.withKey("b03")(Button.Props(() => P.B.copy(), nav = true), <.i(^.cls := "fa fa-lg fa-copy"), " Copy"), " ",
-          Button.withKey("b04")(Button.Props(() => P.B.paste(), nav = true), <.i(^.cls := "fa fa-lg fa-paste"), " Paste"), " ",
-          Button.withKey("b05")(Button.Props(() => P.B.undo(), nav = true), <.i(^.cls := "fa fa-lg fa-undo"), " Undo"), " ",
-          Button.withKey("b06")(Button.Props(() => P.B.redo(), nav = true), <.i(^.cls := "fa fa-lg fa-repeat"), " Redo"), " ",
-          Button.withKey("b07")(Button.Props(() => P.B.addAnnotation(), nav = true), <.i(^.cls := "fa fa-lg fa-edit"), " Add Annotation"), " ",
-          Button.withKey("b08")(Button.Props(() => P.B.zoomOut(), nav = true), <.i(^.cls := "fa fa-lg fa-search-minus")), " ",
-          <.span(f"${P.zoom * 100}%.2f" + "%"), " ",
-          Button.withKey("b10")(Button.Props(() => P.B.zoomIn(), nav = true), <.i(^.cls := "fa fa-lg fa-search-plus")), " ",
-          Button.withKey("b09")(Button.Props(() => P.B.zoomReset(), nav = true), "Reset Zoom"), " ",
-          C
+          " ", navbtn("Clear All", state.setL(AppStateL.graphL)(RGraph())),
+          " ", navbtn("trash", "Delete", state.mod(GlycanoApp.cutS.exec)),
+          " ", navbtn("cut", "Cut", state.mod(GlycanoApp.copyS.exec)),
+          " ", navbtn("copy", "Copy", state.mod(GlycanoApp.pasteS.exec)),
+          " ", navbtn("paste", "Paste", state.mod(GlycanoApp.deleteS.exec)),
+          " ", navbtn("undo", "Undo", state.mod(GlycanoApp.undo)),
+          " ", navbtn("repeat", "Redo", state.mod(GlycanoApp.redo)),
+          " ", navbtn("edit", "Add Annotation", IO.ioUnit),
+          " ", navbtn("search-minus", "", state.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
+          " ", <.span(f"${state.value.view.scale * 100}%.2f" + "%"),
+          " ", navbtn("search-plus", "", state.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
+          " ", navbtn("Reset Zoom", state.setL(AppState.view ^|-> View.scale)(1.0)),
+          " ", $.propsChildren
         )
       ))
     })
-    .shouldComponentUpdate((T, P, S) => T.props.bondLabels != P.bondLabels || T.props.zoom != P.zoom)
+    .shouldComponentUpdate((T, P, S) => T.props.state.value != P.state.value)
     .build
 }

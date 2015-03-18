@@ -16,12 +16,14 @@ import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
+import scala.scalajs.js
 import scala.util.Try
+import scalaz.State
 
 object GlycanoApp {
   case class Props(conventions: Map[String, DisplayConv])
 
-  @Lenses case class State(
+  @Lenses case class AppState(
     undoPosition: Int = 0,
     history: Vector[RGraph] = Vector(RGraph()),
     selection: (Set[ResidueId], Set[AnnotId]) = (Set.empty, Set.empty),
@@ -43,45 +45,35 @@ object GlycanoApp {
     case class PlaceAnnotation(size: Double) extends Mode
   }
 
-  object StateL {
-    def graph(s: State): RGraph = s.history(s.undoPosition)
-    def setGraph(g: RGraph)(s: State): State = {
-      val s2 = State.history.modify(g +: _.drop(s.undoPosition).take(50))(s)
-      State.undoPosition.set(0)(s2)
+  object AppStateL {
+    def graph(s: AppState): RGraph = s.history(s.undoPosition)
+    def setGraph(g: RGraph)(s: AppState): AppState = {
+      val s2 = AppState.history.modify(g +: _.drop(s.undoPosition).take(50))(s)
+      AppState.undoPosition.set(0)(s2)
     }
-    def modGraph(f: RGraph => RGraph)(s: State): State = setGraph(f(graph(s)))(s)
-    val graphL = Lens[State, RGraph](graph)(setGraph)
+    def modGraph(f: RGraph => RGraph)(s: AppState): AppState = setGraph(f(graph(s)))(s)
+    val graphL = Lens[AppState, RGraph](graph)(setGraph)
   }
-
-  val ST = ReactS.Fix[State]
 
   def removeSelection(sel: (Set[ResidueId], Set[AnnotId])) = (sel._1.foldLeft(_: RGraph)(_ - _)) andThen (sel._2.foldLeft(_: RGraph)(_ - _))
 
   val copyS = for {
-    sel <- ST.gets(_.selection)
-    g <- ST.gets(StateL.graph)
+    sel <- State.gets((_: AppState).selection)
+    g <- State.gets(AppStateL.graph)
     dr = g.residues.keySet diff sel._1
     da = g.annotations.keySet diff sel._2
-    _ <- ST.mod(State.buffer set removeSelection(dr, da)(g))
+    _ <- State.modify(AppState.buffer set removeSelection(dr, da)(g))
   } yield ()
 
   val deleteS = for {
-    sel <- ST.gets(_.selection)
-    _ <- ST.mod(StateL.modGraph(removeSelection(sel)))
+    sel <- State.gets((_: AppState).selection)
+    _ <- State.modify(AppStateL.modGraph(removeSelection(sel)))
   } yield ()
 
   val cutS = for {
     _ <- copyS
     _ <- deleteS
   } yield ()
-  //  val cutS = for {
-  //    (rs, as) <- ST.gets(_.selection)
-  //    g <- ST.gets(StateL.graph.get)
-  //    dr = g.entries.keySet diff rs
-  //    da = g.annots.values.toSet diff as
-  //    _ <- ST.mod(State.buffer set removeSelection(dr, da)(g))
-  //    _ <- ST.mod(StateL.graph modify removeSelection(rs, as))
-  //  } yield ()
 
   val offsetAmount = 20
   val offsetBufferResidues = RGraph.residues ^|->> each modify {
@@ -92,9 +84,9 @@ object GlycanoApp {
   }
   val offsetBuffer = offsetBufferResidues andThen offsetBufferAnnotations
   val pasteS = for {
-    buf <- ST.gets(_.buffer)
-    gSel <- ST.gets { s =>
-      val old = StateL.graph(s)
+    buf <- State.gets((_: AppState).buffer)
+    gSel <- State.gets { s: AppState =>
+      val old = AppStateL.graph(s)
       var g = old
 
       val lookupR = buf.residues.map { case (id, _) => id -> ResidueId.next() }
@@ -112,53 +104,47 @@ object GlycanoApp {
 
       (g, (lookupR.values.toSet, lookupA.values.toSet))
     }
-    _ <- ST.mod(StateL setGraph gSel._1)
-    _ <- ST.mod(State.selection set gSel._2)
-    _ <- ST.mod(State.buffer modify offsetBuffer)
+    _ <- State.modify(AppStateL setGraph gSel._1)
+    _ <- State.modify(AppState.selection set gSel._2)
+    _ <- State.modify(AppState.buffer modify offsetBuffer)
   } yield ()
 
-  class Backend(t: BackendScope[Props, State]) {
-    def modState(mod: State => State): Unit = {
+  def undo(as: AppState): AppState =
+    if (as.undoPosition < as.history.size - 1)
+      AppState.undoPosition.modify(_ + 1)(as)
+    else as
+  def redo(as: AppState): AppState =
+    if (as.undoPosition > 0)
+      AppState.undoPosition.modify(_ - 1)(as)
+    else as
+
+  class Backend(t: BackendScope[Props, AppState]) {
+    def modState(mod: AppState => AppState): Unit = {
       t.modState(mod)
     }
 
     def toggleBondLabels(): Unit = {
-      t.modState(State.bondLabels.modify(bl => !bl))
+      t.modState(AppState.bondLabels.modify(bl => !bl))
     }
-    def undo(): Unit =
-      if(t.state.undoPosition < t.state.history.size - 1)
-        t.modState(State.undoPosition.modify(_ + 1))
-    def redo(): Unit =
-      if(t.state.undoPosition > 0)
-        t.modState(State.undoPosition.modify(_ - 1))
 
-    def zoomIn(): Unit = t.modState(State.view ^|-> View.scale modify (_ * 1.1))
-    def zoomOut(): Unit = t.modState(State.view ^|-> View.scale modify (_ * (1.0 / 1.1)))
-    def zoomReset(): Unit = t.modState(State.view ^|-> View.scale set 1.0)
+    def zoomIn(): Unit = t.modState(AppState.view ^|-> View.scale modify (_ * 1.1))
+    def zoomOut(): Unit = t.modState(AppState.view ^|-> View.scale modify (_ * (1.0 / 1.1)))
+    def zoomReset(): Unit = t.modState(AppState.view ^|-> View.scale set 1.0)
     //def zoomWheel(e: ReactWheelEvent): Unit = t.modState(State.view ^|-> View.scale modify (_ + e.deltaY(e.nativeEvent)))
 
-    def cut(): Unit = t.runState(cutS).unsafePerformIO()
-    def copy(): Unit = t.runState(copyS).unsafePerformIO()
-    def paste(): Unit = t.runState(pasteS).unsafePerformIO()
-    def delete(): Unit = t.runState(deleteS).unsafePerformIO()
+    def cut(): Unit = t.modState(cutS.exec)
+    def copy(): Unit = t.modState(copyS.exec)
+    def paste(): Unit = t.modState(pasteS.exec)
+    def delete(): Unit = t.modState(deleteS.exec)
 
-    def clearAll(): Unit = t.modState(StateL setGraph RGraph())
+    def clearAll(): Unit = t.modState(AppStateL setGraph RGraph())
 
     def residuePanelClick(template: Option[Residue]): Unit =
-      t.modState(State.mode set template.fold[Mode](Mode.Selection)(Mode.PlaceResidue))
+      t.modState(AppState.mode set template.fold[Mode](Mode.Selection)(Mode.PlaceResidue))
 
     def addAnnotation(): Unit = {
-      t.modState(State.mode set Mode.PlaceAnnotation(30))
+      t.modState(AppState.mode set Mode.PlaceAnnotation(30))
     }
-
-    def modGraph(mod: RGraph => RGraph): Unit =
-      t.modState(StateL modGraph mod)
-
-    def setMode(mode: Mode): Unit =
-      t.modState(State.mode set mode)
-
-    def setSelection(selection: (Set[ResidueId], Set[AnnotId])): Unit =
-      t.modState(State.selection set selection)
 
     def scaleSubstituentsSlider(): Unit = scaleSubstituents("ssSlider")
     def scaleSubstituentsNumber(): Unit = scaleSubstituents("ssNumber")
@@ -166,12 +152,21 @@ object GlycanoApp {
     def scaleSubstituents(ref: String): Unit = {
       for (input <- t.refs[dom.html.Input](ref)) {
         val scale = Try(input.getDOMNode().value.toDouble).getOrElse(1.0)
-        t.modState(State.scaleSubstituents set scale)
+        t.modState(AppState.scaleSubstituents set scale)
       }
     }
 
     def toggleLimitUpdateRate(): Unit = {
-      t.modState(State.limitUpdateRate modify { v => !v })
+      t.modState(AppState.limitUpdateRate modify { v => !v })
+    }
+
+    val resizeFunc: js.Function1[dom.Event, Unit] = (e: dom.Event) => resize()
+
+    def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")(t)) {
+      val rect = p.getDOMNode().getBoundingClientRect()
+      val setw = AppState.view ^|-> View.width set rect.width.toInt + 1
+      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 + 1)
+      t.modState(setw andThen seth)
     }
   }
 
@@ -184,7 +179,7 @@ object GlycanoApp {
 
   def apply(props: Props, children: ReactNode*) = component(props, children)
   val component = ReactComponentB[Props]("GlycanoApp")
-    .initialStateP(P => State(
+    .initialStateP(P => AppState(
       history = Vector(testGraph),
       displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
     .backend(new Backend(_))
@@ -195,7 +190,9 @@ object GlycanoApp {
       }
       <.div(^.cls := "container-fluid")(
         <.div(^.cls := "row")(
-          Navbar(Navbar.Props($.backend, $.state.bondLabels, $.state.view.scale))
+          Navbar(Navbar.Props(
+            ExternalVar.state($.focusStateId)
+          ))
         ),
 
         <.div(^.cls := "row")(
@@ -232,7 +229,7 @@ object GlycanoApp {
             ),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               SubstituentPanel(SubstituentPanel.Props(
-                ExternalVar.state($.focusStateL(State.mode)),
+                ExternalVar.state($.focusStateL(AppState.mode)),
                 $.state.scaleSubstituents
               ))
             )),
@@ -255,13 +252,13 @@ object GlycanoApp {
             )),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               <.div(^.cls := "panel panel-default")(
-                <.div(^.cls := "panel-body")(
+                <.div(^.cls := "panel-body", ^.ref := "canvaspanel", ^.padding := 0.px)(
                   GlycanoCanvas(GlycanoCanvas.Props(
-                    mode = ExternalVar.state($.focusStateL(State.mode)),
+                    mode = ExternalVar.state($.focusStateL(AppState.mode)),
                     dc = $.state.displayConv,
-                    graph = ExternalVar.state($.focusStateL(StateL.graphL)),
-                    selection = ExternalVar.state($.focusStateL(State.selection)),
-                    view = ExternalVar.state($.focusStateL(State.view)),
+                    graph = ExternalVar.state($.focusStateL(AppStateL.graphL)),
+                    selection = ExternalVar.state($.focusStateL(AppState.selection)),
+                    view = ExternalVar.state($.focusStateL(AppState.view)),
                     bondLabels = $.state.bondLabels,
                     scaleSubstituents = $.state.scaleSubstituents,
                     limitUpdateRate = $.state.limitUpdateRate
@@ -273,5 +270,12 @@ object GlycanoApp {
         )
       )
     })
+    .componentDidMount { $ =>
+      dom.window.addEventListener("resize", $.backend.resizeFunc)
+      $.backend.resize()
+    }
+    .componentWillUnmount { $ =>
+      dom.window.removeEventListener("resize", $.backend.resizeFunc)
+    }
     .build
 }

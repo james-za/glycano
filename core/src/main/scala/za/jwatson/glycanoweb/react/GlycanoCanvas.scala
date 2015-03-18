@@ -58,15 +58,15 @@ object GlycanoCanvas {
     val Right = 2
   }
 
-  case class Props(mode: ExternalVar[Mode], dc: DisplayConv, width: Int = 800, height: Int = 600, graph: ExternalVar[RGraph],
+  case class Props(mode: ExternalVar[Mode], dc: DisplayConv, graph: ExternalVar[RGraph],
                    selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: ExternalVar[View], bondLabels: Boolean = false,
                    scaleSubstituents: Double = 1.0, limitUpdateRate: Boolean = true)
 
-  def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.view.value, p.selection.value, p.width, p.height, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate)
+  def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.selection.value, p.view.value, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate)
 
   @Lenses case class State(inputState: InputState = InputState.Default)
 
-  @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1)
+  @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1, width: Int = 800, height: Int = 600)
 
   class Backend(t: BackendScope[Props, State]) {
     implicit def graph: RGraph = t.props.graph.value
@@ -257,8 +257,8 @@ object GlycanoCanvas {
       } else IO.ioUnit
 
     def inBounds(x: Double, y: Double) =
-      0 <= x && x < t.props.width &&
-        0 <= y && y < t.props.height
+      0 <= x && x < t.props.view.value.width &&
+        0 <= y && y < t.props.view.value.height
 
     def mouseOut(e: ReactMouseEvent): IO[Unit] =
       t.props.mode.value match {
@@ -502,24 +502,22 @@ object GlycanoCanvas {
       }
 
       <.svg.svg(
-        ^.svg.width := P.width,
-        ^.svg.height := P.height,
+        ^.svg.width := P.view.value.width,
+        ^.svg.height := P.view.value.height,
         ^.ref := "canvas",
         ^.onMouseMove ~~> B.mouseMove _,
         ^.onClick ~~> B.mouseClick _,
         ^.onMouseOut ~~> B.mouseOut _,
         ^.onMouseUp ~~> B.mouseUp _,
-        ^.onMouseDown ~~> B.mouseDown _,
-        ^.borderWidth := 1.px,
-        ^.borderColor := "black"
+        ^.onMouseDown ~~> B.mouseDown _
       )(
         <.svg.g(^.svg.transform := s"translate($viewX $viewY) scale($viewScale)", ^.ref := "view")(
           bonds,
           tempBonds,
           <.svg.rect(
             ^.svg.fill := "transparent",
-            ^.svg.width := P.width,
-            ^.svg.height := P.height,
+            ^.svg.width := P.view.value.width,
+            ^.svg.height := P.view.value.height,
             ^.onMouseDown ~~> B.boxSelectDown _
           ),
           residues,
@@ -533,8 +531,8 @@ object GlycanoCanvas {
       (T, P, S) =>
         cmp(T.props) != cmp(P) || T.state != S
     }
-    .componentDidMount { scope =>
-      scope.getDOMNode().addEventListener("contextmenu", (e: org.scalajs.dom.Event) => {
+    .componentDidMount { $ =>
+      $.getDOMNode().addEventListener("contextmenu", (e: org.scalajs.dom.Event) => {
         e.preventDefault()
         false
       })

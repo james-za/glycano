@@ -12,24 +12,24 @@ import org.scalajs.dom
 
 object ResiduePanel {
   case class Props(dc: DisplayConv, ano: Anomer, abs: Absolute, rt: Option[ResidueType],
-                   modState: (GlycanoApp.State => GlycanoApp.State) => Unit)
+                   modState: (GlycanoApp.AppState => GlycanoApp.AppState) => Unit)
 
   @Lenses case class State(page: ResidueCategory)
 
   class Backend(t: BackendScope[Props, State]) {
     def setAnomer(anomer: Option[Anomer]): Unit = for (ano <- anomer) {
-      t.props.modState(GlycanoApp.State.placeAnomer set ano)
+      t.props.modState(GlycanoApp.AppState.placeAnomer set ano)
     }
 
     def setAbsolute(absolute: Option[Absolute]): Unit = for (abs <- absolute) {
-      t.props.modState(GlycanoApp.State.placeAbsolute set abs)
+      t.props.modState(GlycanoApp.AppState.placeAbsolute set abs)
     }
 
     def clickResidue(rt: ResidueType): Unit = t.props.modState {
       if (!t.props.rt.contains[ResidueType](rt)) {
-        GlycanoApp.State.mode set Mode.PlaceResidue(Residue(t.props.ano, t.props.abs, rt))
+        GlycanoApp.AppState.mode set Mode.PlaceResidue(Residue(t.props.ano, t.props.abs, rt))
       } else {
-        GlycanoApp.State.mode set Mode.Selection
+        GlycanoApp.AppState.mode set Mode.Selection
       }
     }
 
