@@ -1,0 +1,74 @@
+convention "UCT" {
+   def Triangle = Polygon(points="40,35 0,70 0,0")
+   def Diamond = Polygon(points="80,40 40,80 0,40 40,0")
+   def Arrow = Polygon(points="90,30 60,60 0,60 0,0 60,0")
+   def Hexagon = Polygon(points="90,40 65,80 25,80 0,40 25,0 65,0")
+   def LShape = Polygon(points="0,0 0,44 36,44 36,40 4,40 4,0")
+   default
+   -> #1 [primary] Hexagon
+   -> #3 [outline, links] Hexagon
+   -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
+   -> style [primary] { fill: #FFFFFF }
+   -> style [outline] { fill: none; stroke: #000000; stroke-width: 3 }
+   -> style [handle] { fill: #FFFFFF; stroke: #000000; stroke-width: 1 }
+   (Glycero)
+   -> #1 [primary] Triangle
+   -> #3 [outline, links] Triangle
+   (Erythro, Threo)
+   -> #1 [primary] Diamond
+   -> #3 [outline, links] Diamond
+   (Ara, Lyx, Rib, Xyl)
+   -> #1 [primary] Arrow
+   -> #3 [outline, links] Arrow
+   (Ido, All, Alt, Gal, Glc, Gul, Man, Tal)
+   -> #1 [primary] Hexagon
+   -> #3 [outline, links] Hexagon
+   (Ara) -> #2 [secondary] Polygon(points="0,0 0,60 30,60 30,0")
+   (Rib) -> #2 [secondary] Polygon(points="0,0 0,30 90,30 60,0")
+   (Ido) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 65,80")
+   (All) -> #2 [secondary] Polygon(points="0,40 25,0 65,80 25,80")
+   (Alt) -> #2 [secondary] Polygon(points="45,0 65,0 90,40 45,40")
+   (Gal) -> #2 [secondary] Polygon(points="0,40 90,40 65,80 25,80")
+   (Gul) -> #2 [secondary] Polygon(points="25,0 65,0 25,80 0,40 90,40 65,80")
+   (Man) -> #2 [secondary] Polygon(points="0,40 25,0 45,0 45,80 25,80")
+   (Glycero) -> style [primary] { fill: #FFFFFF }
+   (Erythro) -> style [primary] { fill: #FFFFFF }
+   (Threo) -> style [primary] { fill: #000000 }
+   D (Ara) -> style [primary] { fill: #FFFFFF } -> style [secondary] { fill: #000000 }
+   L (Ara) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FFFFFF }
+   (Lyx) -> style [primary] { fill: #000000 }
+   D (Rib) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FFFFFF }
+   L (Rib) -> style [primary] { fill: #FFFFFF } -> style [secondary] { fill: #000000 }
+   (Xyl) -> style [primary] { fill: #FFA0A0 }
+   D (Ido) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #BF6000 }
+   L (Ido) -> style [primary] { fill: #BF6000 } -> style [secondary] { fill: #000000 }
+   D (All) -> style [primary] { fill: #FFFFFF } -> style [secondary] { fill: #000000 }
+   L (All) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FFFFFF }
+   D (Alt) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FFFFFF }
+   L (Alt) -> style [primary] { fill: #FFFFFF } -> style [secondary] { fill: #000000 }
+   D (Gal) -> style [primary] { fill: #FFFF00 } -> style [secondary] { fill: #000000 }
+   L (Gal) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FFFF00 }
+   (Glc) -> style [primary] { fill: #0000FF }
+   D (Gul) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FFFFFF }
+   L (Gul) -> style [primary] { fill: #FFFFFF } -> style [secondary] { fill: #000000 }
+   D (Man) -> style [primary] { fill: #00FF00 } -> style [secondary] { fill: #000000 }
+   L (Man) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #00FF00 }
+   (Tal) -> style [primary] { fill: #000000 }
+   L (Glycero)
+     -> #4 [lshape] LShape
+     -> style [lshape] { x: 4; y: 14 }
+   L (Erythro, Threo)
+     -> #4 [lshape] LShape
+     -> style [lshape] { x: 22; y: 18 }
+   L (Ara, Lyx, Rib, Xyl)
+     -> #4 [lshape] LShape
+     -> style [lshape] { x: 22; y: 8 }
+   L (Ido, All, Alt, Gal, Glc, Gul, Man, Tal)
+     -> #4 [lshape] LShape
+     -> style [lshape] { x: 27; y: 18 }
+   * -> #5 [handle] Rect(width="20", height="20", rx="5", ry="5")
+   a * -> style [handle] { fill: #FFFFFF; stroke: #000000; stroke-width: 1 }
+   b * -> style [handle] { fill: #000000; stroke: #000000; stroke-width: 1 }
+   * -> style [outline] { fill: none; stroke: #000000; stroke-width: 3 }
+   * -> style [lshape] { fill: #000000; stroke: #FFFFFF; stroke-width: 1 }
+}

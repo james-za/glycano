@@ -11,7 +11,7 @@ object SubstituentShape {
   def of(st: ST): (ReactTag, (Double, Double)) = st match {
     case ST.n => (<.svg.g(
       <.svg.rect(^.svg.width := 24, ^.svg.height := 30, ^.svg.rx := 5, ^.svg.ry := 5, ^.svg.fill := "#86CEFF", ^.svg.stroke := "black"),
-      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 12, ^.svg.y := 26, ^.svg.fill := "black")("N")
+      <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 12, ^.svg.y := 26, ^.svg.fill := "black")("N")
     ), (24, 30))
     case ST.cooh => (<.svg.g(
       <.svg.circle(^.svg.cx := 13, ^.svg.cy := 13, ^.svg.r := 13, ^.svg.fill := "white", ^.svg.stroke := "black"),
@@ -28,15 +28,15 @@ object SubstituentShape {
     ), (20, 20))
     case ST.s => (<.svg.g(
       <.svg.circle(^.svg.cx := 15, ^.svg.cy := 15, ^.svg.r := 15, ^.svg.fill := "#FFFF00", ^.svg.stroke := "black"),
-      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "black")("S")
+      <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "black")("S")
     ), (30, 30))
     case ST.p => (<.svg.g(
       <.svg.circle(^.svg.cx := 15, ^.svg.cy := 15, ^.svg.r := 15, ^.svg.fill := "#8E008E", ^.svg.stroke := "black"),
-      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "white")("P")
+      <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "white")("P")
     ), (30, 30))
     case ST.ac => (<.svg.g(
       <.svg.polygon(^.svg.points := "22,0 0,40 44,40", ^.svg.fill := "white", ^.svg.stroke := "black"),
-      <.svg.text(^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 24, ^.svg.x := 22, ^.svg.y := 36, ^.svg.fill := "black")("Ac")
+      <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 24, ^.svg.x := 22, ^.svg.y := 36, ^.svg.fill := "black")("Ac")
     ), (44, 40))
   }
 }

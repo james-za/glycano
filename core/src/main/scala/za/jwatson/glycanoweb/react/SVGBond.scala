@@ -27,6 +27,7 @@ object SVGBond {
           (P.ano == Anomer.Beta) ?= (^.svg.strokeDasharray := "15 10")
         ),
         P.label ?= <.svg.text(
+          ^.svg.pointerEvents := "none",
           ^.svg.transform := s"translate($midX, $midY) rotate($angle) translate(0, -6)",
           ^.svg.fontSize := 20,
           ^.svg.textAnchor := "middle"

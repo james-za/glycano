@@ -421,6 +421,7 @@ object GlycanoCanvas {
       <.svg.g(
         ^.onMouseDown ~~> io,
         <.svg.text(text)(
+          ^.svg.pointerEvents := "none",
           ^.svg.fontSize := size,
           ^.svg.x := x,
           ^.svg.y := y,
@@ -569,7 +570,12 @@ object GlycanoCanvas {
 
       val tempAnnotation = (P.mode.value, S.inputState) match {
         case (Mode.PlaceAnnotation, InputState.AddAnnotation(x, y)) =>
-          Some(<.svg.text("Annotation", ^.svg.fontSize := P.annotationFontSize, ^.svg.fillOpacity := "50%", ^.svg.x := x, ^.svg.y := y))
+          Some(<.svg.text("Annotation")(
+            ^.svg.fontSize := P.annotationFontSize,
+            ^.svg.fillOpacity := "50%",
+            ^.svg.x := x, ^.svg.y := y,
+            ^.svg.pointerEvents := "none"
+          ))
         case _ => None
       }
 
@@ -587,6 +593,7 @@ object GlycanoCanvas {
           bonds,
           tempBonds,
           <.svg.rect(
+            ^.svg.transform := s"scale(${1.0 / viewScale}) translate(${-viewX}, ${-viewY})",
             ^.svg.fill := "transparent",
             ^.svg.width := P.view.value.width,
             ^.svg.height := P.view.value.height,

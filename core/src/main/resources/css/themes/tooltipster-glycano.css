@@ -1,0 +1,12 @@
+.tooltipster-glycano {
+	border-radius: 5px;
+	border: 1px solid #808080;
+	background: #ffffff;
+	color: #303030;
+}
+.tooltipster-glycano .tooltipster-content {
+	font-family: Arial, sans-serif;
+	font-size: 13px;
+	line-height: 13px;
+	padding: 6px 7px;
+}
