@@ -13,14 +13,6 @@ import scala.util.Try
 import scalaz.effect.IO
 
 object Navbar {
-  case class Props(
-    state: ExternalVar[GlycanoApp.AppState]
-//    bondLabels: ExternalVar[Boolean],
-//    zoom: ExternalVar[Double],
-//    graph: ExternalVar[RGraph],
-//    selection: ExternalVar[(Set[ResidueId], Set[AnnotId])]
-  )
-
   def navbtn(name: String, action: IO[Unit]) =
     <.button(
       name,
@@ -30,6 +22,7 @@ object Navbar {
         _ <- action
       } yield ())
     )
+
   def navbtn(icon: String, name: String, action: IO[Unit]) =
     <.button(
       <.i(^.cls := "fa fa-lg fa-" + icon), " ", name,
@@ -40,12 +33,12 @@ object Navbar {
       } yield ())
     )
 
-  def apply(props: Props, children: ReactNode*) = component(props, children: _*)
-  val component = ReactComponentB[Props]("Navbar")
+  def apply(props: ExternalVar[AppState], children: ReactNode*) = component(props, children: _*)
+  val component = ReactComponentB[ExternalVar[AppState]]("Navbar")
     .stateless
     .render($ => {
-      val state = $.props.state
-      val zoom = state.value.view.scale * 100
+      val appState = $.props
+      val zoom = appState.value.view.scale * 100
 
       <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
         NavbarHeader("glycano-navbar-collapse", "Glycano"),
@@ -75,32 +68,32 @@ object Navbar {
             <.div(^.cls := "form-group")(
               <.label(^.cls := "checkbox-inline")(
                 <.input(
-                  ^.checked := state.value.bondLabels,
+                  ^.checked := appState.value.bondLabels,
                   ^.`type` := "checkbox",
-                  ^.onChange ~~> state.modL(GlycanoApp.AppState.bondLabels)(!_)
+                  ^.onChange ~~> appState.modL(GlycanoApp.AppState.bondLabels)(!_)
                 ),
                 "Bond Labels"
               )
             ),
-            " ", navbtn("Clear All", state.setL(AppStateL.graphL)(RGraph())),
-            " ", navbtn("trash", "Delete", state.mod(GlycanoApp.cutS.exec)),
-            " ", navbtn("cut", "Cut", state.mod(GlycanoApp.copyS.exec)),
-            " ", navbtn("copy", "Copy", state.mod(GlycanoApp.pasteS.exec)),
-            " ", navbtn("paste", "Paste", state.mod(GlycanoApp.deleteS.exec)),
-            " ", navbtn("undo", "Undo", state.mod(GlycanoApp.undo)),
-            " ", navbtn("repeat", "Redo", state.mod(GlycanoApp.redo)),
-            " ", navbtn("edit", "Add Annotation", state.mod(AppState.mode set Mode.PlaceAnnotation)),
+            " ", navbtn("Clear All", appState.setL(AppStateL.graphL)(RGraph())),
+            " ", navbtn("trash", "Delete", appState.mod(GlycanoApp.cutS.exec)),
+            " ", navbtn("cut", "Cut", appState.mod(GlycanoApp.copyS.exec)),
+            " ", navbtn("copy", "Copy", appState.mod(GlycanoApp.pasteS.exec)),
+            " ", navbtn("paste", "Paste", appState.mod(GlycanoApp.deleteS.exec)),
+            " ", navbtn("undo", "Undo", appState.mod(GlycanoApp.undo)),
+            " ", navbtn("repeat", "Redo", appState.mod(GlycanoApp.redo)),
+            " ", navbtn("edit", "Add Annotation", appState.mod(AppState.mode set Mode.PlaceAnnotation)),
             " ", <.div(^.cls := "form-group")(
               <.label("Annotation Font Size", ^.paddingRight := 5.px),
               <.input(
                 ^.cls := "form-control",
-                ^.value := state.value.annotationFontSize,
+                ^.value := appState.value.annotationFontSize,
                 ^.`type` := "number",
-                ^.onChange ~~> ((e: ReactEventI) => state.setL(GlycanoApp.AppState.annotationFontSize)(Try(e.target.value.toDouble).getOrElse(24))),
+                ^.onChange ~~> ((e: ReactEventI) => appState.setL(GlycanoApp.AppState.annotationFontSize)(Try(e.target.value.toDouble).getOrElse(24))),
                 ^.width := 80.px
               )
             ),
-            " ", navbtn("search-minus", "", state.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
+            " ", navbtn("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
             " ", <.div(^.cls := "form-group")(<.input(
               ^.cls := "form-control",
               ^.`type` := "range",
@@ -108,16 +101,16 @@ object Navbar {
               "max".reactAttr := 200,
               ^.step := 0.01,
               ^.value := zoom,
-              ^.onChange ~~> ((e: ReactEventI) => state.setL(AppState.view ^|-> View.scale)(Try(e.target.value.toDouble / 100.0).getOrElse(1.0)))
+              ^.onChange ~~> ((e: ReactEventI) => appState.setL(AppState.view ^|-> View.scale)(Try(e.target.value.toDouble / 100.0).getOrElse(1.0)))
             )),
             " ", <.span(f"$zoom%.2f" + "%"),
-            " ", navbtn("search-plus", "", state.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
-            " ", navbtn("Reset Zoom", state.setL(AppState.view ^|-> View.scale)(1.0)),
+            " ", navbtn("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
+            " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
             " ", $.propsChildren
           )
         )
       ))
     })
-    .shouldComponentUpdate((T, P, S) => T.props.state.value != P.state.value)
+    .shouldComponentUpdate((T, P, S) => T.props.value != P.value)
     .build
 }
