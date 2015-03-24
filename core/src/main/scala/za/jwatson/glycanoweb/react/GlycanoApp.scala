@@ -17,8 +17,9 @@ import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
-import scala.util.Try
+import scala.util.{Success, Failure, Try}
 import scalaz.State
+import scalaz.effect.IO
 
 object GlycanoApp {
   case class Props(conventions: Map[String, DisplayConv])
@@ -334,16 +335,54 @@ object GlycanoApp {
                         (st, j) <- stack.zipWithIndex
                       } yield subStatus(id, i, j, st, csf)
                       first ++ rest ++ subs
-                    case resList => ""
+                    case resList =>
+                      for ((id, ge) <- resList) yield {
+                        <.div(^.cls := "row")(
+                          <.div(^.cls := "col-xs-12")(s"${ge.residue.desc}")
+                        )
+                      }
                   }
                 )
               ),
               <.div(^.cls := "panel panel-default")(
                 <.div(^.cls := "panel-body")(
-                  asel.toList match {
-                    case Nil => ""
-                    case (id, annot) :: Nil => ""
-                    case annotList => ""
+                  for (_ <- asel.headOption) yield {
+                    val annotationText = asel.map(_._2.text).reduce[String] {
+                      case (text1, text2) =>
+                        if (text1 == text2) text1 else ""
+                    }
+                    val fontSize = asel.map(_._2.size.toString).reduce[String] {
+                      case (size1, size2) =>
+                        if (size1 == size2) size1 else ""
+                    }
+
+                    <.div(
+                      <.div(^.cls := "form-group input-group")(
+                        "Text", <.input(
+                          ^.cls := "form-control",
+                          ^.`type` := "text",
+                          ^.value := annotationText,
+                          ^.onChange ~~> ((e: ReactEventI) => for {
+                            _ <- e.preventDefaultIO
+                            _ <- $.modStateIO(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.text set e.target.value)
+                          } yield ())
+                        )
+                      ),
+                      <.div(^.cls := "form-group input-group")(
+                        "Font Size", <.input(
+                          ^.cls := "form-control",
+                          ^.`type` := "number",
+                          ^.value := fontSize,
+                          ^.onChange ~~> ((e: ReactEventI) => for {
+                            _ <- e.preventDefaultIO
+                            _ <- Try(e.target.value.toDouble) match {
+                              case Failure(exception) => IO.ioUnit
+                              case Success(value) => $.modStateIO(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.size set value)
+                            }
+                          } yield ())
+                        )
+                      )
+                    )
                   }
                 )
               )
