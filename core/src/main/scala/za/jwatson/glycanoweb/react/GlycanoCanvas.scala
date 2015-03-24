@@ -60,7 +60,8 @@ object GlycanoCanvas {
 
   case class Props(mode: ExternalVar[Mode], dc: DisplayConv, graph: ExternalVar[RGraph],
                    selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: ExternalVar[View], bondLabels: Boolean,
-                   scaleSubstituents: Double, limitUpdateRate: Boolean, annotationFontSize: Double)
+                   scaleSubstituents: Double, limitUpdateRate: Boolean, annotationFontSize: Double,
+                   fitBounds: ExternalVar[(Double, Double, Double, Double)])
 
   def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.selection.value, p.view.value, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate, p.annotationFontSize)
 
@@ -470,6 +471,8 @@ object GlycanoCanvas {
       val viewX = P.view.value.x + voX
       val viewY = P.view.value.y + voY
       val viewScale = P.view.value.scale
+      val viewWidth = P.view.value.width
+      val viewHeight = P.view.value.height
 
       val outlines = for ((r, ge) <- P.graph.value.residues) yield {
         r -> P.dc.outline(ge.residue)
@@ -590,8 +593,8 @@ object GlycanoCanvas {
       }
 
       <.svg.svg(
-        ^.svg.width := P.view.value.width,
-        ^.svg.height := P.view.value.height,
+        ^.svg.width := viewWidth,
+        ^.svg.height := viewHeight,
         ^.ref := "canvas",
         ^.onMouseMove ~~> B.mouseMove _,
         ^.onClick ~~> B.mouseClick _,
@@ -599,22 +602,24 @@ object GlycanoCanvas {
         ^.onMouseUp ~~> B.mouseUp _,
         ^.onMouseDown ~~> B.mouseDown _
       )(
-        <.svg.g(^.svg.transform := s"translate($viewX $viewY) scale($viewScale)", ^.ref := "view")(
+        <.svg.g(^.svg.transform := s"translate(${viewWidth / 2} ${viewHeight / 2}) scale($viewScale) translate(${-viewX} ${-viewY})", ^.ref := "view")(
           bonds,
           tempBonds,
           <.svg.rect(
-            ^.svg.transform := s"scale(${1.0 / viewScale}) translate(${-viewX}, ${-viewY})",
+            ^.svg.transform := s"translate(${viewX}, ${viewY}) scale(${1.0 / viewScale}) translate(${-viewWidth / 2}, ${-viewHeight / 2})",
             ^.svg.fill := "transparent",
             ^.svg.width := P.view.value.width,
             ^.svg.height := P.view.value.height,
             ^.onMouseDown ~~> B.boxSelectDown _
           ),
-          residues,
-          tempSubstituent,
-          selectionBox,
-          tempResidue,
-          annotations,
-          tempAnnotation
+          <.svg.g(^.ref := "fit")(
+            residues,
+            tempSubstituent,
+            selectionBox,
+            tempResidue,
+            annotations,
+            tempAnnotation
+          )
         )
       )
     })
@@ -628,6 +633,16 @@ object GlycanoCanvas {
         false
       })
     }
+    .componentDidUpdate((scope, props, state) => {
+      for {
+        fit <- scope.refs[dom.html.Element]("fit").map(_.getDOMNode().asInstanceOf[dom.svg.G])
+
+      } {
+        val bb = fit.getBBox()
+        val fb = (bb.x, bb.y, bb.width, bb.height)
+        scope.props.fitBounds.set(fb).unsafePerformIO()
+      }
+    })
     //.domType[dom.SVGSVGElement]
     .build
 }

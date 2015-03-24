@@ -9,6 +9,7 @@ import monocle.{Getter, Lens}
 import monocle.macros.{Lenser, Lenses}
 import monocle.Monocle._
 import org.scalajs.dom
+import org.scalajs.dom.raw.SVGRect
 import za.jwatson.glycanoweb.GlyAnnot
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{GlyphIcon, Button, FormInput, NavbarHeader}
@@ -36,7 +37,8 @@ object GlycanoApp {
     displayConv: DisplayConv = DisplayConv.convUCT,
     scaleSubstituents: Double = 1.0,
     limitUpdateRate: Boolean = true,
-    annotationFontSize: Double = 24
+    annotationFontSize: Double = 24,
+    fitBounds: (Double, Double, Double, Double) = (0, 0, 0, 0)
   )
 
   sealed trait Mode
@@ -157,6 +159,7 @@ object GlycanoApp {
     val resizeFunc: js.Function1[dom.Event, Unit] = (e: dom.Event) => resize()
 
     def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")(t)) {
+      println(scalajs.js.Object.properties(t.refs))
       val rect = p.getDOMNode().getBoundingClientRect()
       val setw = AppState.view ^|-> View.width set rect.width.toInt + 1
       val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
@@ -314,7 +317,8 @@ object GlycanoApp {
                     bondLabels = $.state.bondLabels,
                     scaleSubstituents = $.state.scaleSubstituents,
                     limitUpdateRate = $.state.limitUpdateRate,
-                    annotationFontSize = $.state.annotationFontSize
+                    annotationFontSize = $.state.annotationFontSize,
+                    fitBounds = ExternalVar.state($.focusStateL(AppState.fitBounds))
                   ))
                 )
               )

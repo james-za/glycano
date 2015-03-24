@@ -12,9 +12,9 @@ object SubstituentType {
   val deoxy = st("Deoxy")
   val methyl = st("Methyl")
   val cooh = st("COOH", "Carboxylic acid")
+  val r = st("R", "R")
 
-
-  val SubstituentTypes = Seq(p, s, n, ac, deoxy, methyl, cooh)
+  val SubstituentTypes = Seq(p, s, n, ac, deoxy, methyl, cooh, r)
   val SubstituentsMap = (for (st <- SubstituentTypes) yield st.symbol -> st).toMap
 
   def unapply(str: String): Option[SubstituentType] = SubstituentsMap.get(str)

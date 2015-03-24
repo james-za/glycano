@@ -38,5 +38,18 @@ object SubstituentShape {
       <.svg.polygon(^.svg.points := "22,0 0,40 44,40", ^.svg.fill := "white", ^.svg.stroke := "black"),
       <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 24, ^.svg.x := 22, ^.svg.y := 36, ^.svg.fill := "black")("Ac")
     ), (44, 40))
+    case ST.r => (<.svg.g(
+      <.svg.rect(^.svg.width := 20, ^.svg.height := 36, ^.svg.fill := "white", ^.svg.stroke := "black", ^.svg.strokeWidth := 0.8),
+      <.svg.path(^.svg.fill := "none", ^.svg.stroke := "black", ^.svg.strokeWidth := 1, ^.svg.transform := "translate(1, 1) rotate(90 9 9)", ^.svg.d := sinePath(34, 18, 3, 36 * 3))
+    ), (20, 36))
+  }
+  def sinePath(w: Double, h: Double, n: Double, lines: Int): String = {
+    val parts = for (i <- 0 until lines) yield {
+      val t = i.toDouble / lines
+      val x = t * w
+      val y = (math.sin(t * 2 * math.Pi * n) + 1) / 2 * h
+      f"L$x%.3f,$y%.3f"
+    }
+    f"M0,${h / 2}%.3f" + parts.mkString(" ")
   }
 }

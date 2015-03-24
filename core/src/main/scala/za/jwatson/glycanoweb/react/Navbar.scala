@@ -1,9 +1,10 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.extra.ExternalVar
-import japgolly.scalajs.react.{ReactEvent, ReactEventI, ReactNode, ReactComponentB}
+import japgolly.scalajs.react.extra._
+import japgolly.scalajs.react._
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
+import org.scalajs.dom
 import za.jwatson.glycanoweb.react.GlycanoApp.{Mode, AppStateL, AppState}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
@@ -13,7 +14,7 @@ import scala.util.Try
 import scalaz.effect.IO
 
 object Navbar {
-  def navbtn(name: String, action: IO[Unit]) =
+  def navbtn(name: String, action: => IO[Unit]) =
     <.button(
       name,
       ^.cls := "btn btn-default navbar-btn",
@@ -23,7 +24,7 @@ object Navbar {
       } yield ())
     )
 
-  def navbtn(icon: String, name: String, action: IO[Unit]) =
+  def navbtn(icon: String, name: String, action: => IO[Unit]) =
     <.button(
       <.i(^.cls := "fa fa-lg fa-" + icon), " ", name,
       ^.cls := "btn btn-default navbar-btn",
@@ -33,9 +34,23 @@ object Navbar {
       } yield ())
     )
 
+  class Backend(val t: BackendScope[ExternalVar[AppState], Unit]) {
+    def clickCenter = t.props.modL(AppState.view) { v =>
+      val (x, y, w, h) = t.props.value.fitBounds
+      println(s"$x $y $w $h")
+      println(v)
+      val sx = v.width / w
+      val sy = v.height / h
+      val scale = math.min(sx, sy)
+      println(s"$sx $sy $scale")
+      View(x + w / 2, y + h / 2, scale * 0.975, v.width, v.height)
+    }
+  }
+
   def apply(props: ExternalVar[AppState], children: ReactNode*) = component(props, children: _*)
   val component = ReactComponentB[ExternalVar[AppState]]("Navbar")
     .stateless
+    .backend(new Backend(_))
     .render($ => {
       val appState = $.props
       val zoom = appState.value.view.scale * 100
@@ -106,6 +121,7 @@ object Navbar {
             " ", <.span(f"$zoom%.2f" + "%"),
             " ", navbtn("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
             " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
+            " ", navbtn("Center", $.backend.clickCenter),
             " ", $.propsChildren
           )
         )
