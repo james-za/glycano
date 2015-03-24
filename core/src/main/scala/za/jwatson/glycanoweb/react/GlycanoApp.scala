@@ -170,6 +170,40 @@ object GlycanoApp {
     RGraph(residues = Map(r1, r2, r3)) + Bond(rId1, Link(rId2, 2))
   }
 
+  def bondStatus(bond: Bond, csf: ComponentStateFocus[RGraph])(implicit g: RGraph, dc: DisplayConv): TagMod = {
+    for {
+      ge1 <- g.residues.get(bond.from)
+      ge2 <- g.residues.get(bond.to.r)
+    } yield <.div(^.cls := "row")(
+      <.div(^.cls := "col-xs-2")(
+        <.p(s"${ge1.residue.ano.desc}-${bond.to.position}")
+      ),
+      <.div(^.cls := "col-xs-6")(
+        residueStatus(ge1.residue),
+        <.svg.svg(
+          ^.display.`inline-block`,
+          ^.svg.width := 40.px,
+          ^.svg.height := 30.px
+        )(SVGBond(SVGBond.Props(ge1.residue.ano, None, (0, 15), (40, 15)))),
+        residueStatus(ge2.residue)
+      ),
+      <.div(^.cls := "col-xs-4")(
+        <.button(^.cls := "btn btn-link", ^.onClick ~~> csf.modStateIO(_ - bond))("remove bond")
+      )
+    ): TagMod
+  }
+
+  def residueStatus(r: Residue)(implicit dc: DisplayConv) = {
+    val (residue, handle) = dc.shapes(r)
+    val (_, w, h) = dc.boundsMemo(r)
+    <.svg.svg(
+      ^.display.`inline-block`,
+      ^.svg.width := 40.px,
+      ^.svg.height := 30.px,
+      ^.svg.viewBox := s"0 0 $w $h"
+    )(<.svg.g(residue, handle))
+  }
+
   def apply(props: Props, children: ReactNode*) = component(props, children)
   val component = ReactComponentB[Props]("GlycanoApp")
     .initialStateP(P => AppState(
@@ -177,16 +211,21 @@ object GlycanoApp {
       displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
     .backend(new Backend(_))
     .render($ => {
+      implicit val g: RGraph = AppStateL.graph($.state)
+      implicit val dc: DisplayConv = $.state.displayConv
+
       val rtTemplate = $.state.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
         case _ => None
       }
+
+      val (rs, as) = $.state.selection
+      val graph = AppStateL.graphL.get($.state)
+      val rsel = graph.residues.filterKeys(rs.contains)
+      val asel = graph.annotations.filterKeys(as.contains)
+
       <.div(^.cls := "container-fluid")(
-        <.div(^.cls := "row")(
-          Navbar(Navbar.Props(
-            ExternalVar.state($.focusStateId)
-          ))
-        ),
+        <.div(^.cls := "row")(Navbar(ExternalVar.state($.focusStateId))),
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
@@ -202,6 +241,7 @@ object GlycanoApp {
             <.div(^.cls := "row")(
               <.div(^.cls := "col-xs-8")(
                 <.input(
+                  ^.cls := "form-control",
                   ^.ref := "ssSlider",
                   ^.`type` := "range",
                   "min".reactAttr := 0.1,
@@ -213,6 +253,7 @@ object GlycanoApp {
               ),
               <.div(^.cls := "col-xs-4")(
                 <.input(
+                  ^.cls := "form-control",
                   ^.ref := "ssNumber",
                   ^.`type` := "number",
                   ^.value := $.state.scaleSubstituents,
@@ -239,7 +280,7 @@ object GlycanoApp {
               )
             )
           ),
-          <.div(^.cls := "col-xs-9")(
+          <.div(^.cls := "col-xs-6")(
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
             )),
@@ -257,6 +298,23 @@ object GlycanoApp {
                     limitUpdateRate = $.state.limitUpdateRate,
                     annotationFontSize = $.state.annotationFontSize
                   ))
+                )
+              )
+            ))
+          ),
+          <.div(^.cls := "col-xs-3")(
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+              <.div(^.cls := "panel panel-default")(
+                <.div(^.cls := "panel-body")(
+                  rsel.toList match {
+                    case (id, ge) :: Nil =>
+                      val csf = $.focusStateL(AppStateL.graphL)
+                      val first = for (link <- ge.parent.toSeq) yield bondStatus(Bond(id, link), csf)
+                      val rest = for ((i, from) <- ge.children.toSeq) yield bondStatus(Bond(from, Link(id, i)), csf)
+                      first ++ rest
+                    case Nil => ""
+                    case resList => ""
+                  }
                 )
               )
             ))
