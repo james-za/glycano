@@ -159,7 +159,6 @@ object GlycanoApp {
     val resizeFunc: js.Function1[dom.Event, Unit] = (e: dom.Event) => resize()
 
     def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")(t)) {
-      println(scalajs.js.Object.properties(t.refs))
       val rect = p.getDOMNode().getBoundingClientRect()
       val setw = AppState.view ^|-> View.width set rect.width.toInt + 1
       val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)

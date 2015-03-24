@@ -37,12 +37,9 @@ object Navbar {
   class Backend(val t: BackendScope[ExternalVar[AppState], Unit]) {
     def clickCenter = t.props.modL(AppState.view) { v =>
       val (x, y, w, h) = t.props.value.fitBounds
-      println(s"$x $y $w $h")
-      println(v)
       val sx = v.width / w
       val sy = v.height / h
       val scale = math.min(sx, sy)
-      println(s"$sx $sy $scale")
       View(x + w / 2, y + h / 2, scale * 0.975, v.width, v.height)
     }
   }
