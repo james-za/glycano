@@ -12,7 +12,7 @@ import org.scalajs.dom
 import za.jwatson.glycanoweb.GlyAnnot
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{GlyphIcon, Button, FormInput, NavbarHeader}
-import za.jwatson.glycanoweb.render.DisplayConv
+import za.jwatson.glycanoweb.render.{SubstituentShape, DisplayConv}
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
@@ -175,9 +175,6 @@ object GlycanoApp {
       ge1 <- g.residues.get(bond.from)
       ge2 <- g.residues.get(bond.to.r)
     } yield <.div(^.cls := "row")(
-      <.div(^.cls := "col-xs-2")(
-        <.p(s"${ge1.residue.ano.desc}-${bond.to.position}")
-      ),
       <.div(^.cls := "col-xs-6")(
         residueStatus(ge1.residue),
         <.svg.svg(
@@ -186,6 +183,9 @@ object GlycanoApp {
           ^.svg.height := 30.px
         )(SVGBond(SVGBond.Props(ge1.residue.ano, None, (0, 15), (40, 15)))),
         residueStatus(ge2.residue)
+      ),
+      <.div(^.cls := "col-xs-2")(
+        <.p(s"${ge1.residue.ano.desc}-${bond.to.position}")
       ),
       <.div(^.cls := "col-xs-4")(
         <.button(^.cls := "btn btn-link", ^.onClick ~~> csf.modStateIO(_ - bond))("remove bond")
@@ -202,6 +202,23 @@ object GlycanoApp {
       ^.svg.height := 30.px,
       ^.svg.viewBox := s"0 0 $w $h"
     )(<.svg.g(residue, handle))
+  }
+
+  def subStatus(id: ResidueId, i: Int, j: Int, st: SubstituentType, csf: ComponentStateFocus[RGraph]) = {
+    val (sub, (w, h)) = SubstituentShape(st)
+    <.div(^.cls := "row")(
+      <.div(^.cls := "col-xs-3")(
+        <.svg.svg(
+          ^.display.`inline-block`,
+          ^.svg.height := 30.px,
+          ^.svg.viewBox := s"0 0 $w, $h"
+        )(sub)
+      ),
+      <.div(^.cls := "col-xs-5")(s"$i-${st.symbol}"),
+      <.div(^.cls := "col-xs-4")(
+        <.button(^.cls := "btn btn-link", ^.onClick ~~> csf.modStateIO(_ - (Link(id, i), j)))("remove")
+      )
+    )
   }
 
   def apply(props: Props, children: ReactNode*) = component(props, children)
@@ -307,13 +324,26 @@ object GlycanoApp {
               <.div(^.cls := "panel panel-default")(
                 <.div(^.cls := "panel-body")(
                   rsel.toList match {
+                    case Nil => ""
                     case (id, ge) :: Nil =>
                       val csf = $.focusStateL(AppStateL.graphL)
                       val first = for (link <- ge.parent.toSeq) yield bondStatus(Bond(id, link), csf)
                       val rest = for ((i, from) <- ge.children.toSeq) yield bondStatus(Bond(from, Link(id, i)), csf)
-                      first ++ rest
-                    case Nil => ""
+                      val subs = for {
+                        (i, stack) <- ge.residue.subs.toSeq
+                        (st, j) <- stack.zipWithIndex
+                      } yield subStatus(id, i, j, st, csf)
+                      first ++ rest ++ subs
                     case resList => ""
+                  }
+                )
+              ),
+              <.div(^.cls := "panel panel-default")(
+                <.div(^.cls := "panel-body")(
+                  asel.toList match {
+                    case Nil => ""
+                    case (id, annot) :: Nil => ""
+                    case annotList => ""
                   }
                 )
               )
