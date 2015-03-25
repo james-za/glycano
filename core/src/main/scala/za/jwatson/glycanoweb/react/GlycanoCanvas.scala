@@ -596,6 +596,7 @@ object GlycanoCanvas {
         ^.svg.width := viewWidth,
         ^.svg.height := viewHeight,
         ^.ref := "canvas",
+        ^.id := "canvas",
         ^.onMouseMove ~~> B.mouseMove _,
         ^.onClick ~~> B.mouseClick _,
         ^.onMouseOut ~~> B.mouseOut _,
@@ -603,10 +604,16 @@ object GlycanoCanvas {
         ^.onMouseDown ~~> B.mouseDown _
       )(
         <.svg.g(^.svg.transform := s"translate(${viewWidth / 2} ${viewHeight / 2}) scale($viewScale) translate(${-viewX} ${-viewY})", ^.ref := "view")(
+          <.svg.rect(
+            ^.svg.transform := s"translate($viewX, $viewY) scale(${1.0 / viewScale}) translate(${-viewWidth / 2}, ${-viewHeight / 2})",
+            ^.svg.fill := "white",
+            ^.svg.width := P.view.value.width,
+            ^.svg.height := P.view.value.height
+          ),
           bonds,
           tempBonds,
           <.svg.rect(
-            ^.svg.transform := s"translate(${viewX}, ${viewY}) scale(${1.0 / viewScale}) translate(${-viewWidth / 2}, ${-viewHeight / 2})",
+            ^.svg.transform := s"translate($viewX, $viewY) scale(${1.0 / viewScale}) translate(${-viewWidth / 2}, ${-viewHeight / 2})",
             ^.svg.fill := "transparent",
             ^.svg.width := P.view.value.width,
             ^.svg.height := P.view.value.height,

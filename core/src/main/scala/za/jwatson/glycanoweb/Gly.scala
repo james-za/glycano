@@ -6,7 +6,30 @@ import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
 import za.jwatson.glycanoweb.structure._
 import za.jwatson.glycanoweb.structure.RGraph._
 
-case class Gly(residues: Seq[GlyRes], annotations: Seq[GlyAnnot])
+case class Gly(residues: Seq[GlyRes], annotations: Seq[GlyAnnot]) {
+  def toRGraph: RGraph = {
+    val lookup = residues.indices.map(_ -> ResidueId.next()).toMap
+    val residuesWithIndices = residues.zipWithIndex
+    //val reverseLookup = for ((i, id) <- lookup) yield id -> i
+    val residuePairs = for ((gr, i) <- residuesWithIndices) yield {
+      val residue = Residue(gr.ano, gr.abs, gr.rt, gr.subs.map { case (p, stack) => p -> stack.toVector })
+      //todo: minor optimisation for large seqs by removing n^2 lookup?
+      val children = residuesWithIndices.collect {
+        case (grc, ic) if grc.targetRes == i =>
+          grc.targetPos -> lookup(ic)
+      }.toMap
+      val parent = gr.targetRes match {
+        case -1 => None
+        case tr => Some(Link(lookup(tr), gr.targetPos))
+      }
+      lookup(i) -> GraphEntry(residue, gr.x, gr.y, gr.rot, children, parent)
+    }
+    val annotationPairs = for (GlyAnnot(id, x, y, rot, text, size) <- annotations) yield {
+      AnnotId.next() -> Annot(text, size, x, y, rot)
+    }
+    RGraph(residuePairs.toMap, annotationPairs.toMap)
+  }
+}
 case class GlyRes(ano: Anomer, abs: Absolute, rt: ResidueType,
                   x: Double, y: Double, rot: Double,
                   targetRes: Int, targetPos: Int,
