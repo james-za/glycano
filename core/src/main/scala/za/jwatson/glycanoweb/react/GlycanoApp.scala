@@ -227,7 +227,7 @@ object GlycanoApp {
   def apply(props: Props, children: ReactNode*) = component(props, children)
   val component = ReactComponentB[Props]("GlycanoApp")
     .initialStateP(P => AppState(
-      history = Vector(testGraph),
+      //history = Vector(testGraph),
       displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
     .backend(new Backend(_))
     .render($ => {
