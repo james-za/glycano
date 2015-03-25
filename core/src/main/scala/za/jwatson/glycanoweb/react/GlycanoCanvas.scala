@@ -250,7 +250,7 @@ object GlycanoCanvas {
         case (_, InputState.DragView(down @ (x0, y0), (ox, oy))) =>
           if (true/*e.shiftKey*/) clientToCanvasIO(e.clientX, e.clientY) {
             case (x, y) =>
-              val offset = (x - x0, y - y0)
+              val offset = (-(x - x0) / t.props.view.value.scale, -(y - y0) / t.props.view.value.scale)
               t.modStateIO(State.inputState set InputState.DragView(down, offset))
           } else {
             for {
