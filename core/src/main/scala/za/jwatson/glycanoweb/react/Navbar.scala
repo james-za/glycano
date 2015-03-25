@@ -141,9 +141,6 @@ object Navbar {
               )
             )
           ),
-          <.ul(^.cls := "nav navbar-nav")(
-            //saveDropdown
-          ),
           <.form(^.cls := "form-inline")(
             " ", navbtn_("Save .gly", { () => $.backend.saveGly() }),
             " ", navbtn_("Save .svg", { () => $.backend.saveSvg() }),
@@ -195,7 +192,7 @@ object Navbar {
         )
       ))
     })
-    .shouldComponentUpdate((T, P, S) => T.props.value != P.value)
+    .shouldComponentUpdate((T, P, S) => T.props.value != P.value || T.state != S)
     .componentDidMount($ => {
       for (in <- $.refs[dom.html.Input]("loadfile").map(_.getDOMNode())) {
         val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
