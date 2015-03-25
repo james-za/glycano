@@ -72,7 +72,7 @@ object RGraph {
 
   def addSubst(link: Link)(subst: SubstituentType) = linkSubstsL(link) modify (_ :+ subst)
 
-  def removeSubst(link: Link)(position: Int) = linkSubstsL(link) modify { _.take(position).drop(1) }
+  def removeSubst(link: Link)(position: Int) = linkSubstsL(link) modify { v => v.take(position) ++ v.drop(position + 1) }
 
   def addResidue(r: Residue) = residues modify { _ + (ResidueId.next() -> GraphEntry(r)) }
 
