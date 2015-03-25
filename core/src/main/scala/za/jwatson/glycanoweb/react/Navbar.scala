@@ -93,6 +93,15 @@ object Navbar {
         a.click()
       }
     }
+
+    def savePng(): Unit = {
+      import js.Dynamic.{global => g}
+      for (fn <- t.refs[dom.html.Input]("filename").map(_.getDOMNode())) {
+        val base = if (fn.value.isEmpty) "glycano" else fn.value
+        val name = if (base.endsWith(".gly")) base.dropRight(3) + "png" else base + ".png"
+        g.saveSvgAsPng(dom.document.getElementById("canvas"), name)
+      }
+    }
   }
 
   def apply(props: ExternalVar[AppState], children: ReactNode*) = component(props, children: _*)
@@ -138,6 +147,7 @@ object Navbar {
           <.form(^.cls := "form-inline")(
             " ", navbtn_("Save .gly", { () => $.backend.saveGly() }),
             " ", navbtn_("Save .svg", { () => $.backend.saveSvg() }),
+            " ", navbtn_("Save .png", { () => $.backend.savePng() }),
             " ", <.div(^.cls := "form-group")(
               <.label(^.cls := "checkbox-inline")(
                 <.input(
