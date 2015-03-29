@@ -64,26 +64,32 @@ class DisplayConv(val conv: Conv) {
     outlineMemo(residueModsMemo(residue), residue)
 
   val outlineMemo = scalaz.Memo.mutableHashMapMemo((outlineInner _).tupled)
-  def outlineInner(mods: Seq[RuleMod], residue: Residue): IndexedSeq[(Double, Double)] = {
-    mods.flatMap {
-      case ShapeMod(_, classes, Polygon(points)) if classes.contains("links") =>
-        Some(polygonOutline(points))
-      case ShapeMod(_, classes, DefinedShape(_, shapeName)) if classes.contains("links") =>
-        for {
-          Polygon(points) <- conv.shapeDefs.get(shapeName)
-        } yield polygonOutline(points)
-      case _ => None
-    }.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
+  def outlineInner(mods: Seq[RuleMod], residue: Residue): IndexedSeq[(Double, Double)] = residue.rt match {
+    case ResidueType.Begin => IndexedSeq((12.0, 48.0))
+    case ResidueType.End => IndexedSeq((30.0, 48.0), (18.0, 48.0))
+    case _ =>
+      mods.flatMap {
+        case ShapeMod(_, classes, Polygon(points)) if classes.contains("links") =>
+          Some(polygonOutline(points))
+        case ShapeMod(_, classes, DefinedShape(_, shapeName)) if classes.contains("links") =>
+          for {
+            Polygon(points) <- conv.shapeDefs.get(shapeName)
+          } yield polygonOutline(points)
+        case _ => None
+      }.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
   }
 
   val boundsMemo = scalaz.Memo.mutableHashMapMemo(boundsInner)
-  def boundsInner(residue: Residue): ((Double, Double), Double, Double) = {
-    val (xs, ys) = outline(residue).unzip
-    val x = xs.min
-    val y = ys.min
-    val width = xs.max - x
-    val height = ys.max - y
-    ((x, y), width, height)
+  def boundsInner(residue: Residue): ((Double, Double), Double, Double) = residue.rt match {
+    case ResidueType.Begin => ((0.0, 0.0), 30.0, 96.0)
+    case ResidueType.End => ((0.0, 0.0), 30.0, 96.0)
+    case _ =>
+      val (xs, ys) = outline(residue).unzip
+      val x = xs.min
+      val y = ys.min
+      val width = xs.max - x
+      val height = ys.max - y
+      ((x, y), width, height)
   }
 
 //  def group(r: Residue, subs: Map[Int, Vector[SubstituentType]], handleHover: Boolean,
@@ -141,7 +147,19 @@ class DisplayConv(val conv: Conv) {
   def shapes(residue: Residue): (ReactTag, ReactTag) =
     shapesMemo.getOrElseUpdate(residue.##.toString, shapesInner(residue))
   val shapesMemo = js.Dictionary.empty[(ReactTag, ReactTag)]
-  def shapesInner(residue: Residue): (ReactTag, ReactTag) = {
+  def shapesInner(residue: Residue) = residue.rt match {
+    case ResidueType.Begin => pathGroup((0, 0), (10, 0), (10, 4), (4, 4), (4, 28), (10, 28), (10, 32), (0, 32))
+    case ResidueType.End => pathGroup((0, 0), (10, 0), (10, 32), (0, 32), (0, 28), (6, 28), (6, 4), (0, 4))
+    case rt => shapesFromConv(residue)
+  }
+
+  def pathGroup(pts: (Double, Double)*) = {
+    val path = pts.map { case (x, y) => s"${x * 3},${y * 3}" }
+    val points = path.mkString(" ")
+    (<.svg.g(<.svg.polygon(^.svg.points := points, ^.svg.fill := "black")), <.svg.g())
+  }
+
+  def shapesFromConv(residue: Residue): (ReactTag, ReactTag) = {
     val mods = residueModsMemo(residue)
 
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {

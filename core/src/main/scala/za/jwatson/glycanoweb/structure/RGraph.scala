@@ -3,6 +3,7 @@ package za.jwatson.glycanoweb.structure
 import RGraph._
 import za.jwatson.glycanoweb.GlyAnnot
 
+import scala.annotation.tailrec
 import scalaz.Maybe.Just
 import scalaz.{Maybe, IList, State}
 import scalaz.syntax.foldable._
@@ -34,6 +35,12 @@ object RGraph {
     def +(ce: (Int, ResidueId)) = this.copy(children = children + ce)
     def -(ci: Int) = this.copy(children = children - ci)
   }
+
+  @tailrec def rootAnomer(r: ResidueId)(implicit g: RGraph): Anomer =
+    r.parent match {
+      case Some(Link(to, _)) => rootAnomer(to)
+      case _ => r.anomer.getOrElse(Anomer.Alpha)
+    }
 
   def entryL(r: ResidueId) = RGraph.residues ^|-? index(r)
   def getParentL(r: ResidueId) = entryL(r) ^|-> GraphEntry.parent ^<-? some

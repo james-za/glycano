@@ -157,6 +157,32 @@ object GlycanoCanvas {
       links.nonEmpty option links.minBy(_._2)._1
     }
 
+    def closestValidLinkDsq(from: ResidueId, r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
+      val links = for {
+        ge <- r.graphEntry.toIterable
+        (offset, i) <- t.props.dc.outline(ge.residue).zipWithIndex
+        endOutgoing = ge.residue.rt == ResidueType.End && i == 0
+        beginAny = ge.residue.rt == ResidueType.Begin
+        if !endOutgoing && !beginAny
+        (ox, oy) = rotatePointRadians(offset, math.toRadians(ge.rotation))
+        (dx, dy) = (ge.x + ox - x, ge.y + oy - y)
+        dsq = dx * dx + dy * dy if dsq < tsq
+      } yield Link(r, i + 1) -> dsq
+      links.nonEmpty option links.minBy(_._2)
+    }
+
+    def closestValidLink(from: ResidueId, x: Double, y: Double, threshold: Double = 400): Option[Link] = {
+      import scalaz.syntax.std.boolean._
+      val g = t.props.graph.value
+      val links = for {
+        r <- g.residues.keys
+        if r.id != from.id
+        ge <- g.residues.get(r)
+        linkDsq <- closestValidLinkDsq(from, r, x, y, threshold)
+      } yield linkDsq
+      links.nonEmpty option links.minBy(_._2)._1
+    }
+
     def linkPosition(link: Link): Option[(Double, Double)] = {
       for {
         GraphEntry(residue, x, y, rot, _, _) <- graph.residues.get(link.r)
@@ -189,6 +215,7 @@ object GlycanoCanvas {
                 if ge.parent.isEmpty
                 linkPos @ (lx, ly) <- linkPosition(Link(id, 1))
                 if facing._1 * (lx - hx) + facing._2 * (ly - hy) < 0
+                if ge.residue.rt != ResidueType.End
 
                 (dx, dy) = (lx - x + w / 2, ly - y + h / 2)
                 dsq = dx * dx + dy * dy
@@ -199,11 +226,14 @@ object GlycanoCanvas {
               def linkMappings(src: Seq[(ResidueId, (Double, Double), Double)], dst: Seq[((Double, Double), Int)]): Map[Int, ResidueId] = {
                 src match {
                   case (id, (x1, y1), _) :: rest =>
-                    val mapping = (dst.nonEmpty option dst.minBy {
-                      case ((x2, y2), _) =>
-                        val (dx, dy) = (x2 - x1, y2 - y1)
-                        dx * dx + dy * dy
-                    }).filter(_._2 != 0).map(m => (m._2 + 1) -> id)
+                    val mapping = for {
+                      (_, i) <- dst.nonEmpty option dst.minBy {
+                        case ((x2, y2), _) =>
+                          val (dx, dy) = (x2 - x1, y2 - y1)
+                          dx * dx + dy * dy
+                      }
+                      if i != 0
+                    } yield (i + 1) -> id
                     linkMappings(rest, dst.filterNot(m => mapping.exists(_._1 == m._2))) ++ mapping
                   case _ => Map.empty
                 }
@@ -224,7 +254,7 @@ object GlycanoCanvas {
                 dsq = dx * dx + dy * dy
                 if dsq < dsqThreshold
               } yield (link, dsq)
-              val parent = (parents.nonEmpty option parents.minBy(_._2)).map(_._1)
+              val parent = (residue.rt != ResidueType.End && parents.nonEmpty option parents.minBy(_._2)).map(_._1)
 
               for {
                 _ <- t.modStateIO(State.inputState set InputState.AddResidue(x, y, children, parent))
@@ -261,7 +291,7 @@ object GlycanoCanvas {
         case (Mode.Selection, InputState.CreateBond(r, last, _)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
-              val target = closestLink(x, y)
+              val target = closestValidLink(r, x, y)
               t.modStateIO(State.inputState set InputState.CreateBond(r, (x, y), target))
           }
         case _ => IO.ioUnit
@@ -501,7 +531,11 @@ object GlycanoCanvas {
       } yield {
         val from = outlinePos(outlines(r), ge, 1)
         val to = outlinePos(outlines(toRes), entriesOffset(toRes), i)
-        SVGBond.withKey("bond" + r.id)(SVGBond.Props(ge.residue.ano, Some(i), from, to, P.bondLabels))
+        val anomer = ge.residue.rt match {
+          case ResidueType.Begin => rootAnomer(r)
+          case _ => ge.residue.ano
+        }
+        SVGBond.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, P.bondLabels))
       }
 
       val tempBonds = (P.mode.value, S.inputState) match {

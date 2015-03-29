@@ -177,14 +177,19 @@ object GlycanoApp {
     for {
       ge1 <- g.residues.get(bond.from)
       ge2 <- g.residues.get(bond.to.r)
+      anomer = ge1.residue.rt match {
+        case ResidueType.Begin => rootAnomer(bond.from)
+        case _ => ge1.residue.ano
+      }
     } yield <.div(^.cls := "row")(
       <.div(^.cls := "col-xs-6")(
         residueStatus(ge1.residue),
         <.svg.svg(
           ^.display.`inline-block`,
           ^.svg.width := 40.px,
-          ^.svg.height := 30.px
-        )(SVGBond(SVGBond.Props(ge1.residue.ano, None, (0, 15), (40, 15)))),
+          ^.svg.height := 30.px,
+          ^.svg.viewBox := "0 0 120 90"
+        )(SVGBond(SVGBond.Props(anomer, None, (0, 45), (120, 45)))),
         residueStatus(ge2.residue)
       ),
       <.div(^.cls := "col-xs-2")(

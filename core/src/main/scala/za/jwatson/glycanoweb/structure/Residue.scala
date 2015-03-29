@@ -8,9 +8,8 @@ import monocle.macros.Lenses
     st <- sts
   } yield "" + i + st.symbol).mkString
   
-  def symbol: String = rt match {
-    case ResidueType.Begin => ano.symbol + rt.symbol
-    case ResidueType.End => rt.symbol
+  def symbol: String = rt.category match {
+    case ResidueCategory.Repeat => rt.symbol
     case _ => ano.symbol + abs.symbol + rt.symbol + substSymbol
   }
   
