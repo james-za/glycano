@@ -181,6 +181,33 @@ object GlycanoApp {
       t.modState(setw andThen seth)
     }
 
+    val keydownFunc: js.Function1[dom.KeyboardEvent, Unit] = keyDown _
+
+    def keyDown(e: dom.KeyboardEvent): Unit = {
+
+      val shift = e.asInstanceOf[js.Dynamic].shiftKey.asInstanceOf[js.UndefOr[Boolean]].getOrElse(false)
+      val ctrl = e.asInstanceOf[js.Dynamic].ctrlKey.asInstanceOf[js.UndefOr[Boolean]]
+      val meta = e.asInstanceOf[js.Dynamic].metaKey.asInstanceOf[Boolean]
+      val mod = meta || ctrl.getOrElse(false)
+      e.keyCode match {
+        case 46 =>
+          delete()
+        case 27 | 32 =>
+          t.modState(AppState.mode set Mode.Selection)
+        case 88 /*X*/ if mod =>
+          cut()
+        case 67 /*C*/ if mod =>
+          copy()
+        case 86 /*V*/ if mod =>
+          paste()
+        case 90 /*Z*/ if mod =>
+          t.modState(if (shift) redo else undo)
+        case 89 /*Y*/ if mod =>
+          t.modState(redo)
+        case _ =>
+      }
+    }
+
     def setSelectionAno(ano: Option[Anomer]): Unit =
       for (anomer <- ano) {
         val sel = t.state.selection._1
@@ -337,7 +364,11 @@ object GlycanoApp {
             )),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               <.div(^.cls := "panel panel-default")(
-                <.div(^.cls := "panel-body", ^.ref := "canvaspanel", ^.padding := 0.px)(
+                <.div(
+                  ^.cls := "panel-body",
+                  ^.ref := "canvaspanel",
+                  ^.padding := 0.px
+                )(
                   GlycanoCanvas(GlycanoCanvas.Props(
                     mode = ExternalVar.state($.focusStateL(AppState.mode)),
                     dc = $.state.displayConv,
@@ -454,10 +485,12 @@ object GlycanoApp {
     })
     .componentDidMount { $ =>
       dom.window.addEventListener("resize", $.backend.resizeFunc)
+      dom.window.addEventListener("keydown", $.backend.keydownFunc)
       $.backend.resize()
     }
     .componentWillUnmount { $ =>
       dom.window.removeEventListener("resize", $.backend.resizeFunc)
+      dom.window.removeEventListener("keydown", $.backend.keydownFunc.asInstanceOf[js.Function1[dom.Event, Unit]])
     }
     .build
 }

@@ -38,7 +38,7 @@ object RGraph {
 
   @tailrec def rootAnomer(r: ResidueId, visited: Set[ResidueId] = Set.empty)(implicit g: RGraph): Anomer =
     r.parent match {
-      case Some(Link(to, _)) if !visited.contains(to) => rootAnomer(to, visited + to)
+      case Some(Link(to, _)) if !visited.contains(to) && to.graphEntry.exists(_.residue.rt.category != ResidueCategory.Repeat) => rootAnomer(to, visited + to)
       case _ => r.anomer.getOrElse(Anomer.Alpha)
     }
 
