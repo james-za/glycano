@@ -3,10 +3,12 @@ package za.jwatson.glycanoweb.structure
 import monocle.macros.Lenses
 
 @Lenses case class Residue(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]] = Map.empty) {
-  def substSymbol = (for {
+
+  def substSymbol = substSymbolParts.mkString
+  def substSymbolParts = for {
     (i, sts) <- subs
-    st <- sts
-  } yield "" + i + st.symbol).mkString
+    stsString = sts.map(_.symbol).mkString
+  } yield s"$i$stsString"
   
   def symbol: String = rt.category match {
     case ResidueCategory.Repeat => rt.symbol

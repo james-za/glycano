@@ -77,17 +77,16 @@ object Navbar {
     }
 
     def saveGly(): Unit = {
-      import js.Dynamic.{global => g}
-      import upickle._, Gly._
+      import js.Dynamic.{global => g}, upickle._, Gly._
       for (fn <- t.refs[dom.html.Input]("filename").map(_.getDOMNode())) {
         val base = if (fn.value.isEmpty) "glycano" else fn.value
         val name = if (base.endsWith(".gly")) base else base + ".gly"
-        val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-        a.setAttribute("download", name)
         val graph = AppStateL.graph(t.props.value)
         val gly = write[Gly](Gly.from(graph))
         val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
-        val dataUrl = "data:image/svg+xml;base64," + base64
+        val dataUrl = "data:text/plain;base64," + base64
+        val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+        a.setAttribute("download", name)
         a.setAttribute("href", dataUrl)
         dom.document.body.appendChild(a)
         a.click()
