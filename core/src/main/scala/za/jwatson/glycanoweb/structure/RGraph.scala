@@ -36,9 +36,9 @@ object RGraph {
     def -(ci: Int) = this.copy(children = children - ci)
   }
 
-  @tailrec def rootAnomer(r: ResidueId)(implicit g: RGraph): Anomer =
+  @tailrec def rootAnomer(r: ResidueId, visited: Set[ResidueId] = Set.empty)(implicit g: RGraph): Anomer =
     r.parent match {
-      case Some(Link(to, _)) => rootAnomer(to)
+      case Some(Link(to, _)) if !visited.contains(to) => rootAnomer(to, visited + to)
       case _ => r.anomer.getOrElse(Anomer.Alpha)
     }
 

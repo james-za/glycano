@@ -359,14 +359,24 @@ object GlycanoApp {
               <.div(^.cls := "panel panel-default")(
                 <.div(^.cls := "panel-body")(
                   for (_ <- rsel.headOption) yield {
-                    val anomer = rsel.map(e => Some(e._2.residue.ano)).reduce[Option[Anomer]] {
-                      case (ano1, ano2) =>
-                        if (ano1 == ano2) ano1 else None
-                    }
-                    val absolute = rsel.map(e => Some(e._2.residue.abs)).reduce[Option[Absolute]] {
-                      case (abs1, abs2) =>
-                        if (abs1 == abs2) abs1 else None
-                    }
+                    val anomer = rsel
+                      .map {
+                        case (_, ge) if ge.residue.rt.category == ResidueCategory.Repeat => None
+                        case (_, ge) => Some(ge.residue.ano)
+                      }
+                      .reduce[Option[Anomer]] {
+                        case (ano1, ano2) =>
+                          if (ano1 == ano2) ano1 else None
+                      }
+                    val absolute = rsel
+                      .map {
+                        case (_, ge) if ge.residue.rt.category == ResidueCategory.Repeat => None
+                        case (_, ge) => Some(ge.residue.abs)
+                      }
+                      .reduce[Option[Absolute]] {
+                        case (abs1, abs2) =>
+                          if (abs1 == abs2) abs1 else None
+                      }
                     val changeAno = RadioGroupMap[Anomer](RadioGroupMap.Props[Anomer]($.backend.setSelectionAno, ResiduePanel.choicesAno, anomer, toggle = false))
                     val changeAbs = RadioGroupMap[Absolute](RadioGroupMap.Props[Absolute]($.backend.setSelectionAbs, ResiduePanel.choicesAbs, absolute, toggle = false))
                     <.div(
