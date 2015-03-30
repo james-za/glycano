@@ -59,8 +59,8 @@ object ResiduePanel {
       )
 
       val residueConfig = <.div(^.cls := "btn-toolbar", ^.role := "toolbar", ^.display.`inline-block`)(
-        RadioGroupMap[Anomer].apply(RadioGroupMap.Props[Anomer](B.setAnomer, choicesAno, P.ano, toggle = false)),
-        RadioGroupMap[Absolute].apply(RadioGroupMap.Props[Absolute](B.setAbsolute, choicesAbs, P.abs, toggle = false))
+        RadioGroupMap[Anomer].apply(RadioGroupMap.Props[Anomer](B.setAnomer, choicesAno, Some(P.ano), toggle = false)),
+        RadioGroupMap[Absolute].apply(RadioGroupMap.Props[Absolute](B.setAbsolute, choicesAbs, Some(P.abs), toggle = false))
       )
 
       val residuePages = <.div(^.cls := "btn-group", "data-toggle".reactAttr := "buttons")(

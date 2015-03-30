@@ -13,7 +13,7 @@ import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.raw.SVGRect
 import za.jwatson.glycanoweb.{Gly, GlyAnnot}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
-import za.jwatson.glycanoweb.react.bootstrap.{GlyphIcon, Button, FormInput, NavbarHeader}
+import za.jwatson.glycanoweb.react.bootstrap._
 import za.jwatson.glycanoweb.render.{SubstituentShape, DisplayConv}
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
@@ -180,13 +180,20 @@ object GlycanoApp {
       val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
       t.modState(setw andThen seth)
     }
-  }
 
-  val testGraph = {
-    val r1 @ (rId1, _) = ResidueId.next() -> GraphEntry(Residue(Anomer.Alpha, Absolute.D, ResidueType.Glc), x = 50, y = 100)
-    val r2 @ (rId2, _) = ResidueId.next() -> GraphEntry(Residue(Anomer.Beta, Absolute.D, ResidueType.Man), x = 350, y = 50)
-    val r3 = ResidueId.next() -> GraphEntry(Residue(Anomer.Alpha, Absolute.L, ResidueType.Ido, Map(3 -> Vector(SubstituentType.cooh, SubstituentType.n))), x = 200, y = 300, rotation = 45)
-    RGraph(residues = Map(r1, r2, r3)) + Bond(rId1, Link(rId2, 2))
+    def setSelectionAno(ano: Option[Anomer]): Unit =
+      for (anomer <- ano) {
+        val sel = t.state.selection._1
+        val anoSelected = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(sel.contains) ^|-> GraphEntry.residue ^|-> Residue.ano
+        t.modState(anoSelected set anomer)
+      }
+
+    def setSelectionAbs(abs: Option[Absolute]): Unit =
+      for (absolute <- abs) {
+        val sel = t.state.selection._1
+        val absSelected = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(sel.contains) ^|-> GraphEntry.residue ^|-> Residue.abs
+        t.modState(absSelected set absolute)
+      }
   }
 
   def bondStatus(bond: Bond, csf: ComponentStateFocus[RGraph])(implicit g: RGraph, dc: DisplayConv): TagMod = {
@@ -351,6 +358,23 @@ object GlycanoApp {
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               <.div(^.cls := "panel panel-default")(
                 <.div(^.cls := "panel-body")(
+                  for (_ <- rsel.headOption) yield {
+                    val anomer = rsel.map(e => Some(e._2.residue.ano)).reduce[Option[Anomer]] {
+                      case (ano1, ano2) =>
+                        if (ano1 == ano2) ano1 else None
+                    }
+                    val absolute = rsel.map(e => Some(e._2.residue.abs)).reduce[Option[Absolute]] {
+                      case (abs1, abs2) =>
+                        if (abs1 == abs2) abs1 else None
+                    }
+                    val changeAno = RadioGroupMap[Anomer](RadioGroupMap.Props[Anomer]($.backend.setSelectionAno, ResiduePanel.choicesAno, anomer, toggle = false))
+                    val changeAbs = RadioGroupMap[Absolute](RadioGroupMap.Props[Absolute]($.backend.setSelectionAbs, ResiduePanel.choicesAbs, absolute, toggle = false))
+                    <.div(
+                      ^.cls := "btn-toolbar",
+                      ^.role := "toolbar",
+                      ^.display.`inline-block`
+                    )(changeAno, changeAbs)
+                  },
                   rsel.toList match {
                     case Nil => ""
                     case (id, ge) :: Nil =>
