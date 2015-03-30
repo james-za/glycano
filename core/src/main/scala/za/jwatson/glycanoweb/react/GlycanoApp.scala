@@ -9,8 +9,9 @@ import monocle.{Getter, Lens}
 import monocle.macros.{Lenser, Lenses}
 import monocle.Monocle._
 import org.scalajs.dom
+import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.raw.SVGRect
-import za.jwatson.glycanoweb.GlyAnnot
+import za.jwatson.glycanoweb.{Gly, GlyAnnot}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{GlyphIcon, Button, FormInput, NavbarHeader}
 import za.jwatson.glycanoweb.render.{SubstituentShape, DisplayConv}
@@ -49,10 +50,25 @@ object GlycanoApp {
     case object PlaceAnnotation extends Mode
   }
 
+  def saveGraph(graph: RGraph): Unit = {
+    import upickle._, Gly._
+    LocalStorage("glycano.temp") = write[Gly](Gly.from(graph))
+  }
+
+  def loadGraph(): RGraph = {
+    import upickle._, Gly._
+    val graph = for {
+      str <- LocalStorage("glycano.temp")
+      gly <- Try(read[Gly](str)).toOption
+    } yield gly.toRGraph
+    graph.getOrElse(RGraph())
+  }
+
   object AppStateL {
     def graph(s: AppState): RGraph = s.history(s.undoPosition)
     def setGraph(g: RGraph)(s: AppState): AppState = {
       val s2 = AppState.history.modify(g +: _.drop(s.undoPosition).take(50))(s)
+      saveGraph(g)
       AppState.undoPosition.set(0)(s2)
     }
     def modGraph(f: RGraph => RGraph)(s: AppState): AppState = setGraph(f(graph(s)))(s)
@@ -231,9 +247,12 @@ object GlycanoApp {
 
   def apply(props: Props, children: ReactNode*) = component(props, children)
   val component = ReactComponentB[Props]("GlycanoApp")
-    .initialStateP(P => AppState(
-      //history = Vector(testGraph),
-      displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)))
+    .initialStateP { P =>
+      AppState(
+        history = Vector(loadGraph()),
+        displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)
+      )
+    }
     .backend(new Backend(_))
     .render($ => {
       implicit val g: RGraph = AppStateL.graph($.state)

@@ -65,12 +65,12 @@ object Navbar {
       for (fn <- t.refs[dom.html.Input]("filename").map(_.getDOMNode())) {
         val base = if (fn.value.isEmpty) "glycano" else fn.value
         val name = if (base.endsWith(".gly")) base.dropRight(3) + "svg" else base + ".svg"
-        val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-        a.setAttribute("download", name)
         val svg = dom.document.getElementById("canvas").outerHTML
         val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
         val dataUrl = "data:image/svg+xml;base64," + base64
-        a.setAttribute("href", dataUrl)
+        val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
+        a.asInstanceOf[js.Dynamic].download = name
+        a.asInstanceOf[js.Dynamic].href = dataUrl
         dom.document.body.appendChild(a)
         a.click()
       }
@@ -86,8 +86,8 @@ object Navbar {
         val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
         val dataUrl = "data:text/plain;base64," + base64
         val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-        a.setAttribute("download", name)
-        a.setAttribute("href", dataUrl)
+        a.asInstanceOf[js.Dynamic].download = name
+        a.asInstanceOf[js.Dynamic].href = dataUrl
         dom.document.body.appendChild(a)
         a.click()
       }
