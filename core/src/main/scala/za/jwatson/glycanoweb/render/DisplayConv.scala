@@ -2,6 +2,7 @@ package za.jwatson.glycanoweb.render
 
 import japgolly.scalajs.react.ReactMouseEvent
 import org.parboiled2.ParseError
+import za.jwatson.glycanoweb.structure.RGraph.GraphEntry
 import za.jwatson.glycanoweb.{ConventionParser, ConventionEditor}
 import za.jwatson.glycanoweb.ConventionEditor.RuleCond.{DefaultCond, ResCond}
 import za.jwatson.glycanoweb.ConventionEditor._
@@ -90,6 +91,26 @@ class DisplayConv(val conv: Conv) {
       val width = xs.max - x
       val height = ys.max - y
       ((x, y), width, height)
+  }
+
+  def outlinePos(outline: IndexedSeq[(Double, Double)], ge: GraphEntry, i: Int): (Double, Double) = {
+    val ((x0, y0), w, h) = boundsMemo(ge.residue)
+    val offset = (x0 + w / 2.0, y0 + h / 2.0)
+    val (x, y) = rotatePointRadians(outline(i - 1), math.toRadians(ge.rotation), offset)
+    (ge.x + x, ge.y + y)
+  }
+
+  def rotatePointRadians(p: (Double, Double), a: Double, o: (Double, Double) = (0, 0)): (Double, Double) = {
+    val sin = math.sin(a)
+    val cos = math.cos(a)
+
+    val tx = p._1 - o._1
+    val ty = p._2 - o._2
+
+    val nx = tx * cos - ty * sin
+    val ny = tx * sin + ty * cos
+
+    (nx, ny)//(nx + o._1, ny + o._2)
   }
 
 //  def group(r: Residue, subs: Map[Int, Vector[SubstituentType]], handleHover: Boolean,
