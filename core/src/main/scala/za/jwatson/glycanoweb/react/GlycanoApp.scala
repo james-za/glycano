@@ -37,7 +37,7 @@ object GlycanoApp {
     mode: Mode = Mode.Selection,
     displayConv: DisplayConv = DisplayConv.convUCT,
     scaleSubstituents: Double = 1.0,
-    limitUpdateRate: Boolean = true,
+    limitUpdateRate: Boolean = false,
     annotationFontSize: Double = 24,
     fitBounds: (Double, Double, Double, Double) = (0, 0, 0, 0)
   )

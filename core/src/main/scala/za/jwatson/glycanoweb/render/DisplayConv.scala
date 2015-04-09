@@ -69,18 +69,27 @@ class DisplayConv(val conv: Conv) {
     case ResidueType.Begin => IndexedSeq((12.0, 48.0))
     case ResidueType.End => IndexedSeq((30.0, 48.0), (18.0, 48.0))
     case _ =>
-      val someOutline = for {
-        ShapeMod(_, classes, shape) <- mods
-        if classes contains "outline"
-        outline <- outlineFromShape(shape)
-      } yield outline
-      someOutline.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
+      mods.flatMap {
+        case ShapeMod(_, classes, shape) if classes contains "outline" =>
+          outlineFromShape(shape)
+        case _ => None
+      }.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
+//      val someOutline = for {
+//        ShapeMod(_, classes, shape) <- mods
+//        if classes contains "outline"
+//        outline <- outlineFromShape(shape)
+//      } yield outline
+//      someOutline.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
   }
 
   def outlineFromShape(shape: Shape): Option[IndexedSeq[(Double, Double)]] = shape match {
     case Polygon(points) =>
       Some(polygonOutline(points))
     case DefinedShape(_, shapeName) =>
+//      println(shapeName)
+//      println(conv)
+//      println(conv.shapeDefs)
+//      println(conv.shapeDefs.get(shapeName))
       for {
         innerShape <- conv.shapeDefs.get(shapeName)
         outline <- outlineFromShape(innerShape)
