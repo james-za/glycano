@@ -31,11 +31,11 @@ object SVGResidue {
       val (cx, cy) = (x0 + w / 2.0, y0 + h / 2.0)
       val (residue, handle) = P.dc.shapes(P.ge.residue)
 
-      val outline = P.dc.outline(P.ge.residue)
+      val residueLinks = P.dc.links(P.ge.residue)
       val substituents = for {
         (i, sts) <- P.ge.residue.subs.toSeq
       } yield {
-        val (x1, y1) = outline(i - 1)
+        val (x1, y1) = residueLinks(i - 1)
         <.svg.g(^.svg.transform := s"translate($x1, $y1) scale(${P.scaleSubstituents})")(
           SVGSubstituentStack.withKey(i)(SVGSubstituentStack.Props(sts))
         )

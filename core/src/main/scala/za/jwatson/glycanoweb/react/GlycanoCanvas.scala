@@ -153,9 +153,9 @@ object GlycanoCanvas {
     def closestLinkDsq(r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
       val links = for {
         ge <- r.graphEntry.toIterable
-        outline = t.props.dc.outline(ge.residue)
+        residueLinks = t.props.dc.links(ge.residue)
         i <- 1 to ge.residue.rt.linkage
-        (lx, ly) = t.props.dc.outlinePos(outline, ge, i)
+        (lx, ly) = t.props.dc.linkPos(residueLinks, ge, i)
         (dx, dy) = (lx - x, ly - y)
         dsq = dx * dx + dy * dy if dsq < tsq
       } yield Link(r, i) -> dsq
@@ -174,9 +174,9 @@ object GlycanoCanvas {
     def closestValidLinkDsq(from: ResidueId, r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
       val links = for {
         ge <- r.graphEntry.toIterable
-        outline = t.props.dc.outline(ge.residue)
+        residueLinks = t.props.dc.links(ge.residue)
         i <- 1 to ge.residue.rt.linkage
-        (lx, ly) = t.props.dc.outlinePos(outline, ge, i)
+        (lx, ly) = t.props.dc.linkPos(residueLinks, ge, i)
         endOutgoing = ge.residue.rt == ResidueType.End && i == 0
         beginAny = ge.residue.rt == ResidueType.Begin
         if !endOutgoing && !beginAny
@@ -202,7 +202,7 @@ object GlycanoCanvas {
       for {
         ge <- graph.residues.get(link.r)
       } yield {
-        t.props.dc.outlinePos(t.props.dc.outline(ge.residue), ge, link.position)
+        t.props.dc.linkPos(t.props.dc.links(ge.residue), ge, link.position)
       }
     }
 
@@ -219,9 +219,9 @@ object GlycanoCanvas {
               val (_, w, h) = t.props.dc.boundsMemo(residue)
               val dsqThreshold: Double = 500 * 500
               val facing: (Double, Double) = (1, 0)
-              val outline = t.props.dc.outline(residue)
-              val outlinePositions = for (((ox, oy), i) <- outline.zipWithIndex) yield (x + ox, y + oy)
-              val (hx, hy) = outlinePositions.head
+              val residueLinks = t.props.dc.links(residue)
+              val linkPositions = for (((ox, oy), i) <- residueLinks.zipWithIndex) yield (x + ox, y + oy)
+              val (hx, hy) = linkPositions.head
 
               val lefts = for {
                 (id, ge) <- graph.residues
@@ -251,7 +251,7 @@ object GlycanoCanvas {
                   case _ => Map.empty
                 }
               }
-              val children = linkMappings(lefts.toList.sortBy(_._3), outlinePositions.zipWithIndex)
+              val children = linkMappings(lefts.toList.sortBy(_._3), linkPositions.zipWithIndex)
 
               val parents = for {
                 (id, ge) <- graph.residues
@@ -527,8 +527,8 @@ object GlycanoCanvas {
       val viewWidth = P.view.value.width
       val viewHeight = P.view.value.height
 
-      val outlines = for ((r, ge) <- P.graph.value.residues) yield {
-        r -> P.dc.outline(ge.residue)
+      val allLinks = for ((r, ge) <- P.graph.value.residues) yield {
+        r -> P.dc.links(ge.residue)
       }
 
       val (drag, dx, dy) = S.inputState match {
@@ -554,8 +554,8 @@ object GlycanoCanvas {
         (r, ge) <- entriesOffset.toSeq
         toLink @ Link(toRes, i) <- ge.parent
       } yield {
-        val from = P.dc.outlinePos(outlines(r), ge, 1)
-        val to = P.dc.outlinePos(outlines(toRes), entriesOffset(toRes), i)
+        val from = P.dc.linkPos(allLinks(r), ge, 1)
+        val to = P.dc.linkPos(allLinks(toRes), entriesOffset(toRes), i)
         val anomer = ge.residue.rt match {
           case ResidueType.Begin => rootAnomer(r)
           case _ => ge.residue.ano
@@ -566,11 +566,11 @@ object GlycanoCanvas {
       val tempBonds = (P.mode.value, S.inputState) match {
         case (Mode.Selection, InputState.CreateBond(r, mouse, target)) =>
           for (ge <- r.graphEntry.toSeq) yield {
-            val from = P.dc.outlinePos(outlines(r), ge, 1)
+            val from = P.dc.linkPos(allLinks(r), ge, 1)
             val targetLink = for {
               Link(rLink, pos) <- target
               geLink <- rLink.graphEntry
-            } yield P.dc.outlinePos(outlines(rLink), geLink, pos)
+            } yield P.dc.linkPos(allLinks(rLink), geLink, pos)
             val to = targetLink getOrElse mouse
             SVGBond.withKey("tempBond")(SVGBond.Props(ge.residue.ano, target.map(_.position), from, to, P.bondLabels))
           }
@@ -580,8 +580,8 @@ object GlycanoCanvas {
             (i, id) <- children.toSeq
             ge <- graph.residues.get(id)
           } yield {
-            val fromPos = P.dc.outlinePos(outlines(id), ge, 1)
-            val (ox, oy) = P.dc.outline(residue)(i - 1)
+            val fromPos = P.dc.linkPos(allLinks(id), ge, 1)
+            val (ox, oy) = P.dc.links(residue)(i - 1)
             val toPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
             SVGBond.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, P.bondLabels))
           }
@@ -590,9 +590,9 @@ object GlycanoCanvas {
             Link(id, i) <- parent.toSeq
             ge <- graph.residues.get(id)
           } yield {
-            val (ox, oy) = P.dc.outline(residue).head
+            val (ox, oy) = P.dc.links(residue).head
             val fromPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
-            val toPos = P.dc.outlinePos(outlines(id), ge, i)
+            val toPos = P.dc.linkPos(allLinks(id), ge, i)
             SVGBond.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, P.bondLabels))
           }
 

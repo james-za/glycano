@@ -307,6 +307,13 @@ object GlycanoApp {
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
+            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12 text-center")(
+              RadioGroupMap[DisplayConv](RadioGroupMap.Props[DisplayConv](
+                for (dc <- _) $.modState(AppState.displayConv set dc),
+                $.props.conventions.map(_.swap),
+                Some($.state.displayConv)
+              ))
+            )),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               ResiduePanel(ResiduePanel.Props(
                 $.state.displayConv,

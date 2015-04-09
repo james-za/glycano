@@ -68,7 +68,7 @@ object ResiduePanel {
           <.div(^.role := "tabpanel", ^.cls := "tab-pane active")(
             for (rt <- ResidueType.ResidueTypeCategories(S.page)) yield {
               val res: Residue = Residue(P.ano, P.abs, rt)
-              val (_, w, h) = P.dc.boundsMemo(res)
+              val ((x, y), w, h) = P.dc.boundsMemo(res)
               val scale = 0.4
               val (residue, handle) = P.dc.shapes(res)
               <.span(
@@ -77,7 +77,7 @@ object ResiduePanel {
                     ^.svg.width := (w + 20) * scale,
                     ^.svg.height := (h + 20) * scale
                   )(
-                    <.svg.g(^.svg.transform := s"scale($scale) translate(10, 0)")(
+                    <.svg.g(^.svg.transform := s"scale($scale) translate(${10 - x} ${10 - y})")(
                       <.svg.g(residue, handle)
                     )
                   )

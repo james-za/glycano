@@ -69,6 +69,49 @@ class DisplayConv(val conv: Conv) {
     case ResidueType.Begin => IndexedSeq((12.0, 48.0))
     case ResidueType.End => IndexedSeq((30.0, 48.0), (18.0, 48.0))
     case _ =>
+      val someOutline = for {
+        ShapeMod(_, classes, shape) <- mods
+        if classes contains "outline"
+        outline <- outlineFromShape(shape)
+      } yield outline
+      someOutline.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
+  }
+
+  def outlineFromShape(shape: Shape): Option[IndexedSeq[(Double, Double)]] = shape match {
+    case Polygon(points) =>
+      Some(polygonOutline(points))
+    case DefinedShape(_, shapeName) =>
+      for {
+        innerShape <- conv.shapeDefs.get(shapeName)
+        outline <- outlineFromShape(innerShape)
+      } yield outline
+    case Circle(x, y, r) =>
+      val cx = x.toDouble
+      val cy = y.toDouble
+      val radius = math.abs(r.toDouble)
+      Some(IndexedSeq[(Double, Double)]((cx - radius, cy - radius), (cx + radius, cy + radius)))
+    case Rect(x, y, w, h, _, _) =>
+      val rx = x.toDouble
+      val ry = y.toDouble
+      val rw = w.toDouble
+      val rh = h.toDouble
+      Some(IndexedSeq[(Double, Double)]((rx, ry), (rx + rw, ry + rh)))
+    case Star(x, y, n, r1, r2) =>
+      val cx = x.toDouble
+      val cy = y.toDouble
+      val radius = math.max(math.abs(r1.toDouble), math.abs(r2.toDouble))
+      Some(IndexedSeq[(Double, Double)]((cx - radius, cy - radius), (cx + radius, cy + radius)))
+    case _ => None
+  }
+
+  def links(residue: Residue): IndexedSeq[(Double, Double)] =
+    linksMemo(residueModsMemo(residue), residue)
+
+  val linksMemo = scalaz.Memo.mutableHashMapMemo((linksInner _).tupled)
+  def linksInner(mods: Seq[RuleMod], residue: Residue): IndexedSeq[(Double, Double)] = residue.rt match {
+    case ResidueType.Begin => IndexedSeq((12.0, 48.0))
+    case ResidueType.End => IndexedSeq((30.0, 48.0), (18.0, 48.0))
+    case _ =>
       mods.flatMap {
         case ShapeMod(_, classes, Polygon(points)) if classes.contains("links") =>
           Some(polygonOutline(points))
@@ -93,7 +136,7 @@ class DisplayConv(val conv: Conv) {
       ((x, y), width, height)
   }
 
-  def outlinePos(outline: IndexedSeq[(Double, Double)], ge: GraphEntry, i: Int): (Double, Double) = {
+  def linkPos(outline: IndexedSeq[(Double, Double)], ge: GraphEntry, i: Int): (Double, Double) = {
     val ((x0, y0), w, h) = boundsMemo(ge.residue)
     val offset = (x0 + w / 2.0, y0 + h / 2.0)
     val (x, y) = rotatePointRadians(outline(i - 1), math.toRadians(ge.rotation), offset)
@@ -207,11 +250,12 @@ class DisplayConv(val conv: Conv) {
           }
         } yield mod
 
-        val outlineMod = classes contains "links" ?= (^.cls := "outline")
+        val linksMod = classes contains "links" ?= (^.cls := "links")
+        val outlineMod = classes contains "outline" ?= (^.cls := "outline")
         val isHandle = classes contains "handle"
         val handleMod = isHandle ?= (^.cls := "handle")
 
-        (priority, isHandle, item(outlineMod, styleMods, handleMod))
+        (priority, isHandle, item(linksMod, outlineMod, styleMods, handleMod))
     }.sortBy(_._1).partition(_._2)
     (<.svg.g(residueShapeMods.map(_._3)), handleShapeMods.map(_._3).headOption.getOrElse(<.svg.g()))
   }
