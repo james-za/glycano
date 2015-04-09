@@ -216,11 +216,11 @@ object GlycanoCanvas {
         case (Mode.PlaceResidue(residue), _) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
-              val (_, w, h) = t.props.dc.boundsMemo(residue)
+              val ((xm, ym), w, h) = t.props.dc.boundsMemo(residue)
               val dsqThreshold: Double = 500 * 500
               val facing: (Double, Double) = (1, 0)
               val residueLinks = t.props.dc.links(residue)
-              val linkPositions = for (((ox, oy), i) <- residueLinks.zipWithIndex) yield (x + ox, y + oy)
+              val linkPositions = for (((ox, oy), i) <- residueLinks.zipWithIndex) yield (x + ox - (xm + w / 2.0), y + oy - (ym + h / 2.0))
               val (hx, hy) = linkPositions.head
 
               val lefts = for {
@@ -236,7 +236,7 @@ object GlycanoCanvas {
                 if dsq < dsqThreshold
               } yield (id, linkPos, dsq)
 
-              def linkMappings(src: Seq[(ResidueId, (Double, Double), Double)], dst: Seq[((Double, Double), Int)]): Map[Int, ResidueId] = {
+              def linkMappings(src: List[(ResidueId, (Double, Double), Double)], dst: List[((Double, Double), Int)]): Map[Int, ResidueId] = {
                 src match {
                   case (id, (x1, y1), _) :: rest =>
                     val mapping = for {
@@ -245,13 +245,12 @@ object GlycanoCanvas {
                           val (dx, dy) = (x2 - x1, y2 - y1)
                           dx * dx + dy * dy
                       }
-                      if i != 0
                     } yield (i + 1) -> id
-                    linkMappings(rest, dst.filterNot(m => mapping.exists(_._1 == m._2))) ++ mapping
+                    linkMappings(rest, dst.filterNot(m => mapping.exists(_._1 - 1 == m._2))) ++ mapping
                   case _ => Map.empty
                 }
               }
-              val children = linkMappings(lefts.toList.sortBy(_._3), linkPositions.zipWithIndex)
+              val children = linkMappings(lefts.toList.sortBy(_._3), linkPositions.zipWithIndex.toList.tail)
 
               val parents = for {
                 (id, ge) <- graph.residues
