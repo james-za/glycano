@@ -22,10 +22,10 @@ object SubstituentShape {
       <.svg.path(^.svg.fill := "black", ^.svg.transform := "translate(10, 2) scale(22)", ^.svg.d := """M0,0 L-0.25,1 C-0.375,1.5 0.375,1.5 0.25,1 Z""")
     ), (20, 36))
     case ST.deoxy => (<.svg.g(
-      <.svg.circle(^.svg.cx := 10, ^.svg.cy := 10, ^.svg.r := 10, ^.svg.fill := "white", ^.svg.stroke := "black"),
-      <.svg.line(^.svg.x1 := 4, ^.svg.y1 := 4, ^.svg.x2 := 16, ^.svg.y2 := 16, ^.svg.strokeWidth := 3, ^.svg.stroke := "black"),
-      <.svg.line(^.svg.x1 := 4, ^.svg.y1 := 16, ^.svg.x2 := 16, ^.svg.y2 := 4, ^.svg.strokeWidth := 3, ^.svg.stroke := "black")
-    ), (20, 20))
+      <.svg.circle(^.svg.cx := 15, ^.svg.cy := 15, ^.svg.r := 15, ^.svg.fill := "black"),
+      <.svg.line(^.svg.x1 := 6, ^.svg.y1 := 6, ^.svg.x2 := 24, ^.svg.y2 := 24, ^.svg.strokeWidth := 6, ^.svg.stroke := "white"),
+      <.svg.line(^.svg.x1 := 6, ^.svg.y1 := 24, ^.svg.x2 := 24, ^.svg.y2 := 6, ^.svg.strokeWidth := 6, ^.svg.stroke := "white")
+    ), (30, 30))
     case ST.s => (<.svg.g(
       <.svg.circle(^.svg.cx := 15, ^.svg.cy := 15, ^.svg.r := 15, ^.svg.fill := "#FFFF00", ^.svg.stroke := "black"),
       <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "black")("S")
@@ -35,13 +35,19 @@ object SubstituentShape {
       <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 30, ^.svg.x := 15, ^.svg.y := 26, ^.svg.fill := "white")("P")
     ), (30, 30))
     case ST.ac => (<.svg.g(
-      <.svg.polygon(^.svg.points := "22,0 0,40 44,40", ^.svg.fill := "white", ^.svg.stroke := "black"),
-      <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 24, ^.svg.x := 22, ^.svg.y := 36, ^.svg.fill := "black")("Ac")
+      <.svg.polygon(^.svg.points := "22,0 0,40 44,40", ^.svg.fill := "#FF8080", ^.svg.stroke := "black", ^.svg.strokeWidth := 3),
+      <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 20, ^.svg.x := 19.5, ^.svg.y := 37, ^.svg.fill := "black")("Ac")
+        ("fontWeight".reactStyle := "bold", "fontStyle".reactStyle := "italic")
+    ), (44, 40))
+    case ST.am => (<.svg.g(
+      <.svg.polygon(^.svg.points := "22,0 0,40 44,40", ^.svg.fill := "#00D1D1", ^.svg.stroke := "black", ^.svg.strokeWidth := 3),
+      <.svg.text(^.svg.pointerEvents := "none", ^.svg.textAnchor := "middle", "textShadow".reactStyle := "none", ^.svg.fontSize := 20, ^.svg.x := 20.5, ^.svg.y := 37, ^.svg.fill := "black")("Am")
+        ("fontWeight".reactStyle := "bold", "fontStyle".reactStyle := "italic")
     ), (44, 40))
     case ST.r => (<.svg.g(
-      <.svg.rect(^.svg.width := 20, ^.svg.height := 36, ^.svg.fill := "white", ^.svg.stroke := "black", ^.svg.strokeWidth := 0.8),
-      <.svg.path(^.svg.fill := "none", ^.svg.stroke := "black", ^.svg.strokeWidth := 1, ^.svg.transform := "translate(1, 1) rotate(90 9 9)", ^.svg.d := sinePath(34, 18, 3, 36 * 3))
-    ), (20, 36))
+      <.svg.rect(^.svg.width := 20, ^.svg.height := 24, ^.svg.fill := "white", ^.svg.stroke := "black", ^.svg.strokeWidth := 0.8),
+      <.svg.path(^.svg.fill := "none", ^.svg.stroke := "black", ^.svg.strokeWidth := 1.5, ^.svg.transform := "translate(1, 1) rotate(90 9 9)", ^.svg.d := sinePath(22, 18, 2, 24 * 2))
+    ), (20, 24))
   }
   def sinePath(w: Double, h: Double, n: Double, lines: Int): String = {
     val parts = for (i <- 0 until lines) yield {
