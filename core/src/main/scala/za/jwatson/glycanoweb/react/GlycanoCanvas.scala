@@ -230,7 +230,7 @@ object GlycanoCanvas {
                 if facing._1 * (lx - hx) + facing._2 * (ly - hy) < 0
                 if ge.residue.rt != ResidueType.End
 
-                (dx, dy) = (lx - x + w / 2, ly - y + h / 2)
+                (dx, dy) = (lx - x, ly - y)
                 dsq = dx * dx + dy * dy
                 //todo: limit using bounds or closest link
                 if dsq < dsqThreshold
