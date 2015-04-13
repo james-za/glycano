@@ -4,14 +4,14 @@ import RGraph._
 import za.jwatson.glycanoweb.GlyAnnot
 
 import scala.annotation.tailrec
-import scalaz.Maybe.Just
-import scalaz.{Maybe, IList, State}
+import scalaz.State
 import scalaz.syntax.foldable._
 import scalaz.std.map._
 import scalaz.std.vector._
+import scalaz.syntax.std.option._
 
 import monocle.Monocle._
-import monocle.macros.{Lenses, Lenser}
+import monocle.macros.{GenLens, Lenses}
 
 case class RGraph(
   residues: Map[ResidueId, GraphEntry] = Map.empty,
@@ -20,7 +20,7 @@ case class RGraph(
 @Lenses case class Placement(x: Double, y: Double, rotation: Double)
 
 object RGraph {
-  val lenser = Lenser[RGraph]
+  val lenser = GenLens[RGraph]
   val residues = lenser(_.residues)
   val annotations = lenser(_.annotations)
 
@@ -68,12 +68,12 @@ object RGraph {
 
   def removeLink(link: Link): State[RGraph, Unit] = link match {
     case Link(from, 1) => for {
-      to <- State.gets(getParentL(from).getMaybe)
-      _ <- to.cata(removeBond(from)(_), State.modify[RGraph](g => g))
+      to <- State.gets(getParentL(from).getOption)
+      _ <- to.cata(removeBond(from)(_), State.modify[RGraph](identity))
     } yield ()
     case to @ Link(r, i) => for {
-      from <- State.gets(getChildL(r, i).getMaybe)
-      _ <- from.cata(removeBond(_)(to), State.modify[RGraph](g => g))
+      from <- State.gets(getChildL(r, i).getOption)
+      _ <- from.cata(removeBond(_)(to), State.modify[RGraph](identity))
     } yield ()
   }
 
@@ -84,10 +84,10 @@ object RGraph {
   def addResidue(r: Residue) = residues modify { _ + (ResidueId.next() -> GraphEntry(r)) }
 
   def removeResidue(r: ResidueId): State[RGraph, Unit] = for {
-    parent <- State.gets(getParentL(r).getMaybe)
-    children <- State.gets[RGraph, IList[ResidueId]]((entryL(r) ^|-> GraphEntry.children ^|->> each).getAll)
+    parent <- State.gets(getParentL(r).getOption)
+    children <- State.gets[RGraph, List[ResidueId]]((entryL(r) ^|-> GraphEntry.children ^|->> each).getAll)
     _ <- State.modify(children.foldLeft(_: RGraph)((g, c) => g &|-? entryL(c) ^|-> GraphEntry.parent set None))
-    _ <- State.modify(parent.foldLeft(_: RGraph)((g, link) => g &|-? entryL(link.r) ^|-> GraphEntry.children ^|-> at(link.position) set Maybe.empty))
+    _ <- State.modify(parent.foldLeft(_: RGraph)((g, link) => g &|-? entryL(link.r) ^|-> GraphEntry.children ^|-> at(link.position) set None))
     _ <- State.modify(residues.modify(_ - r))
   } yield ()
 
@@ -137,23 +137,23 @@ object RGraph {
   implicit class ResidueOps(r: ResidueId) {
     lazy val entry = RGraph.residues ^|-? index(r)
 
-    def graphEntry(implicit g: RGraph) = (entry getMaybe g).toOption
+    def graphEntry(implicit g: RGraph) = entry getOption g
 
-    def x(implicit g: RGraph) = (entry ^|-> GraphEntry.x getMaybe g).toOption
-    def y(implicit g: RGraph) = (entry ^|-> GraphEntry.y getMaybe g).toOption
-    def rotation(implicit g: RGraph) = (entry ^|-> GraphEntry.rotation getMaybe g).toOption
+    def x(implicit g: RGraph) = entry ^|-> GraphEntry.x getOption g
+    def y(implicit g: RGraph) = entry ^|-> GraphEntry.y getOption g
+    def rotation(implicit g: RGraph) = entry ^|-> GraphEntry.rotation getOption g
 
-    def parent(implicit g: RGraph) = (entry ^|-> GraphEntry.parent ^<-? some getMaybe g).toOption
-    def children(implicit g: RGraph) = (entry ^|-> GraphEntry.children getMaybe g).toOption
-    def child(i: Int)(implicit g: RGraph) = (entry ^|-> GraphEntry.children ^|-? index(i) getMaybe g).toOption
-    def bond(implicit g: RGraph) = (entry ^|-> GraphEntry.parent ^<-? some getMaybe g map (Bond(r, _))).toOption
+    def parent(implicit g: RGraph) = entry ^|-> GraphEntry.parent ^<-? some getOption g
+    def children(implicit g: RGraph) = entry ^|-> GraphEntry.children getOption g
+    def child(i: Int)(implicit g: RGraph) = entry ^|-> GraphEntry.children ^|-? index(i) getOption g
+    def bond(implicit g: RGraph) = entry ^|-> GraphEntry.parent ^<-? some getOption g map (Bond(r, _))
 
-    def residue(implicit g: RGraph) = (entry ^|-> GraphEntry.residue getMaybe g).toOption
+    def residue(implicit g: RGraph) = entry ^|-> GraphEntry.residue getOption g
 
-    def anomer(implicit g: RGraph) = (entry ^|-> GraphEntry.residue ^|-> Residue.ano getMaybe g).toOption
-    def absolute(implicit g: RGraph) = (entry ^|-> GraphEntry.residue ^|-> Residue.abs getMaybe g).toOption
-    def rt(implicit g: RGraph) = (entry ^|-> GraphEntry.residue ^|-> Residue.rt getMaybe g).toOption
-    def substituents(implicit g: RGraph) = (entryL(r) ^|-> GraphEntry.residue ^|-> Residue.subs getMaybe g).orZero
+    def anomer(implicit g: RGraph) = entry ^|-> GraphEntry.residue ^|-> Residue.ano getOption g
+    def absolute(implicit g: RGraph) = entry ^|-> GraphEntry.residue ^|-> Residue.abs getOption g
+    def rt(implicit g: RGraph) = entry ^|-> GraphEntry.residue ^|-> Residue.rt getOption g
+    def substituents(implicit g: RGraph) = (entryL(r) ^|-> GraphEntry.residue ^|-> Residue.subs getOption g).orZero
 
     def hasParent(implicit g: RGraph): Boolean = g.residues.get(r).fold(false)(_.parent.nonEmpty)
     def hasChildren(implicit g: RGraph): Boolean = g.residues.get(r).fold(false)(_.children.nonEmpty)
@@ -166,6 +166,6 @@ object RGraph {
   }
 
   implicit class LinkOps(l: Link) {
-    def substituents(implicit g: RGraph) = (entryL(l.r) ^|-> GraphEntry.residue ^|-> Residue.subs ^|-? index(l.position) getMaybe g).orZero
+    def substituents(implicit g: RGraph) = (entryL(l.r) ^|-> GraphEntry.residue ^|-> Residue.subs ^|-? index(l.position) getOption g).orZero
   }
 }

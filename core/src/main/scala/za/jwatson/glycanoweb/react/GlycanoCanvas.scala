@@ -17,7 +17,6 @@ import za.jwatson.glycanoweb.structure._
 
 import scala.annotation.tailrec
 import scala.scalajs.js
-import scalaz.Maybe.Just
 import scalaz.{Semigroup, Monoid, OptionT}
 import scalaz.effect.IO
 import scalaz.effect.IO.IOMonoid
@@ -124,7 +123,7 @@ object GlycanoCanvas {
         case (Mouse.Left, Mode.PlaceSubstituent(st), InputState.AddSubstituent(_, _, Some(link))) =>
           t.props.graph.mod {
             RGraph.residues ^|-? index(link.r) ^|-> GraphEntry.residue ^|-> Residue.subs ^|->
-              at(link.position) modify { m => Just(m.orZero :+ st) }
+              at(link.position) modify { m => Some(m.orZero :+ st) }
           }
         case (Mouse.Left, Mode.PlaceAnnotation, InputState.AddAnnotation(x, y)) =>
           t.props.graph.mod {
@@ -538,7 +537,7 @@ object GlycanoCanvas {
       val entriesOffset = for ((r, ge) <- P.graph.value.residues) yield {
         val ge2 = (P.mode.value, S.inputState) match {
           case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(_, _, Some(Link(tr, tp)))) if tr == r =>
-            ge &|-> GraphEntry.residue ^|-> Residue.subs ^|-> at(tp) modify { m => Just(m.orZero :+ st) }
+            ge &|-> GraphEntry.residue ^|-> Residue.subs ^|-> at(tp) modify { m => Some(m.orZero :+ st) }
           case (Mode.Selection, InputState.Rotate(`r`, _, rot)) =>
             ge.copy(rotation = rot)
           case _ => ge
