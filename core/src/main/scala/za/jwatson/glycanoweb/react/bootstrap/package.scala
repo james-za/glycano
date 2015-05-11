@@ -4,8 +4,7 @@ import japgolly.scalajs.react.vdom.Attr
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react._
 import org.scalajs.dom
-
-import za.jwatson.glycanoweb.{BootstrapScalatags => bs}
+import za.jwatson.glycanoweb.react.bootstrap.{Bootstrap => bs}
 
 package object bootstrap {
 

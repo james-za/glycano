@@ -9,6 +9,8 @@ import com.lihaoyi.workbench.Plugin._
 
 object GlycanoBuildSettings {
   val paradiseVersion = "2.1.0-M5"
+  val scalajsReactVersion = "0.8.4"
+  val monocleVersion = "1.1.1"
 
   lazy val buildSettings = Seq(
     incOptions := incOptions.value.withNameHashing(nameHashing = false),
@@ -34,10 +36,6 @@ object GlycanoBuildSettings {
 object GlycanoBuild extends sbt.Build {
   import GlycanoBuildSettings._
 
-  /*lazy val root = project.in(file("."))
-    .settings(buildSettings: _*)
-    .aggregate(core)*/
-
   lazy val glycanoweb = project.in(file("core"))
     .enablePlugins(ScalaJSPlugin)
     .settings(workbenchSettings: _*)
@@ -50,12 +48,12 @@ object GlycanoBuild extends sbt.Build {
         "com.lihaoyi"                       %%% "scalarx"        % "0.2.7",
         "com.lihaoyi"                       %%% "upickle"        % "0.2.6",
         "com.github.japgolly.fork.scalaz"   %%% "scalaz-core"    % "7.1.1",
-        "com.github.japgolly.scalajs-react" %%% "core"           % "0.8.3",
-        "com.github.japgolly.scalajs-react" %%% "extra"          % "0.8.3",
-        "com.github.japgolly.scalajs-react" %%% "ext-monocle"    % "0.8.3",
-        "com.github.japgolly.scalajs-react" %%% "ext-scalaz71"   % "0.8.3",
-        "com.github.japgolly.fork.monocle"  %%% "monocle-core"   % "1.1.0",
-        "com.github.japgolly.fork.monocle"  %%% "monocle-macro"  % "1.1.0",
+        "com.github.japgolly.scalajs-react" %%% "core"           % scalajsReactVersion,
+        "com.github.japgolly.scalajs-react" %%% "extra"          % scalajsReactVersion,
+        "com.github.japgolly.scalajs-react" %%% "ext-monocle"    % scalajsReactVersion,
+        "com.github.japgolly.scalajs-react" %%% "ext-scalaz71"   % scalajsReactVersion,
+        "com.github.japgolly.fork.monocle"  %%% "monocle-core"   % monocleVersion,
+        "com.github.japgolly.fork.monocle"  %%% "monocle-macro"  % monocleVersion,
         "name.myltsev"                      %%% "shapeless"      % "2.0.0",
         "org.parboiled"                     %%% "parboiled"      % "2.0.1"
       ))
@@ -65,15 +63,4 @@ object GlycanoBuild extends sbt.Build {
       refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),
       relativeSourceMaps := true
     )
-  /*  .dependsOn(macros)
-
-  lazy val macros = project.in(file("macros"))
-    .settings(buildSettings: _*)
-    .settings(
-      name := "GlycanoWeb-macros",
-      libraryDependencies ++= Seq(
-        "org.scalaz" %% "scalaz-core" % "7.1.1",
-        "org.scala-lang" % "scala-reflect" % scalaVersion.value
-      )
-    )*/
 }
