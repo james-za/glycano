@@ -1,18 +1,15 @@
 package za.jwatson.glycanoweb.render
 
-import japgolly.scalajs.react.ReactMouseEvent
+import japgolly.scalajs.react.vdom.prefix_<^._
 import org.parboiled2.ParseError
+import za.jwatson.glycanoweb.convention.Convention.RuleCond.{DefaultCond, ResCond}
+import za.jwatson.glycanoweb.convention.Convention._
+import za.jwatson.glycanoweb.convention.{CFG, Convention, ConventionParser, UCT}
 import za.jwatson.glycanoweb.structure.RGraph.GraphEntry
-import za.jwatson.glycanoweb.{ConventionParser, ConventionEditor}
-import za.jwatson.glycanoweb.ConventionEditor.RuleCond.{DefaultCond, ResCond}
-import za.jwatson.glycanoweb.ConventionEditor._
 import za.jwatson.glycanoweb.structure._
 
-import scalajs.js
-
-import japgolly.scalajs.react.vdom.prefix_<^._
-
-import scala.util.{Success, Failure, Try}
+import scala.scalajs.js
+import scala.util.{Failure, Success, Try}
 
 class DisplayConv(val conv: Conv) {
 
@@ -47,7 +44,6 @@ class DisplayConv(val conv: Conv) {
       )
   }
   def name = conv.name
-  //val shapeDefs = conv.shapeDefs.mapValues(shapeToItem)
 
   val residueModsMemo = scalaz.Memo.mutableHashMapMemo(residueModsInner)
   def residueModsInner(residue: Residue): Seq[RuleMod] = {
@@ -74,22 +70,12 @@ class DisplayConv(val conv: Conv) {
           outlineFromShape(shape)
         case _ => None
       }.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
-//      val someOutline = for {
-//        ShapeMod(_, classes, shape) <- mods
-//        if classes contains "outline"
-//        outline <- outlineFromShape(shape)
-//      } yield outline
-//      someOutline.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
   }
 
   def outlineFromShape(shape: Shape): Option[IndexedSeq[(Double, Double)]] = shape match {
     case Polygon(points) =>
       Some(polygonOutline(points))
     case DefinedShape(_, shapeName) =>
-//      println(shapeName)
-//      println(conv)
-//      println(conv.shapeDefs)
-//      println(conv.shapeDefs.get(shapeName))
       for {
         innerShape <- conv.shapeDefs.get(shapeName)
         outline <- outlineFromShape(innerShape)
@@ -164,58 +150,6 @@ class DisplayConv(val conv: Conv) {
 
     (nx, ny)//(nx + o._1, ny + o._2)
   }
-
-//  def group(r: Residue, subs: Map[Int, Vector[SubstituentType]], handleHover: Boolean,
-//            handleMouseOver: () => Unit,
-//            handleMouseOut: () => Unit,
-//            handleMouseDown: ReactMouseEvent => Unit): ReactTag = {
-//    val mods = residueModsMemo(r.anomer, r.absolute, r.rt, subs)
-//
-//    val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
-//      case (map, StyleMod(style, content)) =>
-//        map + (style -> map.get(style).map(_ ++ content).getOrElse(content))
-//      case (map, _) => map
-//    }
-//
-////    val styleModPairs = for (StyleMod(style, content) <- mods) yield {
-////      style -> content
-////    }
-////    val styles = styleModPairs.groupBy(_._1).mapValues(_.map(_._2).reduce(_ ++ _))
-//
-//    val shapes = mods.collect {
-//      case ShapeMod(priority, classes, shape) =>
-//        val item = shape match {
-//          case DefinedShape(_, name) => shapeToItem(conv.shapeDefs(name))
-//          case _ => shapeToItem(shape)
-//        }
-//
-//        val styleMods = for {
-//          (style, pairs) <- styles.toSeq if classes contains style
-//          mod <- pairs.collect {
-//            case ("fill", fill) => ^.svg.fill := fill
-//            case ("stroke", stroke) => ^.svg.stroke := stroke
-//            case ("stroke-width", sw) => ^.svg.strokeWidth := sw
-//            case ("x", x) => ^.svg.x := x
-//            case ("y", y) => ^.svg.y := y
-//          }
-//        } yield mod
-//
-//        val outlineMod = classes contains "links" ?= (^.cls := "outline")
-//        val handleMod = classes contains "handle" ?= Seq(
-//          handleHover ?= Seq(
-//            ^.svg.strokeWidth := "3",
-//            ^.svg.stroke := "blue"
-//          ),
-//          ^.onMouseOver --> handleMouseOver(),
-//          ^.onMouseOut --> handleMouseOut(),
-//          ^.onMouseDown ==> handleMouseDown,
-//          ^.cls := "handle"
-//        )
-//
-//        priority -> item(outlineMod, styleMods, handleMod)
-//    }.sortBy(_._1).map(_._2)
-//    <.svg.g(shapes)
-//  }
 
   def shapes(residue: Residue): (ReactTag, ReactTag) =
     shapesMemo.getOrElseUpdate(residue.##.toString, shapesInner(residue))
@@ -298,19 +232,10 @@ object DisplayConv {
 
   val convDefault = new DisplayConv(Conv(""))
 
-  import org.scalajs.dom
-
-//  val conventions = rx.Var[collection.mutable.Map[String, DisplayConv]](js.Dictionary[DisplayConv]())
-//  def convs = dom.localStorage.getItem("glycano.conventions").asInstanceOf[js.UndefOr[String]].fold {
-//    js.Dictionary[String]()
-//  } {
-//    c => js.JSON.parse(c).asInstanceOf[js.Dictionary[String]]
-//  }
-
   val conventions = for {
     (k, v) <- Map(
-      "UCT" -> ConventionEditor.textUCT,
-      "CFG" -> ConventionEditor.textCFG
+      "UCT" -> UCT.text,
+      "CFG" -> CFG.text
     )
     c <- parseTextConv(v)
   } yield k -> c

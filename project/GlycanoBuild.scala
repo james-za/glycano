@@ -10,7 +10,7 @@ import com.lihaoyi.workbench.Plugin._
 object GlycanoBuildSettings {
   val paradiseVersion = "2.1.0-M5"
 
-  val buildSettings = Seq(
+  lazy val buildSettings = Seq(
     incOptions := incOptions.value.withNameHashing(nameHashing = false),
     scalaVersion := "2.11.6",
     scalacOptions ++= Seq(
@@ -34,11 +34,11 @@ object GlycanoBuildSettings {
 object GlycanoBuild extends sbt.Build {
   import GlycanoBuildSettings._
 
-  lazy val root = project.in(file("."))
+  /*lazy val root = project.in(file("."))
     .settings(buildSettings: _*)
-    .aggregate(core)
+    .aggregate(core)*/
 
-  lazy val core = project.in(file("core"))
+  lazy val glycanoweb = project.in(file("core"))
     .enablePlugins(ScalaJSPlugin)
     .settings(workbenchSettings: _*)
     .settings(buildSettings: _*)
@@ -65,7 +65,7 @@ object GlycanoBuild extends sbt.Build {
       refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),
       relativeSourceMaps := true
     )
-    .dependsOn(macros)
+  /*  .dependsOn(macros)
 
   lazy val macros = project.in(file("macros"))
     .settings(buildSettings: _*)
@@ -75,5 +75,5 @@ object GlycanoBuild extends sbt.Build {
         "org.scalaz" %% "scalaz-core" % "7.1.1",
         "org.scala-lang" % "scala-reflect" % scalaVersion.value
       )
-    )
+    )*/
 }

@@ -1,18 +1,13 @@
 package za.jwatson.glycanoweb.react
 
+import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.extra.ExternalVar
 import japgolly.scalajs.react.vdom.prefix_<^._
-import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.{ReactComponentB, _}
-import monocle.macros.Lenses
 import org.scalajs.dom
-import za.jwatson.glycanoweb.macros.AltEq
-import za.jwatson.glycanoweb.macros.AltEq.{altEq, exclude}
 import za.jwatson.glycanoweb.react.GlycanoApp.Mode
 import za.jwatson.glycanoweb.render.SubstituentShape
 import za.jwatson.glycanoweb.structure._
-
-import scalaz.std.AllInstances._, scalaz.syntax.equal._
 
 object SubstituentPanel {
   case class Props(mode: ExternalVar[Mode], scaleSubstituents: Double)

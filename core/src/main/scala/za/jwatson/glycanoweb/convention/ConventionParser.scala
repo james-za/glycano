@@ -1,12 +1,11 @@
-package za.jwatson.glycanoweb
-
-import za.jwatson.glycanoweb.ConventionEditor.RuleCond._
-import za.jwatson.glycanoweb.structure.Absolute.{L, D}
-import za.jwatson.glycanoweb.structure.{Absolute, Anomer}
-import za.jwatson.glycanoweb.structure.Anomer.{Beta, Alpha}
+package za.jwatson.glycanoweb.convention
 
 import org.parboiled2._
-import ConventionEditor._
+import za.jwatson.glycanoweb.convention.Convention.RuleCond._
+import za.jwatson.glycanoweb.convention.Convention._
+import za.jwatson.glycanoweb.structure.Absolute.{D, L}
+import za.jwatson.glycanoweb.structure.Anomer.{Alpha, Beta}
+import za.jwatson.glycanoweb.structure.{Absolute, Anomer}
 
 class ConventionParser(val input: ParserInput) extends Parser {
 

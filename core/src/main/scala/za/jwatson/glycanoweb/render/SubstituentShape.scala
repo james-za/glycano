@@ -3,7 +3,7 @@ package za.jwatson.glycanoweb.render
 import japgolly.scalajs.react.vdom.prefix_<^._
 import za.jwatson.glycanoweb.structure.{SubstituentType => ST}
 
-import scalajs.js
+import scala.scalajs.js
 
 object SubstituentShape {
   def apply(st: ST): (ReactTag, (Double, Double)) = memo.getOrElseUpdate(st.symbol, of(st))
