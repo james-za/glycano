@@ -7,25 +7,23 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Monocle._
 import monocle.macros.Lenses
 import org.scalajs.dom
+import org.scalajs.dom.raw.SVGRect
 import za.jwatson.glycanoweb._
-import za.jwatson.glycanoweb.react.GlycanoApp.Mode
-import za.jwatson.glycanoweb.react.GlycanoApp.Mode.Selection
 import za.jwatson.glycanoweb.react.GlycanoCanvas.InputState.BoxSelect
+import GlycanoApp.Mode
+import GlycanoApp.Mode.Selection
 import za.jwatson.glycanoweb.render.{DisplayConv, SubstituentShape}
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
-import scala.annotation.tailrec
 import scala.scalajs.js
-import scalaz.{Semigroup, Monoid, OptionT}
 import scalaz.effect.IO
 import scalaz.effect.IO.IOMonoid
 import scalaz.std.anyVal.unitInstance
 import scalaz.std.vector._
-import scalaz.syntax.monad.ApplicativeIdV
-import scalaz.syntax.std.option._
-import scalaz.syntax.id._
 import scalaz.syntax.std.boolean._
+import scalaz.syntax.std.option._
+import scalaz.{Monoid, Semigroup}
 
 object GlycanoCanvas {
   private val updateInterval = 16
@@ -60,7 +58,7 @@ object GlycanoCanvas {
   case class Props(mode: ExternalVar[Mode], dc: DisplayConv, graph: ExternalVar[RGraph],
                    selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: ExternalVar[View], bondLabels: Boolean,
                    scaleSubstituents: Double, limitUpdateRate: Boolean, annotationFontSize: Double,
-                   bounds: ExternalVar[dom.svg.Rect])
+                   bounds: ExternalVar[js.UndefOr[SVGRect]])
 
   def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.selection.value, p.view.value, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate, p.annotationFontSize)
 
@@ -463,54 +461,12 @@ object GlycanoCanvas {
     case object Out extends InputState
   }
 
-  val Annotation = ReactComponentB[(ReactMouseEvent => IO[Unit], AnnotId, Annot, Boolean)]("Annotation")
-    .initialState[(Double, Double)]((0, 0))
-    .render { $ =>
-      val (io, id, Annot(text, size, x, y, rot), selected) = $.props
-      val (bw, bh) = $.state
-      <.svg.g(
-        ^.onMouseDown ~~> io,
-        <.svg.text(text)(
-          ^.svg.pointerEvents := "none",
-          ^.svg.fontSize := size,
-          ^.svg.x := x,
-          ^.svg.y := y,
-          ^.svg.transform := s"rotate($rot)"
-        ),
-        selected ?= <.svg.rect(
-          ^.svg.x := x - 3, ^.svg.y := y - 3 - bh + 4,
-          ^.svg.width := bw + 6, ^.svg.height := bh + 6,
-          ^.svg.rx := 3, ^.svg.ry := 3,
-          ^.svg.fill := "#404080", ^.svg.fillOpacity := "50%",
-          ^.svg.stroke := "#404080", ^.svg.strokeWidth := 1
-        )
-      )
-    }
-    .componentDidMount { $ =>
-      val e = $.getDOMNode().asInstanceOf[dom.svg.G]
-      val bb = e.firstElementChild.asInstanceOf[dom.svg.Text].getBBox()
-      $.setState((bb.width, bb.height))
-    }
-    .componentDidUpdate {
-      case (scope, props, state) =>
-        val annot1 = props._3
-        val annot2 = scope.props._3
-        if (annot1.text != annot2.text || annot1.size != annot2.size) {
-          val e = scope.getDOMNode().asInstanceOf[dom.svg.G]
-          val bb = e.firstElementChild.asInstanceOf[dom.svg.Text].getBBox()
-          scope.setState((bb.width, bb.height))
-        }
-    }
-    .shouldComponentUpdate((T, P, S) => T.props._2 != P._2 || T.props._3 != P._3 || T.props._4 != P._4 || T.state != S)
-    .build
-
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
-  def apply(props: Props, children: ReactNode*) = component.apply(props, children)
   val component = ReactComponentB[Props]("GlycanoCanvas")
     .initialState(State())
     .backend(new Backend(_))
-    .render((P, C, S, B) => {
+    .render { (P, C, S, B) =>
       implicit val graph: RGraph = P.graph.value
 
       val (voX, voY) = S.inputState match {
@@ -695,7 +651,7 @@ object GlycanoCanvas {
           )
         )
       )
-    })
+    }
     .shouldComponentUpdate {
       (T, P, S) =>
         cmp(T.props) != cmp(P) || T.state != S
@@ -706,12 +662,12 @@ object GlycanoCanvas {
         false
       })
     }
-    .componentDidUpdate((scope, props, state) => {
+    .componentDidUpdate { (scope, props, state) =>
       for (boundingGroup <- scope.refs[dom.html.Element]("bounds").map(_.getDOMNode().asInstanceOf[dom.svg.G])) {
         val boundingBox = boundingGroup.getBBox()
         scope.props.bounds.set(boundingBox).unsafePerformIO()
       }
-    })
+    }
     //.domType[dom.SVGSVGElement]
     .build
 }

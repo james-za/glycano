@@ -1,25 +1,25 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.MonocleReact._
+import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra.ExternalVar
 import japgolly.scalajs.react.vdom.prefix_<^._
-import monocle.{Getter, Lens}
-import monocle.macros.{Lenser, Lenses}
+import monocle.Lens
 import monocle.Monocle._
+import monocle.macros.Lenses
 import org.scalajs.dom
 import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.raw.SVGRect
-import za.jwatson.glycanoweb.{Gly, GlyAnnot}
+import za.jwatson.glycanoweb.Gly
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap._
-import za.jwatson.glycanoweb.render.{SubstituentShape, DisplayConv}
+import za.jwatson.glycanoweb.render.{DisplayConv, SubstituentShape}
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
 import scala.scalajs.js
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success, Try}
 import scalaz.State
 import scalaz.effect.IO
 
@@ -39,7 +39,7 @@ object GlycanoApp {
     scaleSubstituents: Double = 1.0,
     limitUpdateRate: Boolean = false,
     annotationFontSize: Double = 24,
-    fitBounds: (Double, Double, Double, Double) = (0, 0, 0, 0)
+    bounds: js.UndefOr[SVGRect] = js.undefined
   )
 
   sealed trait Mode
@@ -51,12 +51,14 @@ object GlycanoApp {
   }
 
   def saveGraph(graph: RGraph): Unit = {
-    import upickle._, Gly._
+    import Gly._
+    import upickle._
     LocalStorage("glycano.temp") = write[Gly](Gly.from(graph))
   }
 
   def loadGraph(): RGraph = {
-    import upickle._, Gly._
+    import Gly._
+    import upickle._
     val graph = for {
       str <- LocalStorage("glycano.temp")
       gly <- Try(read[Gly](str)).toOption
@@ -288,7 +290,7 @@ object GlycanoApp {
       )
     }
     .backend(new Backend(_))
-    .render($ => {
+    .render { $ =>
       implicit val g: RGraph = AppStateL.graph($.state)
       implicit val dc: DisplayConv = $.state.displayConv
 
@@ -386,7 +388,7 @@ object GlycanoApp {
                     scaleSubstituents = $.state.scaleSubstituents,
                     limitUpdateRate = $.state.limitUpdateRate,
                     annotationFontSize = $.state.annotationFontSize,
-                    fitBounds = ExternalVar.state($.focusStateL(AppState.fitBounds))
+                    bounds = ExternalVar.state($.focusStateL(AppState.bounds))
                   ))
                 )
               )
@@ -489,7 +491,7 @@ object GlycanoApp {
           )
         )
       )
-    })
+    }
     .componentDidMount { $ =>
       dom.window.addEventListener("resize", $.backend.resizeFunc)
       dom.window.addEventListener("keydown", $.backend.keydownFunc)
