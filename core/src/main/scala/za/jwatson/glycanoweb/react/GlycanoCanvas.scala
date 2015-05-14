@@ -60,7 +60,7 @@ object GlycanoCanvas {
   case class Props(mode: ExternalVar[Mode], dc: DisplayConv, graph: ExternalVar[RGraph],
                    selection: ExternalVar[(Set[ResidueId], Set[AnnotId])], view: ExternalVar[View], bondLabels: Boolean,
                    scaleSubstituents: Double, limitUpdateRate: Boolean, annotationFontSize: Double,
-                   fitBounds: ExternalVar[(Double, Double, Double, Double)])
+                   bounds: ExternalVar[dom.svg.Rect])
 
   def cmp(p: Props) = (p.mode.value, p.dc.conv, p.graph.value, p.selection.value, p.view.value, p.bondLabels, p.scaleSubstituents, p.limitUpdateRate, p.annotationFontSize)
 
@@ -445,8 +445,6 @@ object GlycanoCanvas {
           }
         case _ =>
       }
-    
-    def modInputState(inputState: InputState): Unit = t.modState(State.inputState set inputState)
   }
 
   sealed trait InputState
@@ -687,7 +685,7 @@ object GlycanoCanvas {
             ^.svg.height := P.view.value.height,
             ^.onMouseDown ~~> B.boxSelectDown _
           ),
-          <.svg.g(^.ref := "fit")(
+          <.svg.g(^.ref := "bounds")(
             residues,
             tempSubstituent,
             selectionBox,
@@ -709,13 +707,9 @@ object GlycanoCanvas {
       })
     }
     .componentDidUpdate((scope, props, state) => {
-      for {
-        fit <- scope.refs[dom.html.Element]("fit").map(_.getDOMNode().asInstanceOf[dom.svg.G])
-
-      } {
-        val bb = fit.getBBox()
-        val fb = (bb.x, bb.y, bb.width, bb.height)
-        scope.props.fitBounds.set(fb).unsafePerformIO()
+      for (boundingGroup <- scope.refs[dom.html.Element]("bounds").map(_.getDOMNode().asInstanceOf[dom.svg.G])) {
+        val boundingBox = boundingGroup.getBBox()
+        scope.props.bounds.set(boundingBox).unsafePerformIO()
       }
     })
     //.domType[dom.SVGSVGElement]
