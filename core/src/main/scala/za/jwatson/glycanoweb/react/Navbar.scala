@@ -46,11 +46,12 @@ object Navbar {
 
   class Backend(val t: BackendScope[ExternalVar[AppState], String]) {
     def clickCenter = t.props.modL(AppState.view) { v =>
-      val (x, y, w, h) = t.props.value.fitBounds
-      val sx = v.width / w
-      val sy = v.height / h
-      val scale = math.min(sx, sy)
-      View(x + w / 2, y + h / 2, scale * 0.975, v.width, v.height)
+      t.props.value.bounds.fold(v) { b =>
+        val sx = v.width / b.width
+        val sy = v.height / b.height
+        val scale = math.min(sx, sy)
+        View(b.x + b.width / 2, b.y + b.height / 2, scale * 0.975, v.width, v.height)
+      }
     }
 
     def loadGly(name: String, gly: Gly): Unit = {

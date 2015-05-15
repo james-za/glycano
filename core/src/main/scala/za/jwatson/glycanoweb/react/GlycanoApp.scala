@@ -293,6 +293,7 @@ object GlycanoApp {
     .render { $ =>
       implicit val g: RGraph = AppStateL.graph($.state)
       implicit val dc: DisplayConv = $.state.displayConv
+      val evAppState = ExternalVar.state($.focusStateId)
 
       val rtTemplate = $.state.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
@@ -304,8 +305,9 @@ object GlycanoApp {
       val rsel = graph.residues.filterKeys(rs.contains)
       val asel = graph.annotations.filterKeys(as.contains)
 
+
       <.div(^.cls := "container-fluid")(
-        <.div(^.cls := "row")(Navbar(ExternalVar.state($.focusStateId))),
+        <.div(^.cls := "row")(Navbar(evAppState)),
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
@@ -378,18 +380,7 @@ object GlycanoApp {
                   ^.ref := "canvaspanel",
                   ^.padding := 0.px
                 )(
-                  GlycanoCanvas(GlycanoCanvas.Props(
-                    mode = ExternalVar.state($.focusStateL(AppState.mode)),
-                    dc = $.state.displayConv,
-                    graph = ExternalVar.state($.focusStateL(AppStateL.graphL)),
-                    selection = ExternalVar.state($.focusStateL(AppState.selection)),
-                    view = ExternalVar.state($.focusStateL(AppState.view)),
-                    bondLabels = $.state.bondLabels,
-                    scaleSubstituents = $.state.scaleSubstituents,
-                    limitUpdateRate = $.state.limitUpdateRate,
-                    annotationFontSize = $.state.annotationFontSize,
-                    bounds = ExternalVar.state($.focusStateL(AppState.bounds))
-                  ))
+                  GlycanoCanvas(evAppState)
                 )
               )
             ))
