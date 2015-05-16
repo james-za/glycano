@@ -39,7 +39,12 @@ object GlycanoApp {
     scaleSubstituents: Double = 1.0,
     limitUpdateRate: Boolean = false,
     annotationFontSize: Double = 24,
-    bounds: js.UndefOr[SVGRect] = js.undefined
+    bounds: Option[SVGRect] = None,
+    showGrid: Boolean = false,
+    gridWidth: Double = 10.0,
+    snapToGrid: Boolean = false,
+    snapRotation: Boolean = false,
+    snapRotationDegrees: Double = 15.0
   )
 
   sealed trait Mode
@@ -255,7 +260,7 @@ object GlycanoApp {
 
   def residueStatus(r: Residue)(implicit dc: DisplayConv) = {
     val (residue, handle) = dc.shapes(r)
-    val (_, w, h) = dc.boundsMemo(r)
+    val (_, w, h) = dc.bounds(r)
     <.svg.svg(
       ^.display.`inline-block`,
       ^.svg.width := 40.px,

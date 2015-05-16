@@ -201,7 +201,7 @@ object GlycanoCanvas {
         case (Mode.PlaceResidue(residue), _) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
-              val ((xm, ym), w, h) = appState.displayConv.boundsMemo(residue)
+              val ((xm, ym), w, h) = appState.displayConv.bounds(residue)
               val dsqThreshold: Double = 500 * 500
               val facing: (Double, Double) = (1, 0)
               val residueLinks = appState.displayConv.links(residue)
@@ -425,7 +425,7 @@ object GlycanoCanvas {
             rot <- r.rotation
             residue <- r.residue
           } {
-            val ((x0, y0), w, h) = appState.displayConv.boundsMemo(residue)
+            val ((x0, y0), w, h) = appState.displayConv.bounds(residue)
             val around = (x0 + w / 2.0, y0 + h / 2.0)
             t.setState(InputState.Rotate(r, around, rot))
           }
@@ -517,7 +517,7 @@ object GlycanoCanvas {
             SVGBond.withKey("tempBond")(SVGBond.Props(ge.residue.ano, target.map(_.position), from, to, appState.bondLabels))
           }
         case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y, children, parent)) =>
-          val ((rx, ry), rw, rh) = appState.displayConv.boundsMemo(residue)
+          val ((rx, ry), rw, rh) = appState.displayConv.bounds(residue)
           val from = for {
             (i, id) <- children.toSeq
             ge <- graph.residues.get(id)
@@ -651,7 +651,7 @@ object GlycanoCanvas {
     }
     .componentDidUpdate { (scope, props, state) =>
       for (boundingGroup <- scope.refs[dom.html.Element]("bounds").map(_.getDOMNode().asInstanceOf[dom.svg.G])) {
-        val boundingBox = boundingGroup.getBBox()
+        val boundingBox = Some(boundingGroup.getBBox())
         scope.props.setL(AppState.bounds)(boundingBox).unsafePerformIO()
       }
     }

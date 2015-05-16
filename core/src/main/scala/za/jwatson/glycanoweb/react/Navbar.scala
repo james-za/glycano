@@ -11,6 +11,7 @@ import za.jwatson.glycanoweb.react.GlycanoApp.{Mode, AppStateL, AppState}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.View
 import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
 import za.jwatson.glycanoweb.structure.{ResidueId, AnnotId, RGraph}
+import scala.collection.immutable.NumericRange
 import scalajs.js
 
 import scala.util.Try
@@ -43,6 +44,51 @@ object Navbar {
         _ <- action
       } yield ())
     )
+
+  def navcheckbox(name: String, checked: Boolean, action: => IO[Unit]): ReactTag =
+    <.div(^.cls := "form-group")(
+      <.label(^.cls := "checkbox-inline")(
+        <.input(
+          ^.checked := checked,
+          ^.`type` := "checkbox",
+          ^.onChange ~~> action
+        ),
+        name
+      )
+    )
+
+  def navcheckbox[A](name: String, ev: ExternalVar[A], lens: monocle.Lens[A, Boolean]): ReactTag =
+    navcheckbox(name, lens.get(ev.value), ev.modL(lens)(!_))
+
+  def navnumber(name: String, value: Double, action: Double => IO[Unit]): ReactTag = {
+    <.div(^.cls := "form-group")(
+      <.label(name, ^.paddingRight := 5.px),
+      <.input(
+        ^.cls := "form-control",
+        ^.value := value,
+        ^.`type` := "number",
+        ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
+        ^.width := 80.px
+      )
+    )
+  }
+
+  def navnumber[A](name: String, ev: ExternalVar[A], lens: monocle.Lens[A, Double]): ReactTag =
+    navnumber(name, lens.get(ev.value), ev.setL(lens))
+
+  def navrange(range: NumericRange[Double], value: Double, action: Double => IO[Unit]): ReactTag =
+    <.div(^.cls := "form-group")(<.input(
+      ^.cls := "form-control",
+      ^.`type` := "range",
+      "min".reactAttr := range.start,
+      "max".reactAttr := range.end,
+      ^.step := range.step,
+      ^.value := value,
+      ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value)))
+    ))
+
+  def navrange[A](range: NumericRange[Double], ev: ExternalVar[A], lens: monocle.Lens[A, Double]): ReactTag =
+    navrange(range, lens.get(ev.value), ev.setL(lens))
 
   class Backend(val t: BackendScope[ExternalVar[AppState], String]) {
     def clickCenter = t.props.modL(AppState.view) { v =>
@@ -145,16 +191,7 @@ object Navbar {
             " ", navbtn_("Save .gly", { () => $.backend.saveGly() }),
             " ", navbtn_("Save .svg", { () => $.backend.saveSvg() }),
             " ", navbtn_("Save .png", { () => $.backend.savePng() }),
-            " ", <.div(^.cls := "form-group")(
-              <.label(^.cls := "checkbox-inline")(
-                <.input(
-                  ^.checked := appState.value.bondLabels,
-                  ^.`type` := "checkbox",
-                  ^.onChange ~~> appState.modL(GlycanoApp.AppState.bondLabels)(!_)
-                ),
-                "Bond Labels"
-              )
-            ),
+            " ", navcheckbox("Bond Labels", appState, AppState.bondLabels),
             " ", navbtn("Clear All", appState.setL(AppStateL.graphL)(RGraph())),
             " ", navbtn("trash", "Delete", appState.mod(GlycanoApp.cutS.exec)),
             " ", navbtn("cut", "Cut", appState.mod(GlycanoApp.copyS.exec)),
@@ -163,30 +200,19 @@ object Navbar {
             " ", navbtn("undo", "Undo", appState.mod(GlycanoApp.undo)),
             " ", navbtn("repeat", "Redo", appState.mod(GlycanoApp.redo)),
             " ", navbtn("edit", "Add Annotation", appState.mod(AppState.mode set Mode.PlaceAnnotation)),
-            " ", <.div(^.cls := "form-group")(
-              <.label("Annotation Font Size", ^.paddingRight := 5.px),
-              <.input(
-                ^.cls := "form-control",
-                ^.value := appState.value.annotationFontSize,
-                ^.`type` := "number",
-                ^.onChange ~~> ((e: ReactEventI) => appState.setL(GlycanoApp.AppState.annotationFontSize)(Try(e.target.value.toDouble).getOrElse(24))),
-                ^.width := 80.px
-              )
-            ),
+            " ", navnumber("Annotation Font Size", appState, AppState.annotationFontSize),
             " ", navbtn("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
-            " ", <.div(^.cls := "form-group")(<.input(
-              ^.cls := "form-control",
-              ^.`type` := "range",
-              "min".reactAttr := 0,
-              "max".reactAttr := 200,
-              ^.step := 0.01,
-              ^.value := zoom,
-              ^.onChange ~~> ((e: ReactEventI) => appState.setL(AppState.view ^|-> View.scale)(Try(e.target.value.toDouble / 100.0).getOrElse(1.0)))
-            )),
+            " ", navrange(0.0 to 200.0 by 0.01, appState, AppState.view ^|-> View.scale ^<-> monocle.Iso[Double, Double](_ * 100.0)(_ / 100.0)),
             " ", <.span(f"$zoom%.2f" + "%"),
             " ", navbtn("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
             " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
             " ", navbtn("Center", $.backend.clickCenter),
+            " ", navcheckbox("Snap To Grid", appState, AppState.snapToGrid),
+            " ", navcheckbox("Show Grid", appState, AppState.showGrid),
+            " ", navnumber("Grid Width", appState, AppState.gridWidth),
+            " ", navcheckbox("Snap Rotation", appState, AppState.snapRotation),
+            " ", navrange(0.0 to 180.0 by 1.0, appState, AppState.snapRotationDegrees),
+            " ", <.span(f"${appState.value.snapRotationDegrees}%.0fº"),
             " ", $.propsChildren
           )
         )

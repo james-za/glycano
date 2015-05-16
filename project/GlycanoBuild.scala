@@ -54,16 +54,16 @@ object GlycanoBuild extends sbt.Build {
         "name.myltsev"                      %%% "shapeless"      % "2.0.0",
         "org.parboiled"                     %%% "parboiled"      % "2.0.1"
       ),
-      jsDependencies ++= Seq(
-        ProvidedJS / "js/filereader.js",
-        ProvidedJS / "js/saveSvgAsPng.js",
-        "org.webjars" % "react" % "0.12.2" / "react-with-addons.js" minified "react-with-addons.min.js"
-      ),
+//      jsDependencies ++= Seq(
+//        ProvidedJS / "js/filereader.js",
+//        ProvidedJS / "js/saveSvgAsPng.js",
+//        "org.webjars" % "react" % "0.12.2" / "react-with-addons.js" minified "react-with-addons.min.js"
+//      ),
       name := "GlycanoWeb",
       bootSnippet := "za.jwatson.glycanoweb.GlycanoWeb().main();",
       refreshBrowsers <<= refreshBrowsers.triggeredBy(fastOptJS in Compile),
-      relativeSourceMaps := true,
-      skip in packageJSDependencies := false,
-      skip in packageMinifiedJSDependencies := false
+      relativeSourceMaps := true
+//      skip in packageJSDependencies := false,
+//      skip in packageMinifiedJSDependencies := false
     )
 }

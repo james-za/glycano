@@ -27,7 +27,7 @@ object SVGResidue {
     .backend(new Backend(_))
     .render((P, C, S, B) => {
       val GraphEntry(_, x, y, rot, _, _) = P.ge
-      val ((x0, y0), w, h) = P.dc.boundsMemo(P.ge.residue)
+      val ((x0, y0), w, h) = P.dc.bounds(P.ge.residue)
       val (cx, cy) = (x0 + w / 2.0, y0 + h / 2.0)
       val (residue, handle) = P.dc.shapes(P.ge.residue)
 
@@ -71,7 +71,7 @@ object SVGResidue {
       )
     })
     .shouldComponentUpdate((T, P, S) => {
-      T.props.dc.conv != P.dc.conv ||
+      T.props.dc != P.dc ||
       T.props.ge != P.ge ||
       T.props.selected != P.selected ||
       T.props.scaleSubstituents != P.scaleSubstituents ||

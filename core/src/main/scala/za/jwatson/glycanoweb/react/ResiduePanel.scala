@@ -68,7 +68,7 @@ object ResiduePanel {
           <.div(^.role := "tabpanel", ^.cls := "tab-pane active")(
             for (rt <- ResidueType.ResidueTypeCategories(S.page)) yield {
               val res: Residue = Residue(P.ano, P.abs, rt)
-              val ((x, y), w, h) = P.dc.boundsMemo(res)
+              val ((x, y), w, h) = P.dc.bounds(res)
               val scale = 0.4
               val (residue, handle) = P.dc.shapes(res)
               <.span(
@@ -99,7 +99,7 @@ object ResiduePanel {
     })
     .shouldComponentUpdate {
       (T, P, S) =>
-        T.props.dc.conv != P.dc.conv ||
+        T.props.dc != P.dc ||
         T.props.ano != P.ano ||
         T.props.abs != P.abs ||
         T.props.rt != P.rt ||

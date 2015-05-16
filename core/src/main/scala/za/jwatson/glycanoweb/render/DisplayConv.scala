@@ -45,7 +45,8 @@ class DisplayConv(val conv: Conv) {
   }
   def name = conv.name
 
-  val residueModsMemo = scalaz.Memo.mutableHashMapMemo(residueModsInner)
+  def residueMods(residue: Residue) = residueModsMemo.getOrElseUpdate(residue.##.toString, residueModsInner(residue))
+  val residueModsMemo = js.Dictionary.empty[Seq[RuleMod]]
   def residueModsInner(residue: Residue): Seq[RuleMod] = {
     val matched = conv.rules.filter(_.conds.forall(_.matches(residue)))
     val shapeRules = matched.filter(_.mods.exists(_.isInstanceOf[ShapeMod]))
@@ -57,10 +58,8 @@ class DisplayConv(val conv: Conv) {
 
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
-  def outline(residue: Residue): IndexedSeq[(Double, Double)] =
-    outlineMemo(residueModsMemo(residue), residue)
-
-  val outlineMemo = scalaz.Memo.mutableHashMapMemo((outlineInner _).tupled)
+  def outline(residue: Residue) = outlineMemo.getOrElseUpdate(residue.##.toString, outlineInner(residueMods(residue), residue))
+  val outlineMemo = js.Dictionary.empty[IndexedSeq[(Double, Double)]]
   def outlineInner(mods: Seq[RuleMod], residue: Residue): IndexedSeq[(Double, Double)] = residue.rt match {
     case ResidueType.Begin => IndexedSeq((12.0, 48.0))
     case ResidueType.End => IndexedSeq((30.0, 48.0), (18.0, 48.0))
@@ -99,10 +98,8 @@ class DisplayConv(val conv: Conv) {
     case _ => None
   }
 
-  def links(residue: Residue): IndexedSeq[(Double, Double)] =
-    linksMemo(residueModsMemo(residue), residue)
-
-  val linksMemo = scalaz.Memo.mutableHashMapMemo((linksInner _).tupled)
+  def links(residue: Residue) = linksMemo.getOrElseUpdate(residue.##.toString, linksInner(residueMods(residue), residue))
+  val linksMemo = js.Dictionary.empty[IndexedSeq[(Double, Double)]]
   def linksInner(mods: Seq[RuleMod], residue: Residue): IndexedSeq[(Double, Double)] = residue.rt match {
     case ResidueType.Begin => IndexedSeq((12.0, 48.0))
     case ResidueType.End => IndexedSeq((30.0, 48.0), (18.0, 48.0))
@@ -118,7 +115,8 @@ class DisplayConv(val conv: Conv) {
       }.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
   }
 
-  val boundsMemo = scalaz.Memo.mutableHashMapMemo(boundsInner)
+  def bounds(residue: Residue) = boundsMemo.getOrElseUpdate(residue.##.toString, boundsInner(residue))
+  val boundsMemo = js.Dictionary.empty[((Double, Double), Double, Double)]
   def boundsInner(residue: Residue): ((Double, Double), Double, Double) = residue.rt match {
     case ResidueType.Begin => ((0.0, 0.0), 30.0, 96.0)
     case ResidueType.End => ((0.0, 0.0), 30.0, 96.0)
@@ -132,7 +130,7 @@ class DisplayConv(val conv: Conv) {
   }
 
   def linkPos(outline: IndexedSeq[(Double, Double)], ge: GraphEntry, i: Int): (Double, Double) = {
-    val ((x0, y0), w, h) = boundsMemo(ge.residue)
+    val ((x0, y0), w, h) = bounds(ge.residue)
     val offset = (x0 + w / 2.0, y0 + h / 2.0)
     val (x, y) = rotatePointRadians(outline(i - 1), math.toRadians(ge.rotation), offset)
     (ge.x + x, ge.y + y)
@@ -151,8 +149,7 @@ class DisplayConv(val conv: Conv) {
     (nx, ny)//(nx + o._1, ny + o._2)
   }
 
-  def shapes(residue: Residue): (ReactTag, ReactTag) =
-    shapesMemo.getOrElseUpdate(residue.##.toString, shapesInner(residue))
+  def shapes(residue: Residue) = shapesMemo.getOrElseUpdate(residue.##.toString, shapesInner(residue))
   val shapesMemo = js.Dictionary.empty[(ReactTag, ReactTag)]
   def shapesInner(residue: Residue) = residue.rt match {
     case ResidueType.Begin => pathGroup((0, 0), (10, 0), (10, 4), (4, 4), (4, 28), (10, 28), (10, 32), (0, 32))
@@ -167,7 +164,7 @@ class DisplayConv(val conv: Conv) {
   }
 
   def shapesFromConv(residue: Residue): (ReactTag, ReactTag) = {
-    val mods = residueModsMemo(residue)
+    val mods = residueMods(residue)
 
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
       case (map, StyleMod(style, content)) =>
@@ -203,19 +200,6 @@ class DisplayConv(val conv: Conv) {
     (<.svg.g(residueShapeMods.map(_._3)), handleShapeMods.map(_._3).headOption.getOrElse(<.svg.g()))
   }
 
-  def canEqual(other: Any): Boolean = other.isInstanceOf[DisplayConv]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: DisplayConv =>
-      (that canEqual this) &&
-        conv == that.conv
-    case _ => false
-  }
-
-  override def hashCode(): Int = {
-    val state = Seq(conv)
-    state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
-  }
 }
 
 object DisplayConv {
