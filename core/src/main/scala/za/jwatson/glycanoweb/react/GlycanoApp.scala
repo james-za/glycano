@@ -12,7 +12,7 @@ import org.scalajs.dom
 import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.raw.SVGRect
 import za.jwatson.glycanoweb.Gly
-import za.jwatson.glycanoweb.react.GlycanoCanvas.View
+import za.jwatson.glycanoweb.react.GlycanoCanvas.{Bounds, View}
 import za.jwatson.glycanoweb.react.bootstrap._
 import za.jwatson.glycanoweb.render.{DisplayConv, SubstituentShape}
 import za.jwatson.glycanoweb.structure.RGraph._
@@ -39,7 +39,7 @@ object GlycanoApp {
     scaleSubstituents: Double = 1.0,
     limitUpdateRate: Boolean = false,
     annotationFontSize: Double = 24,
-    bounds: Option[SVGRect] = None,
+    bounds: Option[Bounds] = None,
     showGrid: Boolean = false,
     gridWidth: Double = 10.0,
     snapToGrid: Boolean = false,

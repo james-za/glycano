@@ -57,6 +57,8 @@ object GlycanoCanvas {
 
   @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1, width: Int = 800, height: Int = 600)
 
+  case class Bounds(x: Double, y: Double, width: Double, height: Double)
+
   class Backend(t: BackendScope[ExternalVar[AppState], InputState]) {
     val appState: AppState = t.props.value
     implicit val graph: RGraph = AppStateL.graph(t.props.value)
@@ -651,8 +653,9 @@ object GlycanoCanvas {
     }
     .componentDidUpdate { (scope, props, state) =>
       for (boundingGroup <- scope.refs[dom.html.Element]("bounds").map(_.getDOMNode().asInstanceOf[dom.svg.G])) {
-        val boundingBox = Some(boundingGroup.getBBox())
-        scope.props.setL(AppState.bounds)(boundingBox).unsafePerformIO()
+        val bb = boundingGroup.getBBox()
+        val bounds = Bounds(bb.x, bb.y, bb.width, bb.height)
+        scope.props.setL(AppState.bounds)(Some(bounds)).unsafePerformIO()
       }
     }
     //.domType[dom.SVGSVGElement]

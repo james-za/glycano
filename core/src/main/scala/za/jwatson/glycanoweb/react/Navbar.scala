@@ -5,10 +5,11 @@ import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
+import monocle.Iso
 import org.scalajs.dom
 import za.jwatson.glycanoweb.Gly
 import za.jwatson.glycanoweb.react.GlycanoApp.{Mode, AppStateL, AppState}
-import za.jwatson.glycanoweb.react.GlycanoCanvas.View
+import za.jwatson.glycanoweb.react.GlycanoCanvas.{Bounds, View}
 import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
 import za.jwatson.glycanoweb.structure.{ResidueId, AnnotId, RGraph}
 import scala.collection.immutable.NumericRange
@@ -18,6 +19,11 @@ import scala.util.Try
 import scalaz.effect.IO
 
 object Navbar {
+  def clampIso(min: Double, max: Double): Iso[Double, Double] =
+    Iso[Double, Double](x => x)(x => math.max(min, math.min(max, x)))
+  def multIso(mult: Double): Iso[Double, Double] =
+    Iso[Double, Double](_ * mult)(_ / mult)
+
   def navbtn(name: String, action: => IO[Unit]) =
     <.button(
       name,
@@ -92,11 +98,12 @@ object Navbar {
 
   class Backend(val t: BackendScope[ExternalVar[AppState], String]) {
     def clickCenter = t.props.modL(AppState.view) { v =>
-      t.props.value.bounds.fold(v) { b =>
-        val sx = v.width / b.width
-        val sy = v.height / b.height
-        val scale = math.min(sx, sy)
-        View(b.x + b.width / 2, b.y + b.height / 2, scale * 0.975, v.width, v.height)
+      t.props.value.bounds.fold(v) {
+        case Bounds(x, y, width, height) =>
+          val sx = v.width / width
+          val sy = v.height / height
+          val scale = math.min(sx, sy)
+          View(x + width / 2, y + height / 2, scale * 0.975, v.width, v.height)
       }
     }
 
@@ -202,17 +209,17 @@ object Navbar {
             " ", navbtn("edit", "Add Annotation", appState.mod(AppState.mode set Mode.PlaceAnnotation)),
             " ", navnumber("Annotation Font Size", appState, AppState.annotationFontSize),
             " ", navbtn("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
-            " ", navrange(0.0 to 200.0 by 0.01, appState, AppState.view ^|-> View.scale ^<-> monocle.Iso[Double, Double](_ * 100.0)(_ / 100.0)),
+            " ", navrange(0.0 to 200.0 by 0.01, appState, AppState.view ^|-> View.scale ^<-> multIso(100)),
             " ", <.span(f"$zoom%.2f" + "%"),
             " ", navbtn("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
             " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
             " ", navbtn("Center", $.backend.clickCenter),
             " ", navcheckbox("Snap To Grid", appState, AppState.snapToGrid),
             " ", navcheckbox("Show Grid", appState, AppState.showGrid),
-            " ", navnumber("Grid Width", appState, AppState.gridWidth),
-            " ", navcheckbox("Snap Rotation", appState, AppState.snapRotation),
-            " ", navrange(0.0 to 180.0 by 1.0, appState, AppState.snapRotationDegrees),
-            " ", <.span(f"${appState.value.snapRotationDegrees}%.0fº"),
+            " ", navnumber("Grid Width:", appState, AppState.gridWidth),
+            " ", navcheckbox("Snap Rotation To:", appState, AppState.snapRotation),
+            " ", navnumber("", appState, AppState.snapRotationDegrees ^<-> clampIso(1, 180)),
+            " ", <.span("º"),
             " ", $.propsChildren
           )
         )
