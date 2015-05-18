@@ -8,7 +8,7 @@ import com.lihaoyi.workbench.Plugin._
 
 object GlycanoBuildSettings {
   val paradiseVersion = "2.1.0-M5"
-  val scalajsReactVersion = "0.8.4"
+  val scalajsReactVersion = "0.9.0-SNAPSHOT"
   val monocleVersion = "1.1.1"
 
   def jsMinified(name: String) = ProvidedJS / s"js/$name.js" minified s"js/$name.min.js"

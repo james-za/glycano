@@ -111,8 +111,8 @@ package object bootstrap {
           )
         )(C)
       })
-      .shouldComponentUpdate((T, P, S) => T.props.choices != P.choices || T.props.selected != P.selected || T.props.toggle != P.toggle)
       .domType[dom.html.Div]
+      .shouldComponentUpdate((T, P, S) => T.props.choices != P.choices || T.props.selected != P.selected || T.props.toggle != P.toggle)
       .build
   }
 

@@ -97,6 +97,7 @@ object ResiduePanel {
         )
       )
     })
+    .domType[dom.html.Div]
     .shouldComponentUpdate {
       (T, P, S) =>
         T.props.dc != P.dc ||
@@ -105,6 +106,5 @@ object ResiduePanel {
         T.props.rt != P.rt ||
         T.state != S
     }
-    .domType[dom.html.Div]
     .build
 }
