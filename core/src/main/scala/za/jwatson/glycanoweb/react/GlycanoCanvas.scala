@@ -2,7 +2,7 @@ package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.extra.ExternalVar
+import japgolly.scalajs.react.extra.{OnUnmount, EventListener, ExternalVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Monocle._
 import monocle.macros.Lenses
@@ -59,7 +59,7 @@ object GlycanoCanvas {
 
   case class Bounds(x: Double, y: Double, width: Double, height: Double)
 
-  class Backend(t: BackendScope[ExternalVar[AppState], InputState]) {
+  class Backend(t: BackendScope[ExternalVar[AppState], InputState]) extends OnUnmount {
     val appState: AppState = t.props.value
     implicit val graph: RGraph = AppStateL.graph(t.props.value)
 
@@ -644,20 +644,15 @@ object GlycanoCanvas {
         )
       )
     }
+    .domType[dom.svg.SVG]
+    .configure(EventListener[dom.Event].installIO("contextmenu", _ => e => IO(e.preventDefault())))
     .shouldComponentUpdate((T, P, S) => T.props.value != P.value || T.state != S)
-    .componentDidMount { $ =>
-      $.getDOMNode().addEventListener("contextmenu", (e: org.scalajs.dom.Event) => {
-        e.preventDefault()
-        false
-      })
-    }
-    .componentDidUpdate { (scope, props, state) =>
-      for (boundingGroup <- scope.refs[dom.html.Element]("bounds").map(_.getDOMNode().asInstanceOf[dom.svg.G])) {
-        val bb = boundingGroup.getBBox()
-        val bounds = Bounds(bb.x, bb.y, bb.width, bb.height)
-        scope.props.setL(AppState.bounds)(Some(bounds)).unsafePerformIO()
+    .componentDidUpdateIO { (scope, props, state) =>
+      val bounds = for (g <- scope.refs[dom.svg.G]("bounds")) yield {
+        val bb = g.getDOMNode().getBBox()
+        Bounds(bb.x, bb.y, bb.width, bb.height)
       }
+      scope.props.setL(AppState.bounds)(bounds.toOption)
     }
-    //.domType[dom.SVGSVGElement]
     .build
 }
