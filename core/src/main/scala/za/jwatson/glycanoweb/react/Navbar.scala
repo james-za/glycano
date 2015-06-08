@@ -24,49 +24,45 @@ object Navbar {
   def multIso(mult: Double): Iso[Double, Double] =
     Iso[Double, Double](_ * mult)(_ / mult)
 
-  def navbtn(name: String, action: => IO[Unit]) =
+  def navbtn(name: String, action: => IO[Unit], disabled: Boolean = false) =
     <.button(
       name,
       ^.cls := "btn btn-default navbar-btn",
       ^.onClick ~~> ((e: ReactEvent) => for {
         _ <- e.preventDefaultIO
         _ <- action
-      } yield ())
+      } yield ()),
+      disabled ?= (^.disabled := true)
     )
 
-  def navbtn_(name: String, action: () => Unit) =
-    <.button(
-      name,
-      ^.cls := "btn btn-default navbar-btn",
-      ^.onClick ==> { (e: ReactEvent) => e.preventDefault(); action() }
-    )
-
-  def navbtn(icon: String, name: String, action: => IO[Unit]) =
+  def navbtni(icon: String, name: String, action: => IO[Unit], disabled: Boolean = false) =
     <.button(
       <.i(^.cls := "fa fa-lg fa-" + icon), " ", name,
       ^.cls := "btn btn-default navbar-btn",
       ^.onClick ~~> ((e: ReactEvent) => for {
         _ <- e.preventDefaultIO
         _ <- action
-      } yield ())
+      } yield ()),
+      disabled ?= (^.disabled := true)
     )
 
-  def navcheckbox(name: String, checked: Boolean, action: => IO[Unit]): ReactTag =
+  def navcheckbox(name: String, checked: Boolean, action: => IO[Unit], disabled: Boolean): ReactTag =
     <.div(^.cls := "form-group")(
       <.label(^.cls := "checkbox-inline")(
         <.input(
           ^.checked := checked,
           ^.`type` := "checkbox",
-          ^.onChange ~~> action
+          ^.onChange ~~> action,
+          disabled ?= (^.disabled := true)
         ),
         name
       )
     )
 
-  def navcheckbox[A](name: String, ev: ExternalVar[A], lens: monocle.Lens[A, Boolean]): ReactTag =
-    navcheckbox(name, lens.get(ev.value), ev.modL(lens)(!_))
+  def navcheckbox[A](name: String, rv: ReusableVar[A], lens: monocle.Lens[A, Boolean], disabled: Boolean = false): ReactTag =
+    navcheckbox(name, lens.get(rv.value), rv.modL(lens)(!_), disabled)
 
-  def navnumber(name: String, value: Double, action: Double => IO[Unit]): ReactTag = {
+  def navnumber(name: String, value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag = {
     <.div(^.cls := "form-group")(
       <.label(name, ^.paddingRight := 5.px),
       <.input(
@@ -74,15 +70,16 @@ object Navbar {
         ^.value := value,
         ^.`type` := "number",
         ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
-        ^.width := 80.px
+        ^.width := 80.px,
+        disabled ?= (^.disabled := true)
       )
     )
   }
 
-  def navnumber[A](name: String, ev: ExternalVar[A], lens: monocle.Lens[A, Double]): ReactTag =
-    navnumber(name, lens.get(ev.value), ev.setL(lens))
+  def navnumber[A](name: String, rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false): ReactTag =
+    navnumber(name, lens.get(rv.value), rv.setL(lens), disabled)
 
-  def navrange(range: NumericRange[Double], value: Double, action: Double => IO[Unit]): ReactTag =
+  def navrange(range: NumericRange[Double], value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag =
     <.div(^.cls := "form-group")(<.input(
       ^.cls := "form-control",
       ^.`type` := "range",
@@ -90,13 +87,14 @@ object Navbar {
       "max".reactAttr := range.end,
       ^.step := range.step,
       ^.value := value,
-      ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value)))
+      ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
+      disabled ?= (^.disabled := true)
     ))
 
-  def navrange[A](range: NumericRange[Double], ev: ExternalVar[A], lens: monocle.Lens[A, Double]): ReactTag =
-    navrange(range, lens.get(ev.value), ev.setL(lens))
+  def navrange[A](range: NumericRange[Double], rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false): ReactTag =
+    navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
 
-  class Backend(val t: BackendScope[ExternalVar[AppState], String]) {
+  class Backend(val t: BackendScope[ReusableVar[AppState], String]) {
     def clickCenter = t.props.modL(AppState.view) { v =>
       t.props.value.bounds.fold(v) {
         case Bounds(x, y, width, height) =>
@@ -135,7 +133,7 @@ object Navbar {
       for (fn <- t.refs[dom.html.Input]("filename").map(_.getDOMNode())) {
         val base = if (fn.value.isEmpty) "glycano" else fn.value
         val name = if (base.endsWith(".gly")) base else base + ".gly"
-        val graph = AppStateL.graph(t.props.value)
+        val graph = t.props.value.graph
         val gly = write[Gly](Gly.from(graph))
         val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
         val dataUrl = "data:text/plain;base64," + base64
@@ -157,13 +155,32 @@ object Navbar {
     }
   }
 
-  def apply(props: ExternalVar[AppState], children: ReactNode*) = component(props, children: _*)
-  val component = ReactComponentB[ExternalVar[AppState]]("Navbar")
+  implicit val reuseAppState: Reusability[AppState] =
+    Reusability.by((a: AppState) => (
+      a.annotationFontSize,
+      a.bondLabels,
+      a.gridWidth,
+      a.showGrid,
+      a.snapRotation,
+      a.snapRotationDegrees,
+      a.snapToGrid,
+      a.view,
+      a.undoPosition,
+      a.history.length,
+      a.buffer.isEmpty,
+      a.selection match { case (rs, as) => rs.isEmpty && as.isEmpty }
+    ))(Reusability.by_==)
+
+  val C = ReactComponentB[ReusableVar[AppState]]("Navbar")
     .initialState("glycano")
     .backend(new Backend(_))
-    .render($ => {
+    .render { $ =>
       val appState = $.props
+      val s = appState.value
       val zoom = appState.value.view.scale * 100
+      val emptySelection = s.selection match {
+        case (rs, as) => rs.isEmpty && as.isEmpty
+      }
 
       <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
         NavbarHeader("glycano-navbar-collapse", "Glycano"),
@@ -195,23 +212,23 @@ object Navbar {
             )
           ),
           <.form(^.cls := "form-inline")(
-            " ", navbtn_("Save .gly", { () => $.backend.saveGly() }),
-            " ", navbtn_("Save .svg", { () => $.backend.saveSvg() }),
-            " ", navbtn_("Save .png", { () => $.backend.savePng() }),
+            " ", navbtn("Save .gly", IO($.backend.saveGly())),
+            " ", navbtn("Save .svg", IO($.backend.saveSvg())),
+            " ", navbtn("Save .png", IO($.backend.savePng())),
             " ", navcheckbox("Bond Labels", appState, AppState.bondLabels),
-            " ", navbtn("Clear All", appState.setL(AppStateL.graphL)(RGraph())),
-            " ", navbtn("trash", "Delete", appState.mod(GlycanoApp.cutS.exec)),
-            " ", navbtn("cut", "Cut", appState.mod(GlycanoApp.copyS.exec)),
-            " ", navbtn("copy", "Copy", appState.mod(GlycanoApp.pasteS.exec)),
-            " ", navbtn("paste", "Paste", appState.mod(GlycanoApp.deleteS.exec)),
-            " ", navbtn("undo", "Undo", appState.mod(GlycanoApp.undo)),
-            " ", navbtn("repeat", "Redo", appState.mod(GlycanoApp.redo)),
-            " ", navbtn("edit", "Add Annotation", appState.mod(AppState.mode set Mode.PlaceAnnotation)),
+            " ", navbtn("Clear All", appState.setL(AppStateL.graphL)(RGraph()), s.graph.isEmpty),
+            " ", navbtni("cut", "Cut", appState.mod(GlycanoApp.cutS.exec), emptySelection),
+            " ", navbtni("copy", "Copy", appState.mod(GlycanoApp.copyS.exec), emptySelection),
+            " ", navbtni("paste", "Paste", appState.mod(GlycanoApp.pasteS.exec), s.buffer.isEmpty),
+            " ", navbtni("trash", "Delete", appState.mod(GlycanoApp.deleteS.exec), emptySelection),
+            " ", navbtni("undo", "Undo", appState.mod(GlycanoApp.undo), s.undoPosition + 1 >= s.history.length),
+            " ", navbtni("repeat", "Redo", appState.mod(GlycanoApp.redo), s.undoPosition == 0),
+            " ", navbtni("edit", "Add Annotation", appState.mod(AppState.mode set Mode.PlaceAnnotation)),
             " ", navnumber("Annotation Font Size", appState, AppState.annotationFontSize),
-            " ", navbtn("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
+            " ", navbtni("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
             " ", navrange(0.0 to 200.0 by 0.01, appState, AppState.view ^|-> View.scale ^<-> multIso(100)),
             " ", <.span(f"$zoom%.2f" + "%"),
-            " ", navbtn("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
+            " ", navbtni("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
             " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
             " ", navbtn("Center", $.backend.clickCenter),
             " ", navcheckbox("Snap To Grid", appState, AppState.snapToGrid),
@@ -224,9 +241,9 @@ object Navbar {
           )
         )
       ))
-    })
-    .shouldComponentUpdate((T, P, S) => T.props.value != P.value || T.state != S)
-    .componentDidMount($ => {
+    }
+    .configure(Reusability.shouldComponentUpdate)
+    .componentDidMount { $ =>
       for (in <- $.refs[dom.html.Input]("loadfile").map(_.getDOMNode())) {
         val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
           import upickle._, Gly._
@@ -241,6 +258,6 @@ object Navbar {
         fileReaderOpts.readAsDefault = "Text"
         FileReaderJS.setupInput(in, fileReaderOpts)
       }
-    })
+    }
     .build
 }

@@ -1,5 +1,6 @@
 package za.jwatson.glycanoweb.structure
 
+import japgolly.scalajs.react.extra.Reusability
 import monocle.macros.Lenses
 
 @Lenses case class Residue(ano: Anomer, abs: Absolute, rt: ResidueType, subs: Map[Int, Vector[SubstituentType]] = Map.empty) {
@@ -22,6 +23,10 @@ import monocle.macros.Lenses
   }
   
   override def toString: String = desc
+}
+
+object Residue {
+  implicit val reusability: Reusability[Residue] = Reusability.by_==
 }
 
 case class ResidueId(id: Int) extends AnyVal

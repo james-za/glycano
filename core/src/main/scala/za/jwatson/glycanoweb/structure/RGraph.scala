@@ -1,6 +1,7 @@
 package za.jwatson.glycanoweb.structure
 
 import RGraph._
+import japgolly.scalajs.react.extra.Reusability
 import za.jwatson.glycanoweb.GlyAnnot
 
 import scala.annotation.tailrec
@@ -15,11 +16,18 @@ import monocle.macros.{GenLens, Lenses}
 
 case class RGraph(
   residues: Map[ResidueId, GraphEntry] = Map.empty,
-  annotations: Map[AnnotId, Annot] = Map.empty)
+  annotations: Map[AnnotId, Annot] = Map.empty
+) {
+  def size: Int = residues.size + annotations.size
+  def isEmpty: Boolean = residues.isEmpty && annotations.isEmpty
+  def nonEmpty: Boolean = !isEmpty
+}
 
 @Lenses case class Placement(x: Double, y: Double, rotation: Double)
 
 object RGraph {
+  implicit val reusability: Reusability[RGraph] = Reusability.by_==
+
   val lenser = GenLens[RGraph]
   val residues = lenser(_.residues)
   val annotations = lenser(_.annotations)
@@ -48,6 +56,9 @@ object RGraph {
   def linkSubstsL(link: Link) = entryL(link.r) ^|-> GraphEntry.residue ^|-> Residue.subs ^|-? index(link.position)
 
   case class Bond(from: ResidueId, to: Link)
+  object Bond {
+    implicit val reusability: Reusability[Bond] = Reusability.by_==
+  }
 //
 //  def paste(buffer: RGraph): State[RGraph, RGraph] = for {
 //    _ <- State.get[RGraph]

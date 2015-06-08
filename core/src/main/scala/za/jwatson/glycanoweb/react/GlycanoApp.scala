@@ -3,7 +3,8 @@ package za.jwatson.glycanoweb.react
 import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.extra.ExternalVar
+import japgolly.scalajs.react.extra.{~=>, ReusableFn, Reusability, ReusableVar}
+import japgolly.scalajs.react.extra.Reusability._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Lens
 import monocle.Monocle._
@@ -26,10 +27,15 @@ import scalaz.effect.IO
 object GlycanoApp {
   case class Props(conventions: Map[String, DisplayConv])
 
+  object Props {
+    implicit val reusability: Reusability[Props] = Reusability.by_==
+  }
+
   @Lenses case class AppState(
     undoPosition: Int = 0,
     history: Vector[RGraph] = Vector(RGraph()),
     selection: (Set[ResidueId], Set[AnnotId]) = (Set.empty, Set.empty),
+    highlightBond: Option[ResidueId] = None,
     placeAnomer: Anomer = Anomer.Alpha, placeAbsolute: Absolute = Absolute.D,
     bondLabels: Boolean = false,
     view: View = View(),
@@ -45,7 +51,13 @@ object GlycanoApp {
     snapToGrid: Boolean = false,
     snapRotation: Boolean = false,
     snapRotationDegrees: Double = 15.0
-  )
+  ) {
+    def graph: RGraph = history(undoPosition)
+  }
+
+  object AppState {
+    //implicit val reusability: Reusability[AppState] = Reusability.by_==
+  }
 
   sealed trait Mode
   object Mode {
@@ -53,6 +65,8 @@ object GlycanoApp {
     case class PlaceResidue(residue: Residue) extends Mode
     case class PlaceSubstituent(st: SubstituentType) extends Mode
     case object PlaceAnnotation extends Mode
+
+    implicit val reuseMode: Reusability[Mode] = Reusability.by_==
   }
 
   def saveGraph(graph: RGraph): Unit = {
@@ -72,21 +86,20 @@ object GlycanoApp {
   }
 
   object AppStateL {
-    def graph(s: AppState): RGraph = s.history(s.undoPosition)
     def setGraph(g: RGraph)(s: AppState): AppState = {
       val s2 = AppState.history.modify(g +: _.drop(s.undoPosition).take(50))(s)
       saveGraph(g)
       AppState.undoPosition.set(0)(s2)
     }
-    def modGraph(f: RGraph => RGraph)(s: AppState): AppState = setGraph(f(graph(s)))(s)
-    val graphL = Lens[AppState, RGraph](graph)(setGraph)
+    def modGraph(f: RGraph => RGraph)(s: AppState): AppState = setGraph(f(s.graph))(s)
+    val graphL = Lens[AppState, RGraph](_.graph)(setGraph)
   }
 
   def removeSelection(sel: (Set[ResidueId], Set[AnnotId])) = (sel._1.foldLeft(_: RGraph)(_ - _)) andThen (sel._2.foldLeft(_: RGraph)(_ - _))
 
   val copyS = for {
     sel <- State.gets((_: AppState).selection)
-    g <- State.gets(AppStateL.graph)
+    g <- State.gets((_: AppState).graph)
     dr = g.residues.keySet diff sel._1
     da = g.annotations.keySet diff sel._2
     _ <- State.modify(AppState.buffer set removeSelection(dr, da)(g))
@@ -113,7 +126,7 @@ object GlycanoApp {
   val pasteS = for {
     buf <- State.gets((_: AppState).buffer)
     gSel <- State.gets { s: AppState =>
-      val old = AppStateL.graph(s)
+      val old = s.graph
       var g = old
 
       val lookupR = buf.residues.map { case (id, _) => id -> ResidueId.next() }
@@ -215,79 +228,13 @@ object GlycanoApp {
       }
     }
 
-    def setSelectionAno(ano: Option[Anomer]): Unit =
-      for (anomer <- ano) {
-        val sel = t.state.selection._1
-        val anoSelected = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(sel.contains) ^|-> GraphEntry.residue ^|-> Residue.ano
-        t.modState(anoSelected set anomer)
-      }
-
-    def setSelectionAbs(abs: Option[Absolute]): Unit =
-      for (absolute <- abs) {
-        val sel = t.state.selection._1
-        val absSelected = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(sel.contains) ^|-> GraphEntry.residue ^|-> Residue.abs
-        t.modState(absSelected set absolute)
-      }
+    val setAppStateFn: AppState ~=> IO[Unit] = ReusableFn(t.setStateIO(_))
+    val setModeFn: Mode ~=> IO[Unit] = ReusableFn(t._setStateL(AppState.mode))
+    val setGraphFn: RGraph ~=> IO[Unit] = ReusableFn(t._setStateL(AppStateL.graphL))
+    val setHighlightBondFn: Option[ResidueId] ~=> IO[Unit] = ReusableFn(t._setStateL(AppState.highlightBond))
   }
 
-  def bondStatus(bond: Bond, csf: ComponentStateFocus[RGraph])(implicit g: RGraph, dc: DisplayConv): TagMod = {
-    for {
-      ge1 <- g.residues.get(bond.from)
-      ge2 <- g.residues.get(bond.to.r)
-      anomer = ge1.residue.rt match {
-        case ResidueType.Begin => rootAnomer(bond.from)
-        case _ => ge1.residue.ano
-      }
-    } yield <.div(^.cls := "row")(
-      <.div(^.cls := "col-xs-6")(
-        residueStatus(ge1.residue),
-        <.svg.svg(
-          ^.display.`inline-block`,
-          ^.svg.width := 40.px,
-          ^.svg.height := 30.px,
-          ^.svg.viewBox := "0 0 120 90"
-        )(SVGBond(SVGBond.Props(anomer, None, (0, 45), (120, 45)))),
-        residueStatus(ge2.residue)
-      ),
-      <.div(^.cls := "col-xs-2")(
-        <.p(s"${ge1.residue.ano.desc}-${bond.to.position}")
-      ),
-      <.div(^.cls := "col-xs-4")(
-        <.button(^.cls := "btn btn-link", ^.onClick ~~> csf.modStateIO(_ - bond))("remove bond")
-      )
-    ): TagMod
-  }
-
-  def residueStatus(r: Residue)(implicit dc: DisplayConv) = {
-    val (residue, handle) = dc.shapes(r)
-    val (_, w, h) = dc.bounds(r)
-    <.svg.svg(
-      ^.display.`inline-block`,
-      ^.svg.width := 40.px,
-      ^.svg.height := 30.px,
-      ^.svg.viewBox := s"0 0 $w $h"
-    )(<.svg.g(residue, handle))
-  }
-
-  def subStatus(id: ResidueId, i: Int, j: Int, st: SubstituentType, csf: ComponentStateFocus[RGraph]) = {
-    val (sub, (w, h)) = SubstituentShape(st)
-    <.div(^.cls := "row")(
-      <.div(^.cls := "col-xs-3")(
-        <.svg.svg(
-          ^.display.`inline-block`,
-          ^.svg.height := 30.px,
-          ^.svg.viewBox := s"0 0 $w, $h"
-        )(sub)
-      ),
-      <.div(^.cls := "col-xs-5")(s"$i-${st.symbol}"),
-      <.div(^.cls := "col-xs-4")(
-        <.button(^.cls := "btn btn-link", ^.onClick ~~> csf.modStateIO(_ - (Link(id, i), j)))("remove")
-      )
-    )
-  }
-
-  def apply(props: Props, children: ReactNode*) = component(props, children)
-  val component = ReactComponentB[Props]("GlycanoApp")
+  val C = ReactComponentB[Props]("GlycanoApp")
     .initialStateP { P =>
       AppState(
         history = Vector(loadGraph()),
@@ -296,9 +243,10 @@ object GlycanoApp {
     }
     .backend(new Backend(_))
     .render { $ =>
-      implicit val g: RGraph = AppStateL.graph($.state)
+      implicit val g: RGraph = $.state.graph
       implicit val dc: DisplayConv = $.state.displayConv
-      val evAppState = ExternalVar.state($.focusStateId)
+      val rvAppStateNavbar = ReusableVar($.state)($.backend.setAppStateFn)(Navbar.reuseAppState)
+      val rvAppStateCanvas = ReusableVar($.state)($.backend.setAppStateFn)(Navbar.reuseAppState)
 
       val rtTemplate = $.state.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
@@ -306,13 +254,11 @@ object GlycanoApp {
       }
 
       val (rs, as) = $.state.selection
-      val graph = AppStateL.graphL.get($.state)
-      val rsel = graph.residues.filterKeys(rs.contains)
-      val asel = graph.annotations.filterKeys(as.contains)
-
+      val rvGraph = ReusableVar($.state.graph)($.backend.setGraphFn)(Reusability.by_==)
+      val rvHighlightBond = ReusableVar($.state.highlightBond)($.backend.setHighlightBondFn)(Reusability.by_==)
 
       <.div(^.cls := "container-fluid")(
-        <.div(^.cls := "row")(Navbar(evAppState)),
+        <.div(^.cls := "row")(Navbar.C(rvAppStateNavbar)),
 
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
@@ -356,8 +302,8 @@ object GlycanoApp {
               )
             ),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              SubstituentPanel(SubstituentPanel.Props(
-                ExternalVar.state($.focusStateL(AppState.mode)),
+              SubstituentPanel((
+                ReusableVar($.state.mode)($.backend.setModeFn),
                 $.state.scaleSubstituents
               ))
             )),
@@ -385,109 +331,19 @@ object GlycanoApp {
                   ^.ref := "canvaspanel",
                   ^.padding := 0.px
                 )(
-                  GlycanoCanvas(evAppState)
+                  GlycanoCanvas(rvAppStateCanvas)
                 )
               )
             ))
           ),
           <.div(^.cls := "col-xs-3")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              <.div(^.cls := "panel panel-default")(
-                <.div(^.cls := "panel-body")(
-                  for (_ <- rsel.headOption) yield {
-                    val anomer = rsel
-                      .map {
-                        case (_, ge) if ge.residue.rt.category == ResidueCategory.Repeat => None
-                        case (_, ge) => Some(ge.residue.ano)
-                      }
-                      .reduce[Option[Anomer]] {
-                        case (ano1, ano2) =>
-                          if (ano1 == ano2) ano1 else None
-                      }
-                    val absolute = rsel
-                      .map {
-                        case (_, ge) if ge.residue.rt.category == ResidueCategory.Repeat => None
-                        case (_, ge) => Some(ge.residue.abs)
-                      }
-                      .reduce[Option[Absolute]] {
-                        case (abs1, abs2) =>
-                          if (abs1 == abs2) abs1 else None
-                      }
-                    val changeAno = RadioGroupMap[Anomer](RadioGroupMap.Props[Anomer]($.backend.setSelectionAno, ResiduePanel.choicesAno, anomer, toggle = false))
-                    val changeAbs = RadioGroupMap[Absolute](RadioGroupMap.Props[Absolute]($.backend.setSelectionAbs, ResiduePanel.choicesAbs, absolute, toggle = false))
-                    <.div(
-                      ^.cls := "btn-toolbar",
-                      ^.role := "toolbar",
-                      ^.display.`inline-block`
-                    )(changeAno, changeAbs)
-                  },
-                  rsel.toList match {
-                    case Nil => ""
-                    case (id, ge) :: Nil =>
-                      val csf = $.focusStateL(AppStateL.graphL)
-                      val first = for (link <- ge.parent.toSeq) yield bondStatus(Bond(id, link), csf)
-                      val rest = for ((i, from) <- ge.children.toSeq) yield bondStatus(Bond(from, Link(id, i)), csf)
-                      val subs = for {
-                        (i, stack) <- ge.residue.subs.toSeq
-                        (st, j) <- stack.zipWithIndex
-                      } yield subStatus(id, i, j, st, csf)
-                      first ++ rest ++ subs
-                    case resList =>
-                      for ((id, ge) <- resList) yield {
-                        <.div(^.cls := "row")(
-                          <.div(^.cls := "col-xs-12")(s"${ge.residue.desc}")
-                        )
-                      }
-                  }
-                )
-              ),
-              <.div(^.cls := "panel panel-default")(
-                <.div(^.cls := "panel-body")(
-                  for (_ <- asel.headOption) yield {
-                    val annotationText = asel.map(_._2.text).reduce[String] {
-                      case (text1, text2) =>
-                        if (text1 == text2) text1 else ""
-                    }
-                    val fontSize = asel.map(_._2.size.toString).reduce[String] {
-                      case (size1, size2) =>
-                        if (size1 == size2) size1 else ""
-                    }
-
-                    <.div(
-                      <.div(^.cls := "form-group input-group")(
-                        "Text", <.input(
-                          ^.cls := "form-control",
-                          ^.`type` := "text",
-                          ^.value := annotationText,
-                          ^.onChange ~~> ((e: ReactEventI) => for {
-                            _ <- e.preventDefaultIO
-                            _ <- $.modStateIO(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.text set e.target.value)
-                          } yield ())
-                        )
-                      ),
-                      <.div(^.cls := "form-group input-group")(
-                        "Font Size", <.input(
-                          ^.cls := "form-control",
-                          ^.`type` := "number",
-                          ^.value := fontSize,
-                          ^.onChange ~~> ((e: ReactEventI) => for {
-                            _ <- e.preventDefaultIO
-                            _ <- Try(e.target.value.toDouble) match {
-                              case Failure(exception) => IO.ioUnit
-                              case Success(value) => $.modStateIO(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.size set value)
-                            }
-                          } yield ())
-                        )
-                      )
-                    )
-                  }
-                )
-              )
-            ))
+            OverviewPanel.C((rvGraph, $.state.selection, $.state.displayConv, rvHighlightBond))
           )
         )
       )
     }
+    .domType[dom.html.Div]
+    .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
     .componentDidMount { $ =>
       dom.window.addEventListener("resize", $.backend.resizeFunc)
       dom.window.addEventListener("keydown", $.backend.keydownFunc)

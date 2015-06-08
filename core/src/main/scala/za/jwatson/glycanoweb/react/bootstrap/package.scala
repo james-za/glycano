@@ -1,5 +1,6 @@
 package za.jwatson.glycanoweb.react
 
+import japgolly.scalajs.react.extra.Reusability
 import japgolly.scalajs.react.vdom.Attr
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react._
@@ -16,23 +17,26 @@ package object bootstrap {
           <.button(
             ^.`type` := "button",
             ^.cls := "navbar-toggle collapsed",
-            Attr("data-toggle") := "collapse",
-            Attr("data-target") := s"#$navbarId"
+            "data-toggle".reactAttr := "collapse",
+            "data-target".reactAttr := s"#$navbarId"
           )(
-              <.span(^.cls := "sr-only", "Toggle Navigation"),
-              <.span(^.cls := "icon-bar"),
-              <.span(^.cls := "icon-bar"),
-              <.span(^.cls := "icon-bar")
-            ),
+            <.span(^.cls := "sr-only", "Toggle Navigation"),
+            <.span(^.cls := "icon-bar"),
+            <.span(^.cls := "icon-bar"),
+            <.span(^.cls := "icon-bar")
+          ),
           <.a(^.cls := "navbar-brand", ^.href := "#")(C)
         )
       }
       .domType[dom.html.Div]
+      .configure(Reusability.shouldComponentUpdate)
       .build
   }
 
   object FormInput {
     case class Props(`type`: String, onChange: ReactEventI => Unit)
+
+    implicit val reuseProps: Reusability[Props] = Reusability.by((_: Props).`type`)
 
     def apply(props: Props, children: ReactNode*) = component(props, children)
     val component = ReactComponentB[Props]("Input")
@@ -43,8 +47,8 @@ package object bootstrap {
           ^.onChange ==> P.onChange
         )(C)
       }
-      .shouldComponentUpdate((T, P, S) => T.props.`type` != P.`type`)
       .domType[dom.html.Input]
+      .configure(Reusability.shouldComponentUpdate)
       .build
   }
 
@@ -56,27 +60,25 @@ package object bootstrap {
                      nav: Boolean = false,
                      pressed: Boolean = false)
 
+    implicit val reuseBSStyle: Reusability[bs.Style] = Reusability.by_==
+    implicit val reuseBSSize: Reusability[bs.Size] = Reusability.by_==
+    implicit val reuseProps: Reusability[Props] = Reusability.by((p: Props) => (p.style, p.size, p.block, p.nav, p.pressed))
+
     def apply(props: Props, children: ReactNode*) = component(props, children)
     def withKey(key: scalajs.js.Any) = component.withKey(key)
     val component = ReactComponentB[Props]("Button")
       .initialState(false)
       .noBackend
       .render((P, C, S, B) => {
-      val block = if (P.block) " btn-block" else ""
-      val nav = if (P.nav) " navbar-btn" else ""
-      <.button(
-        ^.cls := s"btn btn-${P.style.name} btn-${P.size.name}$block$nav",
-        ^.onClick --> P.onClick()
-      )(C)
-    })
-      .shouldComponentUpdate((T, P, S) => {
-      T.props.style != P.style ||
-        T.props.size != P.size ||
-        T.props.block != P.block ||
-        T.props.nav != P.nav ||
-        T.props.pressed != P.pressed
-    })
+        val block = if (P.block) " btn-block" else ""
+        val nav = if (P.nav) " navbar-btn" else ""
+        <.button(
+          ^.cls := s"btn btn-${P.style.name} btn-${P.size.name}$block$nav",
+          ^.onClick --> P.onClick()
+        )(C)
+      })
       .domType[dom.html.Button]
+      .configure(Reusability.shouldComponentUpdate)
       .build
   }
 
@@ -84,8 +86,8 @@ package object bootstrap {
     def apply(icon: String, children: ReactNode*) = component(icon, children)
     val component = ReactComponentB[String]("GlyphIcon")
       .render((P, C) => {
-      <.span(^.cls := "glyphicon glyphicon-" + P)(C)
-    })
+        <.span(^.cls := "glyphicon glyphicon-" + P)(C)
+      })
       .shouldComponentUpdate((T, P, S) => T.props != P)
       .build
   }
@@ -98,6 +100,9 @@ package object bootstrap {
         t.props.onChange(if (t.props.toggle && t.props.selected.contains(a)) None else Some(a))
       }
     }
+
+    implicit def reuseChoices[A]: Reusability[Map[A, String]] = Reusability.by_==[Map[A, String]]
+    implicit def reuseProps[A]: Reusability[Props[A]] = Reusability.by((p: Props[A]) => (p.choices, p.selected, p.toggle))(Reusability.by_==)
 
     def apply[A] = ReactComponentB[Props[A]]("RadioGroupMap")
       .stateless
@@ -112,7 +117,7 @@ package object bootstrap {
         )(C)
       })
       .domType[dom.html.Div]
-      .shouldComponentUpdate((T, P, S) => T.props.choices != P.choices || T.props.selected != P.selected || T.props.toggle != P.toggle)
+      .configure(Reusability.shouldComponentUpdate[Props[A], Unit, Backend[A], dom.html.Div])
       .build
   }
 
@@ -124,20 +129,23 @@ package object bootstrap {
         t.props.onChange(if (t.props.toggle && t.props.selected == a) None else Some(a))
     }
 
+    implicit val reuseChoices: Reusability[Seq[String]] = Reusability.by_==
+    implicit val reuseProps = Reusability.by((p: Props) => (p.choices, p.selected, p.toggle))
+
     def apply() = component
     val component = ReactComponentB[Props]("RadioGroup")
       .stateless
       .backend(new Backend(_))
-      .render((P, C, S, B) => {
+      .render { (P, C, S, B) =>
         <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
           for (value <- P.choices) yield <.button(value)(
             ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
             ^.onClick --> B.handleClick(value)
           )
         )(C)
-      })
-      .shouldComponentUpdate((T, P, S) => T.props.choices != P.choices || T.props.selected != P.selected || T.props.toggle != P.toggle)
+      }
       .domType[dom.html.Div]
+      .configure(Reusability.shouldComponentUpdate)
       .build
   }
 

@@ -1,5 +1,6 @@
 package za.jwatson.glycanoweb.render
 
+import japgolly.scalajs.react.extra.Reusability
 import japgolly.scalajs.react.vdom.prefix_<^._
 import org.parboiled2.ParseError
 import za.jwatson.glycanoweb.convention.Convention.RuleCond.{DefaultCond, ResCond}
@@ -203,6 +204,8 @@ class DisplayConv(val conv: Conv) {
 }
 
 object DisplayConv {
+  implicit val reusability: Reusability[DisplayConv] = Reusability.byRef
+
   def parseTextConv(text: String): Option[DisplayConv] = {
     val parser = new ConventionParser(text)
     val convs = parser.conventions.run()

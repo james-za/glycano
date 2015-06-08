@@ -9,6 +9,6 @@ import scala.scalajs.js.JSApp
 object GlycanoWeb extends JSApp {
   def main(): Unit = {
     val props = GlycanoApp.Props(conventions = DisplayConv.conventions)
-    GlycanoApp(props).render(dom.document.body)
+    GlycanoApp.C(props).render(dom.document.body)
   }
 }

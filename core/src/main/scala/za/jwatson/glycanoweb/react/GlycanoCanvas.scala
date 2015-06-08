@@ -2,7 +2,7 @@ package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.extra.{OnUnmount, EventListener, ExternalVar}
+import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Monocle._
 import monocle.macros.Lenses
@@ -36,6 +36,8 @@ object GlycanoCanvas {
     } else false
   }
 
+  //implicit val reuseAppState: Reusability[AppState] = Reusability.by_==
+
   implicit def undefOrMonoid[A: Semigroup]: Monoid[js.UndefOr[A]] = new Monoid[js.UndefOr[A]] {
     import js.UndefOr._
     def append(f1: js.UndefOr[A], f2: => js.UndefOr[A]) = (f1.isDefined, f2.isDefined) match {
@@ -57,17 +59,23 @@ object GlycanoCanvas {
 
   @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1, width: Int = 800, height: Int = 600)
 
-  case class Bounds(x: Double, y: Double, width: Double, height: Double)
+  object View {
+    implicit val reusability: Reusability[View] = Reusability.by_==
+  }
 
-  class Backend(t: BackendScope[ExternalVar[AppState], InputState]) extends OnUnmount {
+  case class Bounds(x: Double, y: Double, width: Double, height: Double) {
+    implicit val reusability: Reusability[Bounds] = Reusability.by_==
+  }
+
+  class Backend(t: BackendScope[ReusableVar[AppState], InputState]) extends OnUnmount {
     val appState: AppState = t.props.value
-    implicit val graph: RGraph = AppStateL.graph(t.props.value)
+    implicit val graph: RGraph = appState.graph
 
     def clientToViewIO(x: Double, y: Double)(f: ((Double, Double)) => IO[Unit]): IO[Unit] =
-      clientToView(x, y).map(f).getOrElse(IO.ioUnit)
+      clientToView(x, y).fold(IO.ioUnit)(f)
     def clientToView(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
-      svg <- Ref[dom.html.Element]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.svg.SVG])
-      view <- Ref[dom.html.Element]("view")(t).map(_.getDOMNode().asInstanceOf[dom.svg.G])
+      svg <- Ref[dom.svg.SVG]("canvas")(t).map(_.getDOMNode())
+      view <- Ref[dom.svg.G]("view")(t).map(_.getDOMNode())
     } yield {
       val p = svg.createSVGPoint(); p.x = x; p.y = y
       val p2 = p.matrixTransform(view.getScreenCTM().inverse())
@@ -77,7 +85,7 @@ object GlycanoCanvas {
     def clientToCanvasIO(x: Double, y: Double)(f: ((Double, Double)) => IO[Unit]): IO[Unit] =
       clientToCanvas(x, y).map(f).getOrElse(IO.ioUnit)
     def clientToCanvas(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
-      svg <- Ref[dom.html.Element]("canvas")(t).map(_.getDOMNode().asInstanceOf[dom.svg.SVG])
+      svg <- Ref[dom.svg.SVG]("canvas")(t).map(_.getDOMNode())
     } yield {
       val p = svg.createSVGPoint(); p.x = x; p.y = y
       val p2 = p.matrixTransform(svg.getScreenCTM().inverse())
@@ -449,17 +457,19 @@ object GlycanoCanvas {
     case class Rotate(r: ResidueId, around: (Double, Double), rotation: Double) extends InputState
     case class AddAnnotation(x: Double, y: Double) extends InputState
     case object Out extends InputState
+
+    implicit val reusability: Reusability[InputState] = Reusability.by_==
   }
 
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
-  def apply(props: ExternalVar[AppState], children: ReactNode*) = component.apply(props, children)
-  val component = ReactComponentB[ExternalVar[AppState]]("GlycanoCanvas")
+  def apply(props: ReusableVar[AppState], children: ReactNode*) = component.apply(props, children)
+  val component = ReactComponentB[ReusableVar[AppState]]("GlycanoCanvas")
     .initialState[InputState](InputState.Default)
     .backend(new Backend(_))
     .render { (P, C, S, B) =>
       val appState = P.value
-      implicit val graph: RGraph = AppStateL.graph(appState)
+      implicit val graph: RGraph = appState.graph
 
       val (voX, voY) = S match {
         case InputState.DragView(down, offset) => offset
@@ -504,7 +514,8 @@ object GlycanoCanvas {
           case ResidueType.Begin => rootAnomer(r)
           case _ => ge.residue.ano
         }
-        SVGBond.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, appState.bondLabels))
+        val highlight = appState.highlightBond.contains(r)
+        SVGBond.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, appState.bondLabels, highlight))
       }
 
       val tempBonds = (appState.mode, S) match {
