@@ -37,7 +37,7 @@ object SVGResidue {
       } yield {
         val (x1, y1) = residueLinks(i - 1)
         <.svg.g(^.svg.transform := s"translate($x1, $y1) scale(${P.scaleSubstituents})")(
-          SVGSubstituentStack.withKey(i)(SVGSubstituentStack.Props(sts))
+          SVGSubstituentStack.withKey(i)(sts)
         )
       }
 

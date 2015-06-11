@@ -21,36 +21,50 @@ object CFG {
       |   -> style [primary] { fill: #FFFFFF }
       |   -> style [outline] { stroke: #000000; stroke-width: 3 }
       |
-      |   (Gal, Glc, Man) <>
+      |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <>
       |   -> #1 [primary] CFGCircle
       |   -> #2 [outline, links] CFGCircle
       |
-      |   (Gal, Glc, Man) <N, Ac>
+      |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <N, Ac>
       |   -> #1 [primary] CFGSquare
       |   -> #2 [outline, links] CFGSquare
       |
-      |   (Gal, Glc, Man) <COOH>
+      |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <N>
       |   -> #1 [secondary] CFGSquare
       |   -> #2 [primary] CFGSquareTR
       |   -> #3 [thin] CFGSquareTR
       |   -> #4 [outline, links] CFGSquare
       |
+      |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <COOH>
+      |   -> #1 [secondary] CFGDiamond
+      |   -> #2 [primary] CFGDiamondB
+      |   -> #3 [thin] CFGDiamondB
+      |   -> #4 [outline, links] CFGDiamond
+      |
       |   (Fuc) <>
       |   -> #1 [primary] CFGTriangle
       |   -> #2 [outline, links] CFGTriangle
       |
-      |   (Xyl) <>
+      |   (Rib, Ara, Xyl, Lyx) <>
       |   -> #1 [primary] CFGStar
       |   -> #2 [outline, links] CFGStar
       |
-      |   (Gal) -> style [primary] { fill: #FFFF00 }
+      |   (All) -> style [primary] { fill: #7D007D }
+      |   (Alt) -> style [primary] { fill: #FA6400 }
       |   (Glc) -> style [primary] { fill: #0000FA }
       |   (Man) -> style [primary] { fill: #00C832 }
-      |   (Fuc) -> style [primary] { fill: #FA0000 }
-      |   (Xyl) -> style [primary] { fill: #FAEAD5 }
+      |   (Gul) -> style [primary] { fill: #FA78FA }
+      |   (Ido) -> style [primary] { fill: #966432 }
+      |   (Gal) -> style [primary] { fill: #FFFF00 }
+      |   (Tal) -> style [primary] { fill: #FA0000 }
       |
-      |   * -> style [outline] { stroke: #000000; stroke-width: 3 }
-      |   * -> style [thin] { stroke: #000000; stroke-width: 1 }
+      |   (Rib) -> style [primary] { fill: #0000FA }
+      |   (Ara) -> style [primary] { fill: #00C832 }
+      |   (Xyl) -> style [primary] { fill: #FA6400 }
+      |   (Lyx) -> style [primary] { fill: #FFFF00 }
+      |
+      |   * -> style [outline] { fill: none; stroke: #000000; stroke-width: 3 }
+      |   * -> style [thin] { fill: none; stroke: #000000; stroke-width: 1 }
       |   * -> style [secondary] { fill: #FFFFFF }
       |}
     """.stripMargin

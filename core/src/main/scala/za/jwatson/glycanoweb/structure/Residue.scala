@@ -35,6 +35,8 @@ object ResidueId {
   var id: Int = 0
   def nextId(): Int = { id += 1; id }
   def next(): ResidueId = ResidueId(nextId())
+
+  implicit val reusability: Reusability[ResidueId] = Reusability.by_==
 }
 
 @Lenses case class Link(r: ResidueId, position: Int)

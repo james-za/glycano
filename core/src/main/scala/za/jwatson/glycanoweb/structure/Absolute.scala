@@ -1,5 +1,7 @@
 package za.jwatson.glycanoweb.structure
 
+import japgolly.scalajs.react.extra.Reusability
+
 sealed trait Absolute {
   val symbol: String
   val desc: String
@@ -13,4 +15,6 @@ object Absolute {
   val AbsoluteMap = Absolutes.map(abs => abs.symbol -> abs).toMap
 
   def unapply(str: String): Option[Absolute] = AbsoluteMap.get(str)
+
+  implicit val reusability: Reusability[Absolute] = Reusability.by_==
 }

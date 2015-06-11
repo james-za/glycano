@@ -21,7 +21,8 @@ object Convention {
       def matches(residue: Residue) = {
         //allowed.forall(a => subs.values.flatten.exists(_.st.symbol == a))
         val allowedSet = allowed.map(_.toLowerCase).toSet
-        val subsSet = residue.subs.values.toVector.flatten.map(_.symbol.toLowerCase).toSet
+        val subsSet = (for (sts <- residue.subs.values; st <- sts) yield st.symbol.toLowerCase).toSet
+        if (residue.rt == ResidueType.Ido) println(s"$allowedSet\n$subsSet\n${allowedSet == subsSet}")
         allowedSet == subsSet
       }
     }

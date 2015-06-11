@@ -657,7 +657,7 @@ object GlycanoCanvas {
     }
     .domType[dom.svg.SVG]
     .configure(EventListener[dom.Event].installIO("contextmenu", _ => e => IO(e.preventDefault())))
-    .shouldComponentUpdate((T, P, S) => T.props.value != P.value || T.state != S)
+    .configure(Reusability.shouldComponentUpdate)
     .componentDidUpdateIO { (scope, props, state) =>
       val bounds = for (g <- scope.refs[dom.svg.G]("bounds")) yield {
         val bb = g.getDOMNode().getBBox()

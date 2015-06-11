@@ -1,78 +1,80 @@
 package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react._
+import japgolly.scalajs.react.extra._
+import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
-import japgolly.scalajs.react.ReactComponentB
-import monocle.macros.Lenses
+
 import za.jwatson.glycanoweb.react.GlycanoApp.Mode
 import za.jwatson.glycanoweb.react.bootstrap.RadioGroupMap
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure._
 import org.scalajs.dom
 
+import scalaz.effect.IO
+
 object ResiduePanel {
-  case class Props(dc: DisplayConv, ano: Anomer, abs: Absolute, rt: Option[ResidueType],
-                   modState: (GlycanoApp.AppState => GlycanoApp.AppState) => Unit)
+  case class Props(ano: ReusableVar[Anomer], abs: ReusableVar[Absolute],
+                   mode: ReusableVar[Mode], dc: DisplayConv)
 
-  @Lenses case class State(page: ResidueCategory)
+  implicit val reuseProps: Reusability[Props] = Reusability.caseclass4(Props.unapply)
 
-  class Backend(t: BackendScope[Props, State]) {
-    def setAnomer(anomer: Option[Anomer]): Unit = for (ano <- anomer) {
-      t.props.modState(GlycanoApp.AppState.placeAnomer set ano)
+  class Backend($: BackendScope[Props, ResidueCategory]) {
+    def setAnomer(anomer: Option[Anomer]): IO[Unit] = anomer.fold(IO.ioUnit)($.props.ano.set)
+    def setAbsolute(absolute: Option[Absolute]): IO[Unit] = absolute.fold(IO.ioUnit)($.props.abs.set)
+
+    def clickResidue(rt: ResidueType): IO[Unit] = $.props.mode.mod {
+      case Mode.PlaceResidue(r) if r.rt == rt => Mode.Selection
+      case _ => Mode.PlaceResidue(Residue($.props.ano.value, $.props.abs.value, rt))
     }
 
-    def setAbsolute(absolute: Option[Absolute]): Unit = for (abs <- absolute) {
-      t.props.modState(GlycanoApp.AppState.placeAbsolute set abs)
-    }
-
-    def clickResidue(rt: ResidueType): Unit = t.props.modState {
-      if (!t.props.rt.contains[ResidueType](rt)) {
-        GlycanoApp.AppState.mode set Mode.PlaceResidue(Residue(t.props.ano, t.props.abs, rt))
-      } else {
-        GlycanoApp.AppState.mode set Mode.Selection
-      }
-    }
-
-    def clickPage(cat: ResidueCategory): Unit = {
-      t.modState(State.page set cat)
-    }
+    val setAnoFn: Option[Anomer] ~=> IO[Unit] = ReusableFn(setAnomer)
+    val setAbsFn: Option[Absolute] ~=> IO[Unit] = ReusableFn(setAbsolute)
+    val getNameAnoFn: Anomer ~=> String = ReusableFn(_.symbol)
+    val getNameAbsFn: Absolute ~=> String = ReusableFn(_.symbol)
   }
 
-  val choicesAno = Anomer.Anomers.map(ano => ano -> ano.desc).toMap
-  val choicesAbs = Absolute.Absolutes.map(abs => abs -> abs.desc).toMap
+  val RadioAnomer = RadioGroupMap[Anomer]
+  val RadioAbsolute = RadioGroupMap[Absolute]
 
-  def apply(props: Props, children: ReactNode*) = component(props, children: _*)
-  val component = ReactComponentB[Props]("ResiduePanel")
-    .initialState(State(ResidueCategory.Aldose))
+  val C = ReactComponentB[Props]("ResiduePanel")
+    .initialState[ResidueCategory](ResidueCategory.Aldose)
     .backend(new Backend(_))
-    .render((P, S, B) => {
+    .render { $ =>
       val residueTabs = <.ul(^.cls := "nav nav-tabs", ^.role := "tablist")(
         for (cat <- ResidueCategory.ResidueCategories) yield <.li(
           <.a(
             ^.href := "#",
-            ^.onClick --> B.clickPage(cat),
+            ^.onClick ~~> $.setStateIO(cat),
             ^.role := "tab",
             "data-toggle".reactAttr := "tab",
-            (S.page == cat) ?= (^.cls := "active")
+            ($.state == cat) ?= (^.cls := "active")
           )(cat.name)
         )
       )
 
+      val rvAno = ReusableVar[Option[Anomer]](Some($.props.ano.value))($.backend.setAnoFn)
+      val rvAbs = ReusableVar[Option[Absolute]](Some($.props.abs.value))($.backend.setAbsFn)
+
       val residueConfig = <.div(^.cls := "btn-toolbar", ^.role := "toolbar", ^.display.`inline-block`)(
-        RadioGroupMap[Anomer].apply(RadioGroupMap.Props[Anomer](B.setAnomer, choicesAno, Some(P.ano), toggle = false)),
-        RadioGroupMap[Absolute].apply(RadioGroupMap.Props[Absolute](B.setAbsolute, choicesAbs, Some(P.abs), toggle = false))
+        RadioAnomer(RadioGroupMap.Props[Anomer](rvAno, Anomer.Anomers, $.backend.getNameAnoFn, toggle = false)),
+        RadioAbsolute(RadioGroupMap.Props[Absolute](rvAbs, Absolute.Absolutes, $.backend.getNameAbsFn, toggle = false))
       )
 
       val residuePages = <.div(^.cls := "btn-group", "data-toggle".reactAttr := "buttons")(
         <.div(^.cls := "tab-content")(
           <.div(^.role := "tabpanel", ^.cls := "tab-pane active")(
-            for (rt <- ResidueType.ResidueTypeCategories(S.page)) yield {
-              val res: Residue = Residue(P.ano, P.abs, rt)
-              val ((x, y), w, h) = P.dc.bounds(res)
+            for (rt <- ResidueType.ResidueTypeCategories($.state)) yield {
+              val res = Residue($.props.ano.value, $.props.abs.value, rt)
+              val ((x, y), w, h) = $.props.dc.bounds(res)
               val scale = 0.4
-              val (residue, handle) = P.dc.shapes(res)
+              val (residue, handle) = $.props.dc.shapes(res)
+              val selected = $.props.mode.value match {
+                case Mode.PlaceResidue(r) if r.rt == rt => true
+                case _ => false
+              }
               <.span(
-                <.button(^.cls := s"btn btn-default", P.rt.contains(rt) ?= (^.cls := "active"), ^.title := rt.desc, ^.padding := 2.px, ^.onClick --> B.clickResidue(rt))(
+                <.button(^.cls := s"btn btn-default", selected ?= (^.cls := "active"), ^.title := rt.desc, ^.padding := 2.px, ^.onClick ~~> $.backend.clickResidue(rt))(
                   <.svg.svg(
                     ^.svg.width := (w + 20) * scale,
                     ^.svg.height := (h + 20) * scale
@@ -96,15 +98,8 @@ object ResiduePanel {
           <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(residuePages))
         )
       )
-    })
-    .domType[dom.html.Div]
-    .shouldComponentUpdate {
-      (T, P, S) =>
-        T.props.dc != P.dc ||
-        T.props.ano != P.ano ||
-        T.props.abs != P.abs ||
-        T.props.rt != P.rt ||
-        T.state != S
     }
+    .domType[dom.html.Div]
+    .configure(Reusability.shouldComponentUpdate)
     .build
 }

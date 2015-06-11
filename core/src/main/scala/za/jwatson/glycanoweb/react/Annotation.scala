@@ -11,9 +11,10 @@ import scalajs.js
 import scalaz.effect.IO
 
 object Annotation {
-  def apply(props: (ReactMouseEvent => IO[Unit], AnnotId, Annot, Boolean), children: ReactNode*) = component(props, children)
+  type Props = (ReactMouseEvent => IO[Unit], AnnotId, Annot, Boolean)
+  def apply(props: Props, children: ReactNode*) = component(props, children)
   def withKey(key: js.Any) = component.withKey(key)
-  val component = ReactComponentB[(ReactMouseEvent => IO[Unit], AnnotId, Annot, Boolean)]("Annotation")
+  val component = ReactComponentB[Props]("Annotation")
     .initialState[(Double, Double)]((0, 0))
     .render { $ =>
       val (io, id, Annot(text, size, x, y, rot), selected) = $.props

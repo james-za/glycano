@@ -3,7 +3,7 @@ package za.jwatson.glycanoweb.react
 import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.extra.{~=>, ReusableFn, Reusability, ReusableVar}
+import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react.extra.Reusability._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Lens
@@ -19,6 +19,7 @@ import za.jwatson.glycanoweb.render.{DisplayConv, SubstituentShape}
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
 
+import scala.reflect.macros.whitebox
 import scala.scalajs.js
 import scala.util.{Failure, Success, Try}
 import scalaz.State
@@ -55,14 +56,10 @@ object GlycanoApp {
     def graph: RGraph = history(undoPosition)
   }
 
-  object AppState {
-    //implicit val reusability: Reusability[AppState] = Reusability.by_==
-  }
-
   sealed trait Mode
   object Mode {
     case object Selection extends Mode
-    case class PlaceResidue(residue: Residue) extends Mode
+    @Lenses case class PlaceResidue(residue: Residue) extends Mode
     case class PlaceSubstituent(st: SubstituentType) extends Mode
     case object PlaceAnnotation extends Mode
 
@@ -158,47 +155,53 @@ object GlycanoApp {
       AppState.undoPosition.modify(_ - 1)(as)
     else as
 
-  class Backend(t: BackendScope[Props, AppState]) {
+  class Backend($: BackendScope[Props, AppState]) extends OnUnmount {
     def modState(mod: AppState => AppState): Unit = {
-      t.modState(mod)
+      $.modState(mod)
     }
 
     def toggleBondLabels(): Unit = {
-      t.modState(AppState.bondLabels.modify(bl => !bl))
+      $.modState(AppState.bondLabels.modify(bl => !bl))
     }
 
-    def zoomIn(): Unit = t.modState(AppState.view ^|-> View.scale modify (_ * 1.1))
-    def zoomOut(): Unit = t.modState(AppState.view ^|-> View.scale modify (_ * (1.0 / 1.1)))
-    def zoomReset(): Unit = t.modState(AppState.view ^|-> View.scale set 1.0)
+    def zoomIn(): Unit = $.modState(AppState.view ^|-> View.scale modify (_ * 1.1))
+    def zoomOut(): Unit = $.modState(AppState.view ^|-> View.scale modify (_ * (1.0 / 1.1)))
+    def zoomReset(): Unit = $.modState(AppState.view ^|-> View.scale set 1.0)
     //def zoomWheel(e: ReactWheelEvent): Unit = t.modState(State.view ^|-> View.scale modify (_ + e.deltaY(e.nativeEvent)))
 
-    def cut(): Unit = t.modState(cutS.exec)
-    def copy(): Unit = t.modState(copyS.exec)
-    def paste(): Unit = t.modState(pasteS.exec)
-    def delete(): Unit = t.modState(deleteS.exec)
+    def cut(): Unit = $.modState(cutS.exec)
+    def copy(): Unit = $.modState(copyS.exec)
+    def paste(): Unit = $.modState(pasteS.exec)
+    def delete(): Unit = $.modState(deleteS.exec)
 
-    def clearAll(): Unit = t.modState(AppStateL setGraph RGraph())
+    def clearAll(): Unit = $.modState(AppStateL setGraph RGraph())
 
     def scaleSubstituentsSlider(): Unit = scaleSubstituents("ssSlider")
     def scaleSubstituentsNumber(): Unit = scaleSubstituents("ssNumber")
     def scaleSubstituents(ref: String): Unit = {
-      for (input <- t.refs[dom.html.Input](ref)) {
+      for (input <- $.refs[dom.html.Input](ref)) {
         val scale = Try(input.getDOMNode().value.toDouble).getOrElse(1.0)
-        t.modState(AppState.scaleSubstituents set scale)
+        $.modState(AppState.scaleSubstituents set scale)
       }
     }
 
     def toggleLimitUpdateRate(): Unit = {
-      t.modState(AppState.limitUpdateRate modify { v => !v })
+      $.modState(AppState.limitUpdateRate modify { v => !v })
     }
 
     val resizeFunc: js.Function1[dom.Event, Unit] = (e: dom.Event) => resize()
 
-    def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")(t)) {
+    def resizeIO = Ref[dom.html.Div]("canvaspanel")($).fold(IO.ioUnit) { p =>
+      val rect = p.getDOMNode().getBoundingClientRect()
+      val setw = AppState.view ^|-> View.width set (rect.width.toInt + 1)
+      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
+      $.modStateIO(setw andThen seth)
+    }
+    def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")($)) {
       val rect = p.getDOMNode().getBoundingClientRect()
       val setw = AppState.view ^|-> View.width set rect.width.toInt + 1
       val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
-      t.modState(setw andThen seth)
+      $.modState(setw andThen seth)
     }
 
     val keydownFunc: js.Function1[dom.KeyboardEvent, Unit] = keyDown _
@@ -213,7 +216,7 @@ object GlycanoApp {
         case 46 =>
           delete()
         case 27 | 32 =>
-          t.modState(AppState.mode set Mode.Selection)
+          $.modState(AppState.mode set Mode.Selection)
         case 88 /*X*/ if mod =>
           cut()
         case 67 /*C*/ if mod =>
@@ -221,30 +224,35 @@ object GlycanoApp {
         case 86 /*V*/ if mod =>
           paste()
         case 90 /*Z*/ if mod =>
-          t.modState(if (shift) redo else undo)
+          $.modState(if (shift) redo else undo)
         case 89 /*Y*/ if mod =>
-          t.modState(redo)
+          $.modState(redo)
         case _ =>
       }
     }
 
-    val setAppStateFn: AppState ~=> IO[Unit] = ReusableFn(t.setStateIO(_))
-    val setModeFn: Mode ~=> IO[Unit] = ReusableFn(t._setStateL(AppState.mode))
-    val setGraphFn: RGraph ~=> IO[Unit] = ReusableFn(t._setStateL(AppStateL.graphL))
-    val setHighlightBondFn: Option[ResidueId] ~=> IO[Unit] = ReusableFn(t._setStateL(AppState.highlightBond))
+    val setAppStateFn: AppState ~=> IO[Unit] = ReusableFn($.setStateIO(_))
+    val setModeFn: Mode ~=> IO[Unit] = ReusableFn($._setStateL(AppState.mode))
+    val setGraphFn: RGraph ~=> IO[Unit] = ReusableFn($._setStateL(AppStateL.graphL))
+    val setHighlightBondFn: Option[ResidueId] ~=> IO[Unit] = ReusableFn($._setStateL(AppState.highlightBond))
+    val setDisplayConvFn: Option[DisplayConv] ~=> IO[Unit] = ReusableFn(_.fold(IO.ioUnit)($._setStateL(AppState.displayConv)))
+    val getNameDisplayConvFn: DisplayConv ~=> String = ReusableFn(_.name)
+    val setAnomerFn: Anomer ~=> IO[Unit] = ReusableFn($._setStateL(AppState.placeAnomer))
+    val setAbsoluteFn: Absolute ~=> IO[Unit] = ReusableFn($._setStateL(AppState.placeAbsolute))
   }
 
+  val RadioDisplayConv = RadioGroupMap[DisplayConv]
+
   val C = ReactComponentB[Props]("GlycanoApp")
-    .initialStateP { P =>
-      AppState(
-        history = Vector(loadGraph()),
-        displayConv = P.conventions.getOrElse("UCT", DisplayConv.convDefault)
-      )
-    }
+    .initialStateP(props => AppState(
+      history = Vector(loadGraph()),
+      displayConv = props.conventions.getOrElse("UCT", DisplayConv.convDefault)
+    ))
     .backend(new Backend(_))
     .render { $ =>
       implicit val g: RGraph = $.state.graph
       implicit val dc: DisplayConv = $.state.displayConv
+
       val rvAppStateNavbar = ReusableVar($.state)($.backend.setAppStateFn)(Navbar.reuseAppState)
       val rvAppStateCanvas = ReusableVar($.state)($.backend.setAppStateFn)(Navbar.reuseAppState)
 
@@ -253,9 +261,12 @@ object GlycanoApp {
         case _ => None
       }
 
-      val (rs, as) = $.state.selection
-      val rvGraph = ReusableVar($.state.graph)($.backend.setGraphFn)(Reusability.by_==)
-      val rvHighlightBond = ReusableVar($.state.highlightBond)($.backend.setHighlightBondFn)(Reusability.by_==)
+      val rvGraph = $.backend.setGraphFn.asVar($.state.graph)
+      val rvHighlightBond = $.backend.setHighlightBondFn.asVar($.state.highlightBond)
+      val rvDisplayConv = $.backend.setDisplayConvFn.asVar(Some($.state.displayConv))
+      val rvAnomer = $.backend.setAnomerFn.asVar($.state.placeAnomer)
+      val rvAbsolute = $.backend.setAbsoluteFn.asVar($.state.placeAbsolute)
+      val rvMode = $.backend.setModeFn.asVar($.state.mode)
 
       <.div(^.cls := "container-fluid")(
         <.div(^.cls := "row")(Navbar.C(rvAppStateNavbar)),
@@ -263,20 +274,15 @@ object GlycanoApp {
         <.div(^.cls := "row")(
           <.div(^.cls := "col-xs-3")(
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12 text-center")(
-              RadioGroupMap[DisplayConv](RadioGroupMap.Props[DisplayConv](
-                for (dc <- _) $.modState(AppState.displayConv set dc),
-                $.props.conventions.map(_.swap),
-                Some($.state.displayConv)
+              RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
+                rvDisplayConv,
+                DisplayConv.conventions.values.toSeq,
+                $.backend.getNameDisplayConvFn,
+                toggle = false
               ))
             )),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              ResiduePanel(ResiduePanel.Props(
-                $.state.displayConv,
-                $.state.placeAnomer,
-                $.state.placeAbsolute,
-                rtTemplate,
-                $.backend.modState
-              ))
+              ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc))
             )),
             <.div(^.cls := "row")(
               <.div(^.cls := "col-xs-8")(
@@ -303,7 +309,7 @@ object GlycanoApp {
             ),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
               SubstituentPanel((
-                ReusableVar($.state.mode)($.backend.setModeFn),
+                rvMode,
                 $.state.scaleSubstituents
               ))
             )),
@@ -344,14 +350,8 @@ object GlycanoApp {
     }
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
-    .componentDidMount { $ =>
-      dom.window.addEventListener("resize", $.backend.resizeFunc)
-      dom.window.addEventListener("keydown", $.backend.keydownFunc)
-      $.backend.resize()
-    }
-    .componentWillUnmount { $ =>
-      dom.window.removeEventListener("resize", $.backend.resizeFunc)
-      dom.window.removeEventListener("keydown", $.backend.keydownFunc.asInstanceOf[js.Function1[dom.Event, Unit]])
-    }
+    .configure(EventListener.installIO("resize", $ => IO($.backend.resize())))
+    .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e))))
+    .componentDidMount(_.backend.resize())
     .build
 }

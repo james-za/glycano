@@ -1,11 +1,13 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.extra.Reusability
-import japgolly.scalajs.react.vdom.Attr
+import japgolly.scalajs.react.extra.{ReusableFn, ~=>, ReusableVar, Reusability}
+import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react._
 import org.scalajs.dom
 import za.jwatson.glycanoweb.react.bootstrap.{Bootstrap => bs}
+
+import scalaz.effect.IO
 
 package object bootstrap {
 
@@ -85,68 +87,43 @@ package object bootstrap {
   object GlyphIcon {
     def apply(icon: String, children: ReactNode*) = component(icon, children)
     val component = ReactComponentB[String]("GlyphIcon")
-      .render((P, C) => {
-        <.span(^.cls := "glyphicon glyphicon-" + P)(C)
-      })
-      .shouldComponentUpdate((T, P, S) => T.props != P)
-      .build
-  }
-
-  object RadioGroupMap {
-    case class Props[A](onChange: Option[A] => Unit, choices: Map[A, String], selected: Option[A], toggle: Boolean = false)
-
-    class Backend[A](t: BackendScope[Props[A], Unit]) {
-      def handleClick(a: A)(e: ReactMouseEvent): Unit = {
-        t.props.onChange(if (t.props.toggle && t.props.selected.contains(a)) None else Some(a))
+      .render { (props, children) =>
+        <.span(^.cls := "glyphicon glyphicon-" + props)(children)
       }
-    }
-
-    implicit def reuseChoices[A]: Reusability[Map[A, String]] = Reusability.by_==[Map[A, String]]
-    implicit def reuseProps[A]: Reusability[Props[A]] = Reusability.by((p: Props[A]) => (p.choices, p.selected, p.toggle))(Reusability.by_==)
-
-    def apply[A] = ReactComponentB[Props[A]]("RadioGroupMap")
-      .stateless
-      .backend(new Backend(_))
-      .render((P, C, S, B) => {
-        <.div(^.cls := "btn-group")(
-          for ((value, label) <- P.choices) yield <.label(label)(
-            ^.cls := (if (P.selected.contains(value)) "btn btn-default active" else "btn btn-default"),
-            ^.onClick ==> B.handleClick(value),
-            ^.key := value.##
-          )
-        )(C)
-      })
-      .domType[dom.html.Div]
-      .configure(Reusability.shouldComponentUpdate[Props[A], Unit, Backend[A], dom.html.Div])
-      .build
-  }
-
-  object RadioGroup {
-    case class Props(onChange: Option[String] => Unit, choices: Seq[String], selected: String, toggle: Boolean = false)
-
-    class Backend(t: BackendScope[Props, Unit]) {
-      def handleClick(a: String): Unit =
-        t.props.onChange(if (t.props.toggle && t.props.selected == a) None else Some(a))
-    }
-
-    implicit val reuseChoices: Reusability[Seq[String]] = Reusability.by_==
-    implicit val reuseProps = Reusability.by((p: Props) => (p.choices, p.selected, p.toggle))
-
-    def apply() = component
-    val component = ReactComponentB[Props]("RadioGroup")
-      .stateless
-      .backend(new Backend(_))
-      .render { (P, C, S, B) =>
-        <.div(^.cls := "btn-group", Attr("data-toggle") := "buttons")(
-          for (value <- P.choices) yield <.button(value)(
-            ^.cls := (if (P.selected == value) "btn btn-default active" else "btn btn-default"),
-            ^.onClick --> B.handleClick(value)
-          )
-        )(C)
-      }
-      .domType[dom.html.Div]
       .configure(Reusability.shouldComponentUpdate)
       .build
   }
 
+  object RadioGroupMap {
+    val defaultName: Any ~=> String = ReusableFn(_.toString)
+    case class Props[A](selected: ReusableVar[Option[A]], choices: Seq[A], name: A ~=> String = defaultName, toggle: Boolean = false)
+
+    class Backend[A]($: BackendScope[Props[A], Unit]) {
+      def handleClick(a: A): IO[Unit] =
+        $.props.selected.mod(s => if ($.props.toggle && s.contains(a)) None else Some(a))
+    }
+
+    implicit def reuseChoices[A]: Reusability[Seq[A]] = Reusability.by_==
+    implicit def reuseProps[A]: Reusability[Props[A]] = Reusability.caseclass4(Props.unapply[A])
+
+    def apply[A] = ReactComponentB[Props[A]]("RadioGroupMap")
+      .stateless
+      .backend(new Backend(_))
+      .render { $ =>
+        <.div(^.cls := "btn-group")(
+          for (value <- $.props.choices) yield {
+            val selected = $.props.selected.value.contains(value)
+            <.label($.props.name(value))(
+              ^.cls := "btn btn-default",
+              selected ?= (^.cls := "active"),
+              ^.onClick ~~> $.backend.handleClick(value),
+              ^.key := value.##
+            )
+          }
+        )
+      }
+      .domType[dom.html.Div]
+      .configure(Reusability.shouldComponentUpdate[Props[A], Unit, Backend[A], dom.html.Div])
+      .build
+  }
 }

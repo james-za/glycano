@@ -13,6 +13,8 @@ import scala.scalajs.js
 import scala.util.{Failure, Success, Try}
 
 class DisplayConv(val conv: Conv) {
+  val (defaultRules, rules) = conv.rules.partition(_.conds.contains(DefaultCond))
+  val defaultMods = defaultRules.flatMap(_.mods)
 
   val shapeToItem: Shape => ReactTag = {
     case DefinedShape(position, name) =>
@@ -46,20 +48,21 @@ class DisplayConv(val conv: Conv) {
   }
   def name = conv.name
 
-  def residueMods(residue: Residue) = residueModsMemo.getOrElseUpdate(residue.##.toString, residueModsInner(residue))
+  def residueMods(residue: Residue) = residueModsMemo.getOrElseUpdate(residue.symbol, residueModsInner(residue))
   val residueModsMemo = js.Dictionary.empty[Seq[RuleMod]]
   def residueModsInner(residue: Residue): Seq[RuleMod] = {
-    val matched = conv.rules.filter(_.conds.forall(_.matches(residue)))
+    val matched = rules.filter(_.conds.forall(_.matches(residue)))
+    if (residue.rt == ResidueType.Ido) println(matched)
     val shapeRules = matched.filter(_.mods.exists(_.isInstanceOf[ShapeMod]))
-    val rtDefined = shapeRules.flatMap(_.conds).exists(_.isInstanceOf[ResCond])
+    val rtDefined = shapeRules.exists(_.conds.exists(_.isInstanceOf[ResCond]))
 
-    if (rtDefined) matched.flatMap(_.mods) else
-      conv.rules.filter(_.conds.contains(DefaultCond)).flatMap(_.mods)
+    if (residue.rt == ResidueType.Ido) println(s"shapeRules=$shapeRules\nrtDefined=$rtDefined")
+    if (rtDefined) matched.flatMap(_.mods) else defaultMods
   }
 
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
-  def outline(residue: Residue) = outlineMemo.getOrElseUpdate(residue.##.toString, outlineInner(residueMods(residue), residue))
+  def outline(residue: Residue) = outlineMemo.getOrElseUpdate(residue.symbol, outlineInner(residueMods(residue), residue))
   val outlineMemo = js.Dictionary.empty[IndexedSeq[(Double, Double)]]
   def outlineInner(mods: Seq[RuleMod], residue: Residue): IndexedSeq[(Double, Double)] = residue.rt match {
     case ResidueType.Begin => IndexedSeq((12.0, 48.0))
@@ -99,7 +102,7 @@ class DisplayConv(val conv: Conv) {
     case _ => None
   }
 
-  def links(residue: Residue) = linksMemo.getOrElseUpdate(residue.##.toString, linksInner(residueMods(residue), residue))
+  def links(residue: Residue) = linksMemo.getOrElseUpdate(residue.symbol, linksInner(residueMods(residue), residue))
   val linksMemo = js.Dictionary.empty[IndexedSeq[(Double, Double)]]
   def linksInner(mods: Seq[RuleMod], residue: Residue): IndexedSeq[(Double, Double)] = residue.rt match {
     case ResidueType.Begin => IndexedSeq((12.0, 48.0))
@@ -116,7 +119,7 @@ class DisplayConv(val conv: Conv) {
       }.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
   }
 
-  def bounds(residue: Residue) = boundsMemo.getOrElseUpdate(residue.##.toString, boundsInner(residue))
+  def bounds(residue: Residue) = boundsMemo.getOrElseUpdate(residue.symbol, boundsInner(residue))
   val boundsMemo = js.Dictionary.empty[((Double, Double), Double, Double)]
   def boundsInner(residue: Residue): ((Double, Double), Double, Double) = residue.rt match {
     case ResidueType.Begin => ((0.0, 0.0), 30.0, 96.0)
@@ -150,7 +153,7 @@ class DisplayConv(val conv: Conv) {
     (nx, ny)//(nx + o._1, ny + o._2)
   }
 
-  def shapes(residue: Residue) = shapesMemo.getOrElseUpdate(residue.##.toString, shapesInner(residue))
+  def shapes(residue: Residue) = shapesMemo.getOrElseUpdate(residue.symbol, shapesInner(residue))
   val shapesMemo = js.Dictionary.empty[(ReactTag, ReactTag)]
   def shapesInner(residue: Residue) = residue.rt match {
     case ResidueType.Begin => pathGroup((0, 0), (10, 0), (10, 4), (4, 4), (4, 28), (10, 28), (10, 32), (0, 32))
@@ -166,6 +169,7 @@ class DisplayConv(val conv: Conv) {
 
   def shapesFromConv(residue: Residue): (ReactTag, ReactTag) = {
     val mods = residueMods(residue)
+    if(residue.rt == ResidueType.Ido) println(s"$residue mods:\n$mods\n")
 
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
       case (map, StyleMod(style, content)) =>

@@ -144,8 +144,8 @@ object UCT {
       |   (Tag) -> style [secondary] { fill: #808080 }
       |
       |   (Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, AltHep, ManOct)
-      |   -> style [outline] { stroke: #000000; stroke-width: 11 }
-      |   -> style [outlinefront] { stroke: #FFFFFF; stroke-width: 9 }
+      |   -> style [outline] { fill: none; stroke: #000000; stroke-width: 11 }
+      |   -> style [outlinefront] { fill: none; stroke: #FFFFFF; stroke-width: 9 }
       |}
     """.stripMargin
 }

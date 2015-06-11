@@ -1,5 +1,7 @@
 package za.jwatson.glycanoweb.structure
 
+import japgolly.scalajs.react.extra.Reusability
+
 sealed trait ResidueCategory {
   def name: String
   override def toString: String = name
@@ -12,4 +14,6 @@ object ResidueCategory {
   case object Repeat extends ResidueCategory { def name = "Repeat" }
   val ResidueCategories = Seq[ResidueCategory](Aldose, Ketose, Alditol, Repeat)
   val ResidueCategoryMap = ResidueCategories.map(rc => rc.name -> rc).toMap
+
+  implicit val reusability: Reusability[ResidueCategory] = Reusability.by_==
 }

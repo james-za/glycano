@@ -13,8 +13,7 @@ import za.jwatson.glycanoweb.structure._
 object SubstituentPanel {
   type Props = (ReusableVar[Mode], Double)
 
-  //implicit val reusabilityDouble: Reusability[Double] = Reusability.by_==[Double]
-  implicit val propsReuse: Reusability[Props] = Reusability.tuple2(implicitly, Reusability.by_==)
+  implicit val reuseDouble: Reusability[Double] = Reusability.by_==
 
   val choicesAno = Anomer.Anomers.map(ano => ano -> ano.desc).toMap
   val choicesAbs = Absolute.Absolutes.map(abs => abs -> abs.desc).toMap
@@ -36,14 +35,14 @@ object SubstituentPanel {
             case Mode.PlaceSubstituent(`st`) => true
             case _ => false
           }
-          def click(active: Boolean) = mode.set(if (active) Mode.Selection else Mode.PlaceSubstituent(st))
+          val click = mode.set(if (active) Mode.Selection else Mode.PlaceSubstituent(st))
           <.span(
             <.button(
               ^.cls := s"btn btn-default",
               active ?= (^.cls := "active"),
               ^.title := st.name,
               ^.padding := 2.px,
-              ^.onClick ~~> click(active)
+              ^.onClick ~~> click
             )(icon)
           )
         }
