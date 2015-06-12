@@ -72,6 +72,14 @@ object Convention {
   case class Palette(name: String, residues: Seq[(ResidueType, Map[Int, Vector[SubstituentType]])])
 
   object Palette {
+    val Repeat = Palette(
+      "Repeat",
+      Seq[(ResidueType, Map[Int, Vector[SubstituentType]])](
+        (ResidueType.Begin, Map.empty),
+        (ResidueType.End, Map.empty)
+      )
+    )
+
     implicit val reusability: Reusability[Palette] = Reusability.byRef
   }
 }

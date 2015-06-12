@@ -53,7 +53,7 @@ object ResiduePanel {
     .backend(new Backend(_))
     .render { $ =>
       val residueTabs = <.ul(^.cls := "nav nav-tabs", ^.role := "tablist")(
-        for (pal <- $.props.dc.conv.palettes) yield {
+        for (pal <- $.props.dc.conv.palettes :+ Palette.Repeat) yield {
           val f = index[Map[DisplayConv, Palette], DisplayConv, Palette]($.props.dc).set(pal)
           <.li(
             <.a(
