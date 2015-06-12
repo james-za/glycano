@@ -5,7 +5,7 @@ import japgolly.scalajs.react.extra.{ReusableFn, ~=>, Reusability, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ScalazReact._
 import monocle.Monocle._
-import za.jwatson.glycanoweb.react.bootstrap.RadioGroupMap
+import za.jwatson.glycanoweb.react.semantic.RadioGroupMap
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph.{GraphEntry, Bond}
 import za.jwatson.glycanoweb.structure._

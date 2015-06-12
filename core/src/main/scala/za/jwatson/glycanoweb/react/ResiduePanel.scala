@@ -9,7 +9,7 @@ import za.jwatson.glycanoweb.convention.Convention.Palette
 import monocle.Monocle._
 
 import za.jwatson.glycanoweb.react.GlycanoApp.Mode
-import za.jwatson.glycanoweb.react.bootstrap.RadioGroupMap
+import za.jwatson.glycanoweb.react.semantic.RadioGroupMap
 import za.jwatson.glycanoweb.render.{SubstituentShape, DisplayConv}
 import za.jwatson.glycanoweb.structure._
 import org.scalajs.dom

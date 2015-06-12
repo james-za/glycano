@@ -10,7 +10,6 @@ import org.scalajs.dom
 import za.jwatson.glycanoweb.Gly
 import za.jwatson.glycanoweb.react.GlycanoApp.{Mode, AppStateL, AppState}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.{Bounds, View}
-import za.jwatson.glycanoweb.react.bootstrap.{Button, FormInput, GlyphIcon, NavbarHeader}
 import za.jwatson.glycanoweb.structure.{ResidueId, AnnotId, RGraph}
 import scala.collection.immutable.NumericRange
 import scalajs.js
@@ -183,7 +182,7 @@ object Navbar {
       }
 
       <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
-        NavbarHeader("glycano-navbar-collapse", "Glycano"),
+        //NavbarHeader("glycano-navbar-collapse", "Glycano"),
         <.div(^.cls := "collapse navbar-collapse", ^.id := "glycano-navbar-collapse")(
           <.p(^.cls := "navbar-text", "Load:"),
           <.form(^.cls := "navbar-form navbar-left")(

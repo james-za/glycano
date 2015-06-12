@@ -3,6 +3,7 @@ package za.jwatson.glycanoweb
 import japgolly.scalajs.react.ReactComponentC.{ReqProps, DefaultProps, ConstProps}
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra.Reusability
+import japgolly.scalajs.react.vdom.{TagMod, ClassNameAttr}
 
 import scala.scalajs.js
 import scala.scalajs.js.UndefOr
@@ -18,4 +19,10 @@ package object react {
   }
 
   def button(e: ReactMouseEvent): Int = e.dynamic[Int](_.button)
+
+  implicit class StringClsContext(val sc: StringContext) extends AnyVal {
+    def cls(args: Any*): TagMod = ClassNameAttr := sc.s(args: _*)
+    def c(args: Any*): TagMod = ClassNameAttr := sc.s(args: _*)
+    def ó(args: Any*): TagMod = ClassNameAttr := sc.s(args: _*)
+  }
 }

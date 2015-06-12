@@ -14,7 +14,7 @@ import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.raw.SVGRect
 import za.jwatson.glycanoweb.Gly
 import za.jwatson.glycanoweb.react.GlycanoCanvas.{Bounds, View}
-import za.jwatson.glycanoweb.react.bootstrap._
+import za.jwatson.glycanoweb.react.semantic._
 import za.jwatson.glycanoweb.render.{DisplayConv, SubstituentShape}
 import za.jwatson.glycanoweb.structure.RGraph._
 import za.jwatson.glycanoweb.structure._
@@ -268,85 +268,114 @@ object GlycanoApp {
       val rvAbsolute = $.backend.setAbsoluteFn.asVar($.state.placeAbsolute)
       val rvMode = $.backend.setModeFn.asVar($.state.mode)
 
-      <.div(^.cls := "container-fluid")(
-        <.div(^.cls := "row")(Navbar.C(rvAppStateNavbar)),
-
-        <.div(^.cls := "row")(
-          <.div(^.cls := "col-xs-3")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12 text-center")(
-              RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
-                rvDisplayConv,
-                DisplayConv.conventions.values.toSeq,
-                $.backend.getNameDisplayConvFn,
-                toggle = false
-              ))
-            )),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc, $.state.scaleSubstituents, $.props.conventions))
-            )),
-            <.div(^.cls := "row")(
-              <.div(^.cls := "col-xs-8")(
-                <.input(
-                  ^.cls := "form-control",
-                  ^.ref := "ssSlider",
-                  ^.`type` := "range",
-                  "min".reactAttr := 0.1,
-                  "max".reactAttr := 2.0,
-                  ^.step := 0.01,
-                  ^.value := $.state.scaleSubstituents,
-                  ^.onChange --> $.backend.scaleSubstituentsSlider
-                )
+      <.div(
+        <.div(^.cls := "ui main menu", ^.opacity := "50%")(
+          <.div(^.cls := "ui item")(<.h3("Glycano")),
+          <.div(^.cls := "ui item")(
+            <.div(^.cls := "ui right labeled input")(
+              <.input(
+                ^.cls := "ui input", ^.`type` := "file",
+                ^.paddingTop := 0.25.em, ^.paddingBottom := 0.25.em
               ),
-              <.div(^.cls := "col-xs-4")(
-                <.input(
-                  ^.cls := "form-control",
-                  ^.ref := "ssNumber",
-                  ^.`type` := "number",
-                  ^.value := $.state.scaleSubstituents,
-                  ^.onChange --> $.backend.scaleSubstituentsNumber
-                )
-              )
-            ),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              SubstituentPanel((
-                rvMode,
-                $.state.scaleSubstituents
-              ))
-            )),
-            <.div(^.cls := "row")(
-              <.div(^.cls := "checkbox")(
-                <.label(
-                  <.input(
-                    ^.`type` := "checkbox",
-                    ^.checked := $.state.limitUpdateRate,
-                    ^.onChange --> $.backend.toggleLimitUpdateRate
-                  ),
-                  "Limit Update Rate"
-                )
-              )
+              <.div(^.cls := "ui label")("Open...")
             )
           ),
-          <.div(^.cls := "col-xs-6")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
-            )),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              <.div(^.cls := "panel panel-default")(
-                <.div(
-                  ^.cls := "panel-body",
-                  ^.ref := "canvaspanel",
-                  ^.padding := 0.px
-                )(
-                  GlycanoCanvas(rvAppStateCanvas)
-                )
-              )
-            ))
-          ),
-          <.div(^.cls := "col-xs-3")(
-            OverviewPanel.C((rvGraph, $.state.selection, $.state.displayConv, rvHighlightBond))
+          <.div(^.cls := "ui item")(
+            <.div(^.cls := "ui right labeled input")(
+              <.input(^.tpe := "text", ^.placeholder := "glycano"),
+              Dropdown.Label("Save As...", Seq(
+                <.a("Glycano (.gly)")(c"item", ^.onClick ~~> IO.ioUnit, ^.key := "gly"),
+                <.a("Vector (.svg)")(c"item", ^.onClick ~~> IO.ioUnit, ^.key := "svg"),
+                <.a("Image (.png)")(c"item", ^.onClick ~~> IO.ioUnit, ^.key := "png")
+              ))
+            )
+          )
+        ),
+        <.div(^.cls := "ui grid")(
+          <.div(^.cls := "column")(
           )
         )
       )
+
+//      <.div(^.cls := "container-fluid")(
+//        <.div(^.cls := "row")(Navbar.C(rvAppStateNavbar)),
+//
+//        <.div(^.cls := "row")(
+//          <.div(^.cls := "col-xs-3")(
+//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12 text-center")(
+//              RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
+//                rvDisplayConv,
+//                DisplayConv.conventions.values.toSeq,
+//                $.backend.getNameDisplayConvFn,
+//                toggle = false
+//              ))
+//            )),
+//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+//              ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc, $.state.scaleSubstituents, $.props.conventions))
+//            )),
+//            <.div(^.cls := "row")(
+//              <.div(^.cls := "col-xs-8")(
+//                <.input(
+//                  ^.cls := "form-control",
+//                  ^.ref := "ssSlider",
+//                  ^.`type` := "range",
+//                  "min".reactAttr := 0.1,
+//                  "max".reactAttr := 2.0,
+//                  ^.step := 0.01,
+//                  ^.value := $.state.scaleSubstituents,
+//                  ^.onChange --> $.backend.scaleSubstituentsSlider
+//                )
+//              ),
+//              <.div(^.cls := "col-xs-4")(
+//                <.input(
+//                  ^.cls := "form-control",
+//                  ^.ref := "ssNumber",
+//                  ^.`type` := "number",
+//                  ^.value := $.state.scaleSubstituents,
+//                  ^.onChange --> $.backend.scaleSubstituentsNumber
+//                )
+//              )
+//            ),
+//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+//              SubstituentPanel((
+//                rvMode,
+//                $.state.scaleSubstituents
+//              ))
+//            )),
+//            <.div(^.cls := "row")(
+//              <.div(^.cls := "checkbox")(
+//                <.label(
+//                  <.input(
+//                    ^.`type` := "checkbox",
+//                    ^.checked := $.state.limitUpdateRate,
+//                    ^.onChange --> $.backend.toggleLimitUpdateRate
+//                  ),
+//                  "Limit Update Rate"
+//                )
+//              )
+//            )
+//          ),
+//          <.div(^.cls := "col-xs-6")(
+//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+//              CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
+//            )),
+//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+//              <.div(^.cls := "panel panel-default")(
+//                <.div(
+//                  ^.cls := "panel-body",
+//                  ^.ref := "canvaspanel",
+//                  ^.padding := 0.px
+//                )(
+//                  GlycanoCanvas(rvAppStateCanvas)
+//                )
+//              )
+//            ))
+//          ),
+//          <.div(^.cls := "col-xs-3")(
+//            OverviewPanel.C((rvGraph, $.state.selection, $.state.displayConv, rvHighlightBond))
+//          )
+//        )
+//      )
     }
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
