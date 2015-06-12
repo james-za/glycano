@@ -8,7 +8,7 @@ convention "CFG" {
    def CFGDiamondL = Polygon(points="30,60 0,30 30,0")
    def CFGDiamondR = Polygon(points="30,0 60,30 30,60")
    def CFGTriangle = Polygon(points="0,60 30,0 60,60")
-   def CFGStar = Star(n="5", r1="-10", r2="-30")
+   def CFGStar = Star(n="5", r1="10", r2="30")
    default
    -> #1 [primary] CFGCircle
    -> #2 [outline, links] CFGCircle

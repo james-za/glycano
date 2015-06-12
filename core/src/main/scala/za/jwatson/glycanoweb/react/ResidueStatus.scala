@@ -12,12 +12,12 @@ object ResidueStatus {
     .render { props =>
       val (r, dc) = props
       val (residue, handle) = dc.shapes(r)
-      val (_, w, h) = dc.bounds(r)
+      val ((x, y), w, h) = dc.bounds(r)
       <.svg.svg(
         ^.display.`inline-block`,
         ^.svg.width := 40.px,
         ^.svg.height := 30.px,
-        ^.svg.viewBox := s"0 0 $w $h"
+        ^.svg.viewBox := s"${x - 10} ${y - 10} ${w + 20} ${h + 20}"
       )(<.svg.g(residue, handle))
     }
     .domType[dom.svg.SVG]

@@ -63,7 +63,7 @@ object GlycanoApp {
     case class PlaceSubstituent(st: SubstituentType) extends Mode
     case object PlaceAnnotation extends Mode
 
-    implicit val reuseMode: Reusability[Mode] = Reusability.by_==
+    implicit val reusability: Reusability[Mode] = Reusability.by_==
   }
 
   def saveGraph(graph: RGraph): Unit = {
@@ -253,8 +253,8 @@ object GlycanoApp {
       implicit val g: RGraph = $.state.graph
       implicit val dc: DisplayConv = $.state.displayConv
 
-      val rvAppStateNavbar = ReusableVar($.state)($.backend.setAppStateFn)(Navbar.reuseAppState)
-      val rvAppStateCanvas = ReusableVar($.state)($.backend.setAppStateFn)(Navbar.reuseAppState)
+      val rvAppStateNavbar = $.backend.setAppStateFn.asVarR($.state, Navbar.reuseAppState)
+      val rvAppStateCanvas = $.backend.setAppStateFn.asVarR($.state, GlycanoCanvas.reuseAppState)
 
       val rtTemplate = $.state.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
@@ -282,7 +282,7 @@ object GlycanoApp {
               ))
             )),
             <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc))
+              ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc, $.state.scaleSubstituents, $.props.conventions))
             )),
             <.div(^.cls := "row")(
               <.div(^.cls := "col-xs-8")(

@@ -17,9 +17,11 @@ object SubStatus {
       <.div(^.cls := "row")(
         <.div(^.cls := "col-xs-3")(
           <.svg.svg(
-            ^.display.`inline-block`,
+            ^.display.block,
             ^.svg.height := 30.px,
-            ^.svg.viewBox := s"0 0 $w, $h"
+            ^.svg.viewBox := s"0 0 $w $h",
+            ^.marginLeft := "auto",
+            ^.marginRight := "auto"
           )(sub)
         ),
         <.div(^.cls := "col-xs-5")(s"$i-${st.symbol}"),

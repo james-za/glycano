@@ -44,6 +44,10 @@ object RGraph {
     def -(ci: Int) = this.copy(children = children - ci)
   }
 
+  object GraphEntry {
+    implicit val reusability: Reusability[GraphEntry] = Reusability.by_==
+  }
+
   @tailrec def rootAnomer(r: ResidueId, visited: Set[ResidueId] = Set.empty)(implicit g: RGraph): Anomer =
     r.parent match {
       case Some(Link(to, _)) if !visited.contains(to) && to.graphEntry.exists(_.residue.rt.category != ResidueCategory.Repeat) => rootAnomer(to, visited + to)

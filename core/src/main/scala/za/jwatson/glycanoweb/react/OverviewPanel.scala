@@ -12,22 +12,18 @@ import za.jwatson.glycanoweb.structure._
 
 import scala.util.{Success, Failure, Try}
 import scalaz.effect.IO
-import IO.ioCatchable.catchableSyntax._
 
 object OverviewPanel {
+  def selected(in: Set[ResidueId]) = RGraph.residues ^|->> filterIndex(in.contains) ^|-> GraphEntry.residue
   class Backend($: BackendScope[Props, Unit]) {
-    def setSelectionAno(sel: Set[ResidueId], ano: Option[Anomer]): IO[Unit] = {
-      val anoSelected = RGraph.residues ^|->> filterIndex(sel.contains) ^|-> GraphEntry.residue ^|-> Residue.ano
-      ano.fold(IO.ioUnit)(a => $.props._1.mod(anoSelected.set(a)))
-    }
+    implicit val reuseSelection: Reusability[Set[ResidueId]] = Reusability.by_==
 
-    def setSelectionAbs(sel: Set[ResidueId], abs: Option[Absolute]): IO[Unit] = {
-      val absSelected = RGraph.residues ^|->> filterIndex(sel.contains) ^|-> GraphEntry.residue ^|-> Residue.abs
-      abs.fold(IO.ioUnit)(a => $.props._1.mod(absSelected.set(a)))
+    val setSelAnoFn = ReusableFn { (sel: Set[ResidueId], ano: Option[Anomer]) =>
+      ano.fold(IO.ioUnit)(ano => $.props._1.mod(selected(sel) ^|-> Residue.ano set ano))
     }
-
-    val setSelAnoFn = ReusableFn(setSelectionAno(_: Set[ResidueId], _: Option[Anomer]))(Reusability.by_==)
-    val setSelAbsFn = ReusableFn(setSelectionAbs(_: Set[ResidueId], _: Option[Absolute]))(Reusability.by_==)
+    val setSelAbsFn = ReusableFn { (sel: Set[ResidueId], abs: Option[Absolute]) =>
+      abs.fold(IO.ioUnit)(abs => $.props._1.mod(selected(sel) ^|-> Residue.abs set abs))
+    }
 
     val getNameAnoFn = ReusableFn((_: Anomer).desc)
     val getNameAbsFn = ReusableFn((_: Absolute).desc)
@@ -48,25 +44,17 @@ object OverviewPanel {
       val rsel = graph.residues.filterKeys(rs.contains)
       val asel = graph.annotations.filterKeys(as.contains)
 
-
-
       <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
         <.div(^.cls := "panel panel-default")(
           <.div(^.cls := "panel-body")(
             for (hd <- rsel.values.headOption) yield {
               val repeat = rsel.values.exists(_.residue.rt.category == ResidueCategory.Repeat)
               def unanimously[A](f: GraphEntry => A) = if (!repeat && rsel.values.tail.forall(f(_) == f(hd))) Some(f(hd)) else None
-              val anomer = unanimously(_.residue.ano)
-              val absolute = unanimously(_.residue.abs)
+              val rvSelAno = $.backend.setSelAnoFn(rs).asVar(unanimously(_.residue.ano))
+              val rvSelAbs = $.backend.setSelAbsFn(rs).asVar(unanimously(_.residue.abs))
               <.div(^.cls := "btn-toolbar", ^.role := "toolbar", ^.display.`inline-block`)(
-                RadioAnomer(RadioGroupMap.Props[Anomer](
-                  $.backend.setSelAnoFn(rs).asVar(anomer),
-                  Anomer.Anomers, $.backend.getNameAnoFn
-                )),
-                RadioAbsolute(RadioGroupMap.Props[Absolute](
-                  $.backend.setSelAbsFn(rs).asVar(absolute),
-                  Absolute.Absolutes, $.backend.getNameAbsFn
-                ))
+                RadioAnomer(RadioGroupMap.Props[Anomer](rvSelAno, Anomer.Anomers, $.backend.getNameAnoFn)),
+                RadioAbsolute(RadioGroupMap.Props[Absolute](rvSelAbs, Absolute.Absolutes, $.backend.getNameAbsFn))
               )
             },
             rsel.toList match {

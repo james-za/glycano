@@ -18,6 +18,19 @@ object UCT {
       |   def SevenL    = Path(d="M45,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
       |   def EightL    = Path(d="M45,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
       |
+      |   palette "Aldoses" {
+      |      Glycero, Erythro, Threo, Ara, Lyx, Rib, Xyl, Ido, All, Alt, Gal, Glc, Gul, Man, Tal
+      |   }
+      |   palette "Ketoses" {
+      |      Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, AltHep, ManOct
+      |   }
+      |   palette "Alditols" {
+      |      Glycerol, Erythritol, Threitol, MesoRibitol, Arabinitol, MesoXylitol, Glucitol, UnknownA, UnknownB, MesoAllitol
+      |   }
+      |   palette "6-Deoxy Sugars" {
+      |      Glc6Deoxy, Gal6Deoxy, Man6Deoxy
+      |   }
+      |
       |   default
       |   -> #1 [primary] Hexagon
       |   -> #3 [outline, links] Hexagon
@@ -75,6 +88,10 @@ object UCT {
       |   D (Man) -> style [primary] { fill: #00FF00 } -> style [secondary] { fill: #000000 }
       |   L (Man) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #00FF00 }
       |   (Tal) -> style [primary] { fill: #000000 }
+      |
+      |   D (Glc) <6Deoxy> -> style[primary] { fill: #FF0000 }
+      |   D (Gal) <6Deoxy> -> style [primary] { fill: #FF0000 } -> style [secondary] { fill: #000000 }
+      |   D (Man) <6Deoxy> -> style [primary] { fill: #FF0000 } -> style [secondary] { fill: #000000 }
       |
       |   L (Glycero,
       |      Three)

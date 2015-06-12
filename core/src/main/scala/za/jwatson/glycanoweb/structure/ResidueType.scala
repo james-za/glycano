@@ -69,8 +69,8 @@ trait Alditols {
   val Arabinitol = alditol("Arabinitol", "Arabinitol", 5)
   val MesoXylitol = alditol("MesoXylitol", "MesoXylitol", 5)
   val Glucitol = alditol("Glucitol", "Glucitol", 6)
-  val Unknown1 = alditol("Unknown1", "Unknown1", 6)
-  val Unknown2 = alditol("Unknown2", "Unknown2", 6)
+  val UnknownA = alditol("UnknownA", "UnknownA", 6)
+  val UnknownB = alditol("UnknownB", "UnknownB", 6)
   val MesoAllitol = alditol("MesoAllitol", "MesoAllitol", 6)
-  val Alditols = Seq(Glycerol, Erythritol, Threitol, MesoRibitol, Arabinitol, MesoXylitol, Glucitol, Unknown1, Unknown2, MesoAllitol)
+  val Alditols = Seq(Glycerol, Erythritol, Threitol, MesoRibitol, Arabinitol, MesoXylitol, Glucitol, UnknownA, UnknownB, MesoAllitol)
 }

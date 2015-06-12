@@ -1,9 +1,10 @@
 package za.jwatson.glycanoweb.convention
 
+import japgolly.scalajs.react.extra.Reusability
 import za.jwatson.glycanoweb.structure._
 
 object Convention {
-  case class Conv(name: String, shapeDefs: Map[String, Shape] = Map.empty, rules: Seq[ConvRule] = Seq.empty)
+  case class Conv(name: String, shapeDefs: Map[String, Shape] = Map.empty, rules: Seq[ConvRule] = Seq.empty, palettes: Seq[Palette] = Seq.empty)
 
   case class ConvRule(conds: Seq[RuleCond], mods: Seq[RuleMod])
   sealed trait RuleCond { def matches(residue: Residue): Boolean }
@@ -17,13 +18,15 @@ object Convention {
     case class ResCond(allowed: Seq[String]) extends RuleCond {
       def matches(residue: Residue) = allowed contains residue.rt.symbol
     }
-    case class SubCond(allowed: Seq[String]) extends RuleCond {
+    case class SubCond(allowed: Seq[(Option[Int], String)]) extends RuleCond {
       def matches(residue: Residue) = {
-        //allowed.forall(a => subs.values.flatten.exists(_.st.symbol == a))
-        val allowedSet = allowed.map(_.toLowerCase).toSet
-        val subsSet = (for (sts <- residue.subs.values; st <- sts) yield st.symbol.toLowerCase).toSet
-        if (residue.rt == ResidueType.Ido) println(s"$allowedSet\n$subsSet\n${allowedSet == subsSet}")
-        allowedSet == subsSet
+        val subsSet = (for ((p, sts) <- residue.subs; st <- sts) yield st.symbol.toLowerCase).toSet
+        allowed.forall {
+          case (Some(p), st) =>
+            residue.subs.get(p).exists(_.exists(_.symbol.toLowerCase == st.toLowerCase))
+          case (None, st) =>
+            subsSet.contains(st.toLowerCase)
+        } && subsSet.forall(str => allowed.exists(_._2.toLowerCase == str))
       }
     }
     case object DefaultCond extends RuleCond {
@@ -59,11 +62,18 @@ object Convention {
   class ConvBuilder(name: String) {
     val shapeDefs = Map.newBuilder[String, Shape]
     val rules = Seq.newBuilder[ConvRule]
+    val palettes = Seq.newBuilder[Palette]
     def +=(sd: (String, Shape)): ConvBuilder = { shapeDefs += sd; this }
     def +=(cr: ConvRule): ConvBuilder = { rules += cr; this }
-    def result(): Conv = Conv(name, shapeDefs.result(), rules.result())
+    def +=(pl: Palette): ConvBuilder = { palettes += pl; this }
+    def result(): Conv = Conv(name, shapeDefs.result(), rules.result(), palettes.result())
   }
 
+  case class Palette(name: String, residues: Seq[(ResidueType, Map[Int, Vector[SubstituentType]])])
+
+  object Palette {
+    implicit val reusability: Reusability[Palette] = Reusability.byRef
+  }
 }
 
 

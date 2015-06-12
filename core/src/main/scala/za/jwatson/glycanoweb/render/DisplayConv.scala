@@ -16,6 +16,8 @@ class DisplayConv(val conv: Conv) {
   val (defaultRules, rules) = conv.rules.partition(_.conds.contains(DefaultCond))
   val defaultMods = defaultRules.flatMap(_.mods)
 
+  val palettes = conv.palettes.map(p => p.name -> p).toMap
+
   val shapeToItem: Shape => ReactTag = {
     case DefinedShape(position, name) =>
       throw new UnsupportedOperationException("ShapeDef cannot refer to another ShapeDef")
@@ -29,7 +31,7 @@ class DisplayConv(val conv: Conv) {
       val count = n.toInt * 2
       val dt = 2 * math.Pi / count
       val points = for (i <- 0 until count) yield {
-        val angle = i * dt
+        val angle = i * dt - math.Pi / 2.0
         val out = i % 2 == 0
         val r = if (out) r2 else r1
         val x = r * math.cos(angle)
@@ -52,11 +54,10 @@ class DisplayConv(val conv: Conv) {
   val residueModsMemo = js.Dictionary.empty[Seq[RuleMod]]
   def residueModsInner(residue: Residue): Seq[RuleMod] = {
     val matched = rules.filter(_.conds.forall(_.matches(residue)))
-    if (residue.rt == ResidueType.Ido) println(matched)
+
     val shapeRules = matched.filter(_.mods.exists(_.isInstanceOf[ShapeMod]))
     val rtDefined = shapeRules.exists(_.conds.exists(_.isInstanceOf[ResCond]))
 
-    if (residue.rt == ResidueType.Ido) println(s"shapeRules=$shapeRules\nrtDefined=$rtDefined")
     if (rtDefined) matched.flatMap(_.mods) else defaultMods
   }
 
@@ -169,7 +170,6 @@ class DisplayConv(val conv: Conv) {
 
   def shapesFromConv(residue: Residue): (ReactTag, ReactTag) = {
     val mods = residueMods(residue)
-    if(residue.rt == ResidueType.Ido) println(s"$residue mods:\n$mods\n")
 
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
       case (map, StyleMod(style, content)) =>
@@ -216,7 +216,7 @@ object DisplayConv {
     convs match {
       case Success(c)             ⇒ //Expression is valid\n" + c.mkString("\n")
       case Failure(e: ParseError) ⇒ println("Expression is not valid: " + parser.formatError(e))
-      case Failure(e)             ⇒ println("Unexpected error during parsing run: " + e)
+      case Failure(e)             ⇒ println("Unexpected error during parsing run: " + e.printStackTrace())
     }
     convs.getOrElse(Seq.empty).headOption.map(new DisplayConv(_))
   }

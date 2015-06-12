@@ -17,6 +17,5 @@ package object react {
     def withRef(r: String): ReqProps[P, S, B, N] = component.withRef(r)
   }
 
-  //implicit val reusabilityFloat: Reusability[Float] = Reusability.by_==[Float]
-  //implicit val reusabilityDouble: Reusability[Double] = Reusability.by_==[Double]
+  def button(e: ReactMouseEvent): Int = e.dynamic[Int](_.button)
 }
