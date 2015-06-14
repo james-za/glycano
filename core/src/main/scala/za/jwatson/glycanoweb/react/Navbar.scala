@@ -26,7 +26,7 @@ object Navbar {
   def navbtn(name: String, action: => IO[Unit], disabled: Boolean = false) =
     <.button(
       name,
-      ^.cls := "btn btn-default navbar-btn",
+      c"btn btn-default navbar-btn",
       ^.onClick ~~> ((e: ReactEvent) => for {
         _ <- e.preventDefaultIO
         _ <- action
@@ -36,8 +36,8 @@ object Navbar {
 
   def navbtni(icon: String, name: String, action: => IO[Unit], disabled: Boolean = false) =
     <.button(
-      <.i(^.cls := "fa fa-lg fa-" + icon), " ", name,
-      ^.cls := "btn btn-default navbar-btn",
+      <.i(c"fa fa-lg fa-" + icon), " ", name,
+      c"btn btn-default navbar-btn",
       ^.onClick ~~> ((e: ReactEvent) => for {
         _ <- e.preventDefaultIO
         _ <- action
@@ -46,8 +46,8 @@ object Navbar {
     )
 
   def navcheckbox(name: String, checked: Boolean, action: => IO[Unit], disabled: Boolean): ReactTag =
-    <.div(^.cls := "form-group")(
-      <.label(^.cls := "checkbox-inline")(
+    div"form-group"(
+      <.label(c"checkbox-inline")(
         <.input(
           ^.checked := checked,
           ^.`type` := "checkbox",
@@ -62,10 +62,10 @@ object Navbar {
     navcheckbox(name, lens.get(rv.value), rv.modL(lens)(!_), disabled)
 
   def navnumber(name: String, value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag = {
-    <.div(^.cls := "form-group")(
+    div"form-group"(
       <.label(name, ^.paddingRight := 5.px),
       <.input(
-        ^.cls := "form-control",
+        c"form-control",
         ^.value := value,
         ^.`type` := "number",
         ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
@@ -79,8 +79,8 @@ object Navbar {
     navnumber(name, lens.get(rv.value), rv.setL(lens), disabled)
 
   def navrange(range: NumericRange[Double], value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag =
-    <.div(^.cls := "form-group")(<.input(
-      ^.cls := "form-control",
+    div"form-group"(<.input(
+      c"form-control",
       ^.`type` := "range",
       "min".reactAttr := range.start,
       "max".reactAttr := range.end,
@@ -181,36 +181,36 @@ object Navbar {
         case (rs, as) => rs.isEmpty && as.isEmpty
       }
 
-      <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
+      <.nav(c"navbar navbar-default", ^.role := "navigation")(div"container-fluid"(
         //NavbarHeader("glycano-navbar-collapse", "Glycano"),
-        <.div(^.cls := "collapse navbar-collapse", ^.id := "glycano-navbar-collapse")(
-          <.p(^.cls := "navbar-text", "Load:"),
-          <.form(^.cls := "navbar-form navbar-left")(
-            <.div(^.cls := "form-group")(
+        div"collapse navbar-collapse"(^.id := "glycano-navbar-collapse")(
+          <.p(c"navbar-text", "Load:"),
+          <.form(c"navbar-form navbar-left")(
+            div"form-group"(
               <.input(
                 ^.ref := "loadfile",
                 ^.`type` := "file",
-                ^.cls := "form-control",
+                c"form-control",
                 ^.onChange ==> { (e: ReactEventI) =>
                   println(e.target.files(0).name)
                 }
               )
             )
           ),
-          <.p(^.cls := "navbar-text")("Filename:"),
-          <.form(^.cls := "navbar-form navbar-left")(
-            <.div(^.cls := "form-group")(
+          <.p(c"navbar-text")("Filename:"),
+          <.form(c"navbar-form navbar-left")(
+            div"form-group"(
               <.input(
                 ^.ref := "filename",
                 ^.`type` := "text",
-                ^.cls := "form-control",
+                c"form-control",
                 ^.placeholder := "Filename",
                 ^.value := $.state,
                 ^.onChange ~~> ((e: ReactEventI) => $.setStateIO(e.target.value))
               )
             )
           ),
-          <.form(^.cls := "form-inline")(
+          <.form(c"form-inline")(
             " ", navbtn("Save .gly", IO($.backend.saveGly())),
             " ", navbtn("Save .svg", IO($.backend.saveSvg())),
             " ", navbtn("Save .png", IO($.backend.savePng())),

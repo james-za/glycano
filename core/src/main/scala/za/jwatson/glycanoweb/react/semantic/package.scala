@@ -1,6 +1,6 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.extra.{ReusableFn, ~=>, ReusableVar, Reusability}
+import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react._
@@ -11,46 +11,44 @@ import scalaz.effect.IO
 package object semantic {
 
   object Dropdown {
-    val Item = C("item")
-    val Label = C("label")
-    def C(context: String) = ReactComponentB[String]("Dropdown")
+    val Item = C("item", narrow = false)
+    val Label = C("label", narrow = false)
+    val NarrowToggle = ReactComponentB[String]("Dropdown")
+      .initialState(false)
+      .backend(_ => new OnUnmount.Backend)
+      .render { $ =>
+        val show = if ($.state) "visible" else "hidden"
+        div"ui right dropdown item"(
+          $.state ?= c"active visible",
+          ^.width := 30.px, ^.minWidth := 30.px,
+          ^.onClick ~~> $.setStateIO(true)
+        )(
+          $.props, <.i(c"dropdown icon"),
+          div"menu transition $show"($.propsChildren)
+        )
+      }
+      .configure(Reusability.shouldComponentUpdate)
+      .configure(EventListener.installIO("click", _.setStateIO(false), _ => dom.document.body))
+      .build
+    def C(context: String, narrow: Boolean) = ReactComponentB[String]("Dropdown")
       .initialState(false)
       .render { $ =>
         val show = if ($.state) "visible" else "hidden"
-        <.div($.props)(
-          ^.cls := s"ui dropdown $context",
-          $.state ?= (^.cls := "active visible"),
+        div"ui dropdown $context"(
+          $.state ?= c"active visible",
+          narrow ?= Seq(c"floating", ^.width := 30.px, ^.minWidth := 30.px),
           ^.onMouseOver ~~> $.setStateIO(true),
           ^.onMouseOut ~~> $.setStateIO(false)
         )(
-          <.i(^.cls := "dropdown icon"),
-          <.div(^.cls := s"menu transition $show")($.propsChildren)
+          $.props, <.i(c"dropdown icon"),
+          div"menu transition $show"($.propsChildren)
         )
       }
       .configure(Reusability.shouldComponentUpdate)
       .build
   }
 
-  object FormInput {
-    case class Props(`type`: String, onChange: ReactEventI => Unit)
-
-    implicit val reuseProps: Reusability[Props] = Reusability.by((_: Props).`type`)
-
-    def apply(props: Props, children: ReactNode*) = component(props, children)
-    val component = ReactComponentB[Props]("Input")
-      .render { (P, C) =>
-        <.input(
-          ^.`type` := P.`type`,
-          ^.cls := "form-control",
-          ^.onChange ==> P.onChange
-        )(C)
-      }
-      .domType[dom.html.Input]
-      .configure(Reusability.shouldComponentUpdate)
-      .build
-  }
-
-  object RadioGroupMap {
+  object RadioButtons {
     val defaultName: Any ~=> String = ReusableFn(_.toString)
     case class Props[A](selected: ReusableVar[Option[A]], choices: Seq[A], name: A ~=> String = defaultName, toggle: Boolean = false)
 
@@ -66,17 +64,13 @@ package object semantic {
       .stateless
       .backend(new Backend(_))
       .render { $ =>
-        <.div(^.cls := "btn-group")(
-          for (value <- $.props.choices) yield {
-            val selected = $.props.selected.value.contains(value)
-            <.label($.props.name(value))(
-              ^.cls := "btn btn-default",
-              selected ?= (^.cls := "active"),
-              ^.onClick ~~> $.backend.handleClick(value),
-              ^.key := value.##
-            )
-          }
-        )
+        div"ui buttons"($.props.choices.map { value =>
+          div"ui button"(
+            $.props.selected.value.contains(value) ?= c"active",
+            ^.onClick ~~> $.backend.handleClick(value),
+            ^.key := value.##
+          )($.props.name(value))
+        })
       }
       .domType[dom.html.Div]
       .configure(Reusability.shouldComponentUpdate[Props[A], Unit, Backend[A], dom.html.Div])

@@ -241,7 +241,7 @@ object GlycanoApp {
     val setAbsoluteFn: Absolute ~=> IO[Unit] = ReusableFn($._setStateL(AppState.placeAbsolute))
   }
 
-  val RadioDisplayConv = RadioGroupMap[DisplayConv]
+  val RadioDisplayConv = RadioButtons[DisplayConv]
 
   val C = ReactComponentB[Props]("GlycanoApp")
     .initialStateP(props => AppState(
@@ -269,40 +269,16 @@ object GlycanoApp {
       val rvMode = $.backend.setModeFn.asVar($.state.mode)
 
       <.div(
-        <.div(^.cls := "ui main menu", ^.opacity := "50%")(
-          <.div(^.cls := "ui item")(<.h3("Glycano")),
-          <.div(^.cls := "ui item")(
-            <.div(^.cls := "ui right labeled input")(
-              <.input(
-                ^.cls := "ui input", ^.`type` := "file",
-                ^.paddingTop := 0.25.em, ^.paddingBottom := 0.25.em
-              ),
-              <.div(^.cls := "ui label")("Open...")
-            )
-          ),
-          <.div(^.cls := "ui item")(
-            <.div(^.cls := "ui right labeled input")(
-              <.input(^.tpe := "text", ^.placeholder := "glycano"),
-              Dropdown.Label("Save As...", Seq(
-                <.a("Glycano (.gly)")(c"item", ^.onClick ~~> IO.ioUnit, ^.key := "gly"),
-                <.a("Vector (.svg)")(c"item", ^.onClick ~~> IO.ioUnit, ^.key := "svg"),
-                <.a("Image (.png)")(c"item", ^.onClick ~~> IO.ioUnit, ^.key := "png")
-              ))
-            )
-          )
-        ),
-        <.div(^.cls := "ui grid")(
-          <.div(^.cls := "column")(
-          )
-        )
+        MainMenu.C(rvGraph),
+        ToolBar.C(rvGraph)
       )
 
-//      <.div(^.cls := "container-fluid")(
-//        <.div(^.cls := "row")(Navbar.C(rvAppStateNavbar)),
+//      div"container-fluid"(
+//        div"row"(Navbar.C(rvAppStateNavbar)),
 //
-//        <.div(^.cls := "row")(
-//          <.div(^.cls := "col-xs-3")(
-//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12 text-center")(
+//        div"row"(
+//          div"col-xs-3"(
+//            div"row"(div"col-xs-12 text-center"(
 //              RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
 //                rvDisplayConv,
 //                DisplayConv.conventions.values.toSeq,
@@ -310,13 +286,13 @@ object GlycanoApp {
 //                toggle = false
 //              ))
 //            )),
-//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+//            div"row"(div"col-xs-12"(
 //              ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc, $.state.scaleSubstituents, $.props.conventions))
 //            )),
-//            <.div(^.cls := "row")(
-//              <.div(^.cls := "col-xs-8")(
+//            div"row"(
+//              div"col-xs-8"(
 //                <.input(
-//                  ^.cls := "form-control",
+//                  c"form-control",
 //                  ^.ref := "ssSlider",
 //                  ^.`type` := "range",
 //                  "min".reactAttr := 0.1,
@@ -326,9 +302,9 @@ object GlycanoApp {
 //                  ^.onChange --> $.backend.scaleSubstituentsSlider
 //                )
 //              ),
-//              <.div(^.cls := "col-xs-4")(
+//              div"col-xs-4"(
 //                <.input(
-//                  ^.cls := "form-control",
+//                  c"form-control",
 //                  ^.ref := "ssNumber",
 //                  ^.`type` := "number",
 //                  ^.value := $.state.scaleSubstituents,
@@ -336,14 +312,14 @@ object GlycanoApp {
 //                )
 //              )
 //            ),
-//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+//            div"row"(div"col-xs-12"(
 //              SubstituentPanel((
 //                rvMode,
 //                $.state.scaleSubstituents
 //              ))
 //            )),
-//            <.div(^.cls := "row")(
-//              <.div(^.cls := "checkbox")(
+//            div"row"(
+//              div"checkbox"(
 //                <.label(
 //                  <.input(
 //                    ^.`type` := "checkbox",
@@ -355,14 +331,14 @@ object GlycanoApp {
 //              )
 //            )
 //          ),
-//          <.div(^.cls := "col-xs-6")(
-//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+//          div"col-xs-6"(
+//            div"row"(div"col-xs-12"(
 //              CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
 //            )),
-//            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-//              <.div(^.cls := "panel panel-default")(
+//            div"row"(div"col-xs-12"(
+//              div"panel panel-default"(
 //                <.div(
-//                  ^.cls := "panel-body",
+//                  c"panel-body",
 //                  ^.ref := "canvaspanel",
 //                  ^.padding := 0.px
 //                )(
@@ -371,16 +347,16 @@ object GlycanoApp {
 //              )
 //            ))
 //          ),
-//          <.div(^.cls := "col-xs-3")(
+//          div"col-xs-3"(
 //            OverviewPanel.C((rvGraph, $.state.selection, $.state.displayConv, rvHighlightBond))
 //          )
 //        )
 //      )
     }
     .domType[dom.html.Div]
-    .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
-    .configure(EventListener.installIO("resize", $ => IO($.backend.resize())))
-    .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e))))
-    .componentDidMount(_.backend.resize())
+//    .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
+//    .configure(EventListener.installIO("resize", $ => IO($.backend.resize())))
+//    .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e))))
+//    .componentDidMount(_.backend.resize())
     .build
 }

@@ -23,7 +23,7 @@ object SubstituentPanel {
     .render { props =>
       val (mode, scale) = props
 
-      val substPages = <.div(^.cls := "btn-group", "data-toggle".reactAttr := "buttons")(
+      val substPages = div"btn-group"("data-toggle".reactAttr := "buttons")(
         for (st <- SubstituentType.SubstituentTypes) yield {
           val (shape, (w, h)) = SubstituentShape(st)
           val icon = <.svg.svg(
@@ -38,8 +38,8 @@ object SubstituentPanel {
           val click = mode.set(if (active) Mode.Selection else Mode.PlaceSubstituent(st))
           <.span(
             <.button(
-              ^.cls := s"btn btn-default",
-              active ?= (^.cls := "active"),
+              c"btn btn-default",
+              active ?= c"active",
               ^.title := st.name,
               ^.padding := 2.px,
               ^.onClick ~~> click
@@ -48,10 +48,10 @@ object SubstituentPanel {
         }
       )
 
-      <.div(^.cls := "panel panel-default")(
-        <.div(^.cls := "panel-heading")("Substituents"),
-        <.div(^.cls := "panel-body text-center")(
-          <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(substPages))
+      div"panel panel-default"(
+        div"panel-heading"("Substituents"),
+        div"panel-body text-center"(
+          div"row"(div"col-xs-12"(substPages))
         )
       )
     }

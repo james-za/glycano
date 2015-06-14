@@ -5,7 +5,7 @@ import japgolly.scalajs.react.extra.{ReusableFn, ~=>, Reusability, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ScalazReact._
 import monocle.Monocle._
-import za.jwatson.glycanoweb.react.semantic.RadioGroupMap
+import za.jwatson.glycanoweb.react.semantic.RadioButtons
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph.{GraphEntry, Bond}
 import za.jwatson.glycanoweb.structure._
@@ -29,8 +29,8 @@ object OverviewPanel {
     val getNameAbsFn = ReusableFn((_: Absolute).desc)
   }
 
-  val RadioAnomer = RadioGroupMap[Anomer]
-  val RadioAbsolute = RadioGroupMap[Absolute]
+  val RadioAnomer = RadioButtons[Anomer]
+  val RadioAbsolute = RadioButtons[Absolute]
 
   type Props = (ReusableVar[RGraph], (Set[ResidueId], Set[AnnotId]), DisplayConv, ReusableVar[Option[ResidueId]])
 
@@ -44,17 +44,17 @@ object OverviewPanel {
       val rsel = graph.residues.filterKeys(rs.contains)
       val asel = graph.annotations.filterKeys(as.contains)
 
-      <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-        <.div(^.cls := "panel panel-default")(
-          <.div(^.cls := "panel-body")(
+      div"row"(div"col-xs-12"(
+        div"panel panel-default"(
+          div"panel-body"(
             for (hd <- rsel.values.headOption) yield {
               val repeat = rsel.values.exists(_.residue.rt.category == ResidueCategory.Repeat)
               def unanimously[A](f: GraphEntry => A) = if (!repeat && rsel.values.tail.forall(f(_) == f(hd))) Some(f(hd)) else None
               val rvSelAno = $.backend.setSelAnoFn(rs).asVar(unanimously(_.residue.ano))
               val rvSelAbs = $.backend.setSelAbsFn(rs).asVar(unanimously(_.residue.abs))
-              <.div(^.cls := "btn-toolbar", ^.role := "toolbar", ^.display.`inline-block`)(
-                RadioAnomer(RadioGroupMap.Props[Anomer](rvSelAno, Anomer.Anomers, $.backend.getNameAnoFn)),
-                RadioAbsolute(RadioGroupMap.Props[Absolute](rvSelAbs, Absolute.Absolutes, $.backend.getNameAbsFn))
+              div"btn-toolbar"(^.role := "toolbar", ^.display.`inline-block`)(
+                RadioAnomer(RadioButtons.Props[Anomer](rvSelAno, Anomer.Anomers, $.backend.getNameAnoFn)),
+                RadioAbsolute(RadioButtons.Props[Absolute](rvSelAbs, Absolute.Absolutes, $.backend.getNameAbsFn))
               )
             },
             rsel.toList match {
@@ -69,23 +69,23 @@ object OverviewPanel {
                 first ++ rest ++ subs
               case resList =>
                 for ((id, ge) <- resList) yield {
-                  <.div(^.cls := "row")(
-                    <.div(^.cls := "col-xs-12")(s"${ge.residue.desc}")
+                  div"row"(
+                    div"col-xs-12"(s"${ge.residue.desc}")
                   )
                 }
             }
           )
         ),
-        <.div(^.cls := "panel panel-default")(
-          <.div(^.cls := "panel-body")(
+        div"panel panel-default"(
+          div"panel-body"(
             for (hd <- asel.values.headOption) yield {
               val annotationText = if (asel.values.forall(_.text == hd.text)) hd.text else ""
               val fontSize = if (asel.values.forall(_.size == hd.size)) hd.size.toString else ""
 
               <.div(
-                <.div(^.cls := "form-group input-group")(
+                div"form-group input-group"(
                   "Text", <.input(
-                    ^.cls := "form-control",
+                    c"form-control",
                     ^.`type` := "text",
                     ^.value := annotationText,
                     ^.onChange ~~> ((e: ReactEventI) => for {
@@ -94,9 +94,9 @@ object OverviewPanel {
                     } yield ())
                   )
                 ),
-                <.div(^.cls := "form-group input-group")(
+                div"form-group input-group"(
                   "Font Size", <.input(
-                    ^.cls := "form-control",
+                    c"form-control",
                     ^.`type` := "number",
                     ^.value := fontSize,
                     ^.onChange ~~> ((e: ReactEventI) => for {
