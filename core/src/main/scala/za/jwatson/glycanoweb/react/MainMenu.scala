@@ -79,7 +79,7 @@ object MainMenu {
     .stateless
     .backend(new B(_))
     .render { $ =>
-      div"ui top attached main menu"(
+      div"ui attached main menu"(
         div"ui item"(<.h3(Icon(), "Glycano")),
         div"ui item"(
           <.div(

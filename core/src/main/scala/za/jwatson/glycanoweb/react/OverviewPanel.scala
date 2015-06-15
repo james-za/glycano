@@ -29,8 +29,8 @@ object OverviewPanel {
     val getNameAbsFn = ReusableFn((_: Absolute).desc)
   }
 
-  val RadioAnomer = RadioButtons[Anomer]
-  val RadioAbsolute = RadioButtons[Absolute]
+  val RadioAnomer = RadioButtons[Anomer]()
+  val RadioAbsolute = RadioButtons[Absolute]()
 
   type Props = (ReusableVar[RGraph], (Set[ResidueId], Set[AnnotId]), DisplayConv, ReusableVar[Option[ResidueId]])
 

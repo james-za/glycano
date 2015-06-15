@@ -50,11 +50,12 @@ package object semantic {
     implicit def reuseChoices[A]: Reusability[Seq[A]] = Reusability.by_==
     implicit def reuseProps[A]: Reusability[Props[A]] = Reusability.caseclass4(Props.unapply[A])
 
-    def apply[A] = ReactComponentB[Props[A]]("RadioGroupMap")
+    def apply[A](fluid: Boolean = false) = ReactComponentB[Props[A]]("RadioGroupMap")
       .stateless
       .backend(new Backend(_))
       .render { $ =>
-        div"ui buttons"($.props.choices.map { value =>
+        val count = $.props.choices.size
+        div"ui buttons"(fluid ?= c"$count fluid")($.props.choices.map { value =>
           div"ui button"(
             $.props.selected.value.contains(value) ?= c"active",
             ^.onClick ~~> $.backend.handleClick(value),

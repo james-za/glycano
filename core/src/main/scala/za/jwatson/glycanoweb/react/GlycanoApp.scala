@@ -11,6 +11,7 @@ import monocle.Monocle._
 import monocle.macros.Lenses
 import org.scalajs.dom
 import org.scalajs.dom.ext.LocalStorage
+import org.scalajs.dom.html.Div
 import org.scalajs.dom.raw.SVGRect
 import za.jwatson.glycanoweb.Gly
 import za.jwatson.glycanoweb.react.GlycanoCanvas.{Bounds, View}
@@ -188,21 +189,17 @@ object GlycanoApp {
     def toggleLimitUpdateRate(): Unit = {
       $.modState(AppState.limitUpdateRate modify { v => !v })
     }
-
-    val resizeFunc: js.Function1[dom.Event, Unit] = (e: dom.Event) => resize()
-
-    def resizeIO = Ref[dom.html.Div]("canvaspanel")($).fold(IO.ioUnit) { p =>
-      val rect = p.getDOMNode().getBoundingClientRect()
-      val setw = AppState.view ^|-> View.width set (rect.width.toInt + 1)
-      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
-      $.modStateIO(setw andThen seth)
-    }
-    def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")($)) {
-      val rect = p.getDOMNode().getBoundingClientRect()
-      val setw = AppState.view ^|-> View.width set rect.width.toInt + 1
-      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
-      $.modState(setw andThen seth)
-    }
+    val refCanvas = Ref[dom.html.Div]("canvas")
+    val refPage = Ref[dom.html.Div]("page")
+    val resizeIO = IO(for (canvas <- refCanvas($); page <- refPage($)) {
+      val nodeCanvas = canvas.getDOMNode()
+      val nodePage = page.getDOMNode()
+      val surrounding = nodePage.offsetHeight - nodeCanvas.clientHeight
+      val height = dom.window.innerHeight - surrounding
+      val setWidth = AppState.view ^|-> View.width set (nodeCanvas.clientWidth - 1).toInt
+      val setHeight = AppState.view ^|-> View.height set height.toInt
+      $.modState(setWidth andThen setHeight)
+    })
 
     val keydownFunc: js.Function1[dom.KeyboardEvent, Unit] = keyDown _
 
@@ -236,12 +233,10 @@ object GlycanoApp {
     val setGraphFn: RGraph ~=> IO[Unit] = ReusableFn($._setStateL(AppStateL.graphL))
     val setHighlightBondFn: Option[ResidueId] ~=> IO[Unit] = ReusableFn($._setStateL(AppState.highlightBond))
     val setDisplayConvFn: Option[DisplayConv] ~=> IO[Unit] = ReusableFn(_.fold(IO.ioUnit)($._setStateL(AppState.displayConv)))
-    val getNameDisplayConvFn: DisplayConv ~=> String = ReusableFn(_.name)
     val setAnomerFn: Anomer ~=> IO[Unit] = ReusableFn($._setStateL(AppState.placeAnomer))
     val setAbsoluteFn: Absolute ~=> IO[Unit] = ReusableFn($._setStateL(AppState.placeAbsolute))
   }
 
-  val RadioDisplayConv = RadioButtons[DisplayConv]
 
   val C = ReactComponentB[Props]("GlycanoApp")
     .initialStateP(props => AppState(
@@ -270,17 +265,21 @@ object GlycanoApp {
 
       <.div(^.ref := "page")(
         MainMenu.C(rvGraph),
-        div"ui padded grid"(
+        div"ui padded grid"(^.padding := 0.5.rem)(
           div"sixteen wide column"(
             ToolBar.C(rvGraph)
           ),
           div"row"(
-            div"four wide column"(),
+            div"four wide column"(
+              ConventionPanel.C(rvDisplayConv),
+              div"ui segment"(),
+              div"ui segment"()
+            ),
             div"eight wide column"(
               div"ui top attached segment"(
                 div"ui fluid input"(<.input(^.tpe := "text", ^.ref := "casper"))
               ),
-              div"ui attached segment"(
+              div"ui attached segment"(^.padding := 0, ^.ref := "canvas", ^.fontSize := 0)(
                 GlycanoCanvas.C(rvAppStateCanvas)
               ),
               div"ui bottom attached segment"(
@@ -375,9 +374,9 @@ object GlycanoApp {
 //      )
     }
     .domType[dom.html.Div]
-//    .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
-//    .configure(EventListener.installIO("resize", $ => IO($.backend.resize())))
+    .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
+    .configure(EventListener.installIO("resize", _.backend.resizeIO, _ => dom.window))
 //    .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e))))
-//    .componentDidMount(_.backend.resize())
+    .componentDidMountIO(_.backend.resizeIO)
     .build
 }

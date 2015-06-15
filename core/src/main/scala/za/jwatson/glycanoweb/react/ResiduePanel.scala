@@ -41,8 +41,8 @@ object ResiduePanel {
     val getNameAbsFn: Absolute ~=> String = ReusableFn(_.symbol)
   }
 
-  val RadioAnomer = RadioButtons[Anomer]
-  val RadioAbsolute = RadioButtons[Absolute]
+  val RadioAnomer = RadioButtons[Anomer]()
+  val RadioAbsolute = RadioButtons[Absolute]()
 
   val C = ReactComponentB[Props]("ResiduePanel")
     .initialStateP[Map[DisplayConv, Palette]] { props =>
@@ -61,7 +61,7 @@ object ResiduePanel {
               ^.onClick ~~> $.modStateIO(f),
               ^.role := "tab",
               "data-toggle".reactAttr := "tab",
-              ($.state eq pal) ?= (c"active")
+              ($.state eq pal) ?= c"active"
             )(pal.name)
           )
         }
@@ -96,7 +96,7 @@ object ResiduePanel {
                 case _ => false
               }
               <.span(
-                <.button(c"btn btn-default", selected ?= (c"active"), ^.title := rt.desc, ^.padding := 2.px, ^.onClick ~~> $.backend.clickResidue(rt, subs))(
+                <.button(c"btn btn-default", selected ?= c"active", ^.title := rt.desc, ^.padding := 2.px, ^.onClick ~~> $.backend.clickResidue(rt, subs))(
                   <.svg.svg(
                     ^.svg.width := (w + 20) * scale,
                     ^.svg.height := (h + 20) * scale
