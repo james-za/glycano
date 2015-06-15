@@ -79,7 +79,7 @@ object MainMenu {
     .stateless
     .backend(new B(_))
     .render { $ =>
-      div"ui main menu"(
+      div"ui top attached main menu"(
         div"ui item"(<.h3(Icon(), "Glycano")),
         div"ui item"(
           <.div(
@@ -92,11 +92,11 @@ object MainMenu {
         div"ui item"(
           div"ui right labeled input"(
             <.input(^.tpe := "text", ^.placeholder := "glycano", ^.ref := "filename"),
-            Dropdown.Label("Save As...", Seq(
+            Dropdown.Label(("Save As...", false),
               <.a("Glycano (.gly)")(c"item", ^.onClick ~~> $.backend.saveGly, ^.key := "gly"),
               <.a("Vector (.svg)")(c"item", ^.onClick ~~> $.backend.saveSvg, ^.key := "svg"),
               <.a("Image (.png)")(c"item", ^.onClick ~~> $.backend.savePng, ^.key := "png")
-            ))
+            )
           )
         )
       )

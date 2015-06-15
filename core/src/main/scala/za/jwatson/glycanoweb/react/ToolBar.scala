@@ -26,8 +26,7 @@ object ToolBar {
     .stateless
     .backend(new B(_))
     .render { $ =>
-
-      <.div(^.paddingLeft := 1.em, ^.paddingRight := 1.em)(
+      div"sixteen wide column"(
         div"ui small labeled icon floated menu"(
           <.a(c"item", <.i(c"file icon"), "Clear All", ^.onClick ~~> $.backend.clearAll)
         ),
@@ -42,12 +41,12 @@ object ToolBar {
         ),
         div"ui small labeled icon floated menu"(
           <.a(c"item", <.i(c"edit icon"), "Add Annotation", ^.onClick ~~> $.backend.addAnnotation),
-          Dropdown.NarrowToggle("", Seq(
-              div"header"("Font Size:", ^.key := 0),
-              div"ui fluid input header"(^.key := 1)(
-                <.input(^.tpe := "number", ^.paddingRight := "1em !important", ^.width := 70.px)
-              )
-          ))
+          Dropdown.NarrowToggle(("", true),
+            div"header"("Font Size:", ^.key := 0),
+            div"ui fluid input header"(^.key := 1)(
+              <.input(^.tpe := "number", ^.paddingRight := "1em !important", ^.width := 70.px)
+            )
+          )
         )
       )
     }

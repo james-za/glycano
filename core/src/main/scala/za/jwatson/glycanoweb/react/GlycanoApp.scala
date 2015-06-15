@@ -268,9 +268,30 @@ object GlycanoApp {
       val rvAbsolute = $.backend.setAbsoluteFn.asVar($.state.placeAbsolute)
       val rvMode = $.backend.setModeFn.asVar($.state.mode)
 
-      <.div(
+      <.div(^.ref := "page")(
         MainMenu.C(rvGraph),
-        ToolBar.C(rvGraph)
+        div"ui padded grid"(
+          div"sixteen wide column"(
+            ToolBar.C(rvGraph)
+          ),
+          div"row"(
+            div"four wide column"(),
+            div"eight wide column"(
+              div"ui top attached segment"(
+                div"ui fluid input"(<.input(^.tpe := "text", ^.ref := "casper"))
+              ),
+              div"ui attached segment"(
+                GlycanoCanvas.C(rvAppStateCanvas)
+              ),
+              div"ui bottom attached segment"(
+                div"ui right floated input"(
+                  <.input(^.tpe := "text", ^.ref := "zoom")
+                )
+              )
+            ),
+            div"four wide column"()
+          )
+        )
       )
 
 //      div"container-fluid"(

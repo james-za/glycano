@@ -11,40 +11,30 @@ import scalaz.effect.IO
 package object semantic {
 
   object Dropdown {
-    val Item = C("item", narrow = false)
-    val Label = C("label", narrow = false)
-    val NarrowToggle = ReactComponentB[String]("Dropdown")
+    val Item = C("item", narrow = false, toggle = false)
+    val Label = C("label", narrow = false, toggle = false)
+    val NarrowToggle = C("item", narrow = true, toggle = true)
+    def C(context: String, narrow: Boolean, toggle: Boolean) = ReactComponentB[(String, Boolean)]("Dropdown")
       .initialState(false)
       .backend(_ => new OnUnmount.Backend)
       .render { $ =>
-        val show = if ($.state) "visible" else "hidden"
-        div"ui right dropdown item"(
-          $.state ?= c"active visible",
-          ^.width := 30.px, ^.minWidth := 30.px,
-          ^.onClick ~~> $.setStateIO(true)
-        )(
-          $.props, <.i(c"dropdown icon"),
-          div"menu transition $show"($.propsChildren)
-        )
-      }
-      .configure(Reusability.shouldComponentUpdate)
-      .configure(EventListener.installIO("click", _.setStateIO(false), _ => dom.document.body))
-      .build
-    def C(context: String, narrow: Boolean) = ReactComponentB[String]("Dropdown")
-      .initialState(false)
-      .render { $ =>
+        val (name, right) = $.props
         val show = if ($.state) "visible" else "hidden"
         div"ui dropdown $context"(
+          right ?= c"right",
           $.state ?= c"active visible",
           narrow ?= Seq(c"floating", ^.width := 30.px, ^.minWidth := 30.px),
-          ^.onMouseOver ~~> $.setStateIO(true),
-          ^.onMouseOut ~~> $.setStateIO(false)
+          if (toggle) ^.onClick ~~> $.setStateIO(true) else Seq(
+            ^.onMouseOver ~~> $.setStateIO(true),
+            ^.onMouseOut ~~> $.setStateIO(false)
+          )
         )(
-          $.props, <.i(c"dropdown icon"),
+          name, <.i(c"dropdown icon"),
           div"menu transition $show"($.propsChildren)
         )
       }
       .configure(Reusability.shouldComponentUpdate)
+      .configure(if (toggle) EventListener.installIO("click", _.setStateIO(false), _ => dom.document.body) else identity)
       .build
   }
 

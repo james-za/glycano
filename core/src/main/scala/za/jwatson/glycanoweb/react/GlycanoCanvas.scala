@@ -443,8 +443,7 @@ object GlycanoCanvas {
 
   def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
 
-  def apply(props: ReusableVar[AppState], children: ReactNode*) = component.apply(props, children)
-  val component = ReactComponentB[ReusableVar[AppState]]("GlycanoCanvas")
+  val C = ReactComponentB[ReusableVar[AppState]]("GlycanoCanvas")
     .initialState[InputState](InputState.Default)
     .backend(new Backend(_))
     .render { $ =>
