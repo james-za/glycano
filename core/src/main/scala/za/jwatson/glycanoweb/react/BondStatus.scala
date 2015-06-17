@@ -17,7 +17,7 @@ object BondStatus {
       val (bond, graph, dc, highlightBond) = $.props
       val hl = highlightBond.value.contains(bond)
       implicit val g: RGraph = graph.value
-      <.div(^.cls := "row")(
+      div"col-xs-6"(
         for {
           ge1 <- g.residues.get(bond.from)
           ge2 <- g.residues.get(bond.to.r)
@@ -26,7 +26,7 @@ object BondStatus {
             case _ => ge1.residue.ano
           }
         } yield Seq(
-          <.div(^.cls := "col-xs-6")(
+          div"col-xs-6"(
             ResidueStatus.C((ge1.residue, dc)),
             <.svg.svg(
               ^.display.`inline-block`,
@@ -36,11 +36,11 @@ object BondStatus {
             )(SVGBond(SVGBond.Props(anomer, None, (0, 45), (120, 45), highlight = hl))),
             ResidueStatus.C((ge2.residue, dc))
           ),
-          <.div(^.cls := "col-xs-2")(
+          div"col-xs-2"(
             <.p(s"${ge1.residue.ano.desc}-${bond.to.position}")
           ),
-          <.div(^.cls := "col-xs-4")(
-            <.button(^.cls := "btn btn-link", ^.onClick ~~> graph.mod(_ - bond))("remove bond")
+          div"col-xs-4"(
+            <.button(c"btn btn-link", ^.onClick ~~> graph.mod(_ - bond))("remove bond")
           )
         )
       )

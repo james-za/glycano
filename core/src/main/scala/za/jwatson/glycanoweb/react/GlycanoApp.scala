@@ -189,20 +189,17 @@ object GlycanoApp {
       $.modState(AppState.limitUpdateRate modify { v => !v })
     }
 
-    val resizeFunc: js.Function1[dom.Event, Unit] = (e: dom.Event) => resize()
-
-    def resizeIO = Ref[dom.html.Div]("canvaspanel")($).fold(IO.ioUnit) { p =>
-      val rect = p.getDOMNode().getBoundingClientRect()
-      val setw = AppState.view ^|-> View.width set (rect.width.toInt + 1)
-      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
-      $.modStateIO(setw andThen seth)
-    }
-    def resize(): Unit = for (p <- Ref[dom.html.Div]("canvaspanel")($)) {
-      val rect = p.getDOMNode().getBoundingClientRect()
-      val setw = AppState.view ^|-> View.width set rect.width.toInt + 1
-      val seth = AppState.view ^|-> View.height set (dom.window.innerHeight - rect.top.toInt - 25 - 1)
-      $.modState(setw andThen seth)
-    }
+    val refCanvas = Ref[dom.html.Div]("canvas")
+    val refPage = Ref[dom.html.Div]("page")
+    val resizeIO = IO(for (canvas <- refCanvas($); page <- refPage($)) {
+      val nodeCanvas = canvas.getDOMNode()
+      val nodePage = page.getDOMNode()
+      val surrounding = nodePage.offsetHeight - nodeCanvas.clientHeight
+      val height = dom.window.innerHeight - surrounding
+      val setWidth = AppState.view ^|-> View.width set (nodeCanvas.clientWidth - 1).toInt
+      val setHeight = AppState.view ^|-> View.height set height.toInt
+      $.modState(setWidth andThen setHeight)
+    })
 
     val keydownFunc: js.Function1[dom.KeyboardEvent, Unit] = keyDown _
 
@@ -253,7 +250,7 @@ object GlycanoApp {
       implicit val g: RGraph = $.state.graph
       implicit val dc: DisplayConv = $.state.displayConv
 
-      val rvAppStateNavbar = $.backend.setAppStateFn.asVarR($.state, Navbar.reuseAppState)
+      val rvAppStateToolBar = $.backend.setAppStateFn.asVarR($.state, ToolBar.reuseAppState)
       val rvAppStateCanvas = $.backend.setAppStateFn.asVarR($.state, GlycanoCanvas.reuseAppState)
 
       val rtTemplate = $.state.mode match {
@@ -268,12 +265,12 @@ object GlycanoApp {
       val rvAbsolute = $.backend.setAbsoluteFn.asVar($.state.placeAbsolute)
       val rvMode = $.backend.setModeFn.asVar($.state.mode)
 
-      <.div(^.cls := "container-fluid")(
-        <.div(^.cls := "row")(Navbar.C(rvAppStateNavbar)),
-
-        <.div(^.cls := "row")(
-          <.div(^.cls := "col-xs-3")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12 text-center")(
+      div"container-fluid"(
+        div"row"(Navbar.C(rvGraph)),
+        ToolBar.C(rvAppStateToolBar),
+        div"row"(
+          div"col-xs-3"(
+            div"row"(div"col-xs-12 text-center"(
               RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
                 rvDisplayConv,
                 DisplayConv.conventions.values.toSeq,
@@ -281,13 +278,13 @@ object GlycanoApp {
                 toggle = false
               ))
             )),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+            div"row"(div"col-xs-12"(
               ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc, $.state.scaleSubstituents, $.props.conventions))
             )),
-            <.div(^.cls := "row")(
-              <.div(^.cls := "col-xs-8")(
+            div"row"(
+              div"col-xs-8"(
                 <.input(
-                  ^.cls := "form-control",
+                  c"form-control",
                   ^.ref := "ssSlider",
                   ^.`type` := "range",
                   "min".reactAttr := 0.1,
@@ -297,9 +294,9 @@ object GlycanoApp {
                   ^.onChange --> $.backend.scaleSubstituentsSlider
                 )
               ),
-              <.div(^.cls := "col-xs-4")(
+              div"col-xs-4"(
                 <.input(
-                  ^.cls := "form-control",
+                  c"form-control",
                   ^.ref := "ssNumber",
                   ^.`type` := "number",
                   ^.value := $.state.scaleSubstituents,
@@ -307,14 +304,14 @@ object GlycanoApp {
                 )
               )
             ),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+            div"row"(div"col-xs-12"(
               SubstituentPanel((
                 rvMode,
                 $.state.scaleSubstituents
               ))
             )),
-            <.div(^.cls := "row")(
-              <.div(^.cls := "checkbox")(
+            div"row"(
+              div"checkbox"(
                 <.label(
                   <.input(
                     ^.`type` := "checkbox",
@@ -326,14 +323,13 @@ object GlycanoApp {
               )
             )
           ),
-          <.div(^.cls := "col-xs-6")(
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
+          div"col-xs-6"(
+            div"row"(div"col-xs-12"(
               CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
             )),
-            <.div(^.cls := "row")(<.div(^.cls := "col-xs-12")(
-              <.div(^.cls := "panel panel-default")(
-                <.div(
-                  ^.cls := "panel-body",
+            div"row"(div"col-xs-12"(
+              div"panel panel-default"(
+                div"panel-body"(
                   ^.ref := "canvaspanel",
                   ^.padding := 0.px
                 )(
@@ -342,7 +338,7 @@ object GlycanoApp {
               )
             ))
           ),
-          <.div(^.cls := "col-xs-3")(
+          div"col-xs-3"(
             OverviewPanel.C((rvGraph, $.state.selection, $.state.displayConv, rvHighlightBond))
           )
         )
@@ -350,8 +346,8 @@ object GlycanoApp {
     }
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
-    .configure(EventListener.installIO("resize", $ => IO($.backend.resize())))
+    .configure(EventListener.installIO("resize", _.backend.resizeIO, _ => dom.window))
     .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e))))
-    .componentDidMount(_.backend.resize())
+    .componentDidMountIO(_.backend.resizeIO)
     .build
 }

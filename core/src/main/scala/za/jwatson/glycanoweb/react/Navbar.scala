@@ -15,73 +15,20 @@ import za.jwatson.glycanoweb.structure.{ResidueId, AnnotId, RGraph}
 import scala.collection.immutable.NumericRange
 import scalajs.js
 
+import js.Dynamic.{global => g}
+
 import scala.util.Try
 import scalaz.effect.IO
 
 object Navbar {
-  def clampIso(min: Double, max: Double): Iso[Double, Double] =
-    Iso[Double, Double](x => x)(x => math.max(min, math.min(max, x)))
-  def multIso(mult: Double): Iso[Double, Double] =
-    Iso[Double, Double](_ * mult)(_ / mult)
-
-  def navbtn(name: String, action: => IO[Unit], disabled: Boolean = false) =
-    <.button(
-      name,
-      ^.cls := "btn btn-default navbar-btn",
-      ^.onClick ~~> ((e: ReactEvent) => for {
-        _ <- e.preventDefaultIO
-        _ <- action
-      } yield ()),
-      disabled ?= (^.disabled := true)
-    )
-
-  def navbtni(icon: String, name: String, action: => IO[Unit], disabled: Boolean = false) =
-    <.button(
-      <.i(^.cls := "fa fa-lg fa-" + icon), " ", name,
-      ^.cls := "btn btn-default navbar-btn",
-      ^.onClick ~~> ((e: ReactEvent) => for {
-        _ <- e.preventDefaultIO
-        _ <- action
-      } yield ()),
-      disabled ?= (^.disabled := true)
-    )
-
-  def navcheckbox(name: String, checked: Boolean, action: => IO[Unit], disabled: Boolean): ReactTag =
-    <.div(^.cls := "form-group")(
-      <.label(^.cls := "checkbox-inline")(
-        <.input(
-          ^.checked := checked,
-          ^.`type` := "checkbox",
-          ^.onChange ~~> action,
-          disabled ?= (^.disabled := true)
-        ),
-        name
-      )
-    )
-
-  def navcheckbox[A](name: String, rv: ReusableVar[A], lens: monocle.Lens[A, Boolean], disabled: Boolean = false): ReactTag =
-    navcheckbox(name, lens.get(rv.value), rv.modL(lens)(!_), disabled)
-
-  def navnumber(name: String, value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag = {
-    <.div(^.cls := "form-group")(
-      <.label(name, ^.paddingRight := 5.px),
-      <.input(
-        ^.cls := "form-control",
-        ^.value := value,
-        ^.`type` := "number",
-        ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
-        ^.width := 80.px,
-        disabled ?= (^.disabled := true)
-      )
-    )
-  }
-
-  def navnumber[A](name: String, rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false): ReactTag =
-    navnumber(name, lens.get(rv.value), rv.setL(lens), disabled)
+//  def clampIso(min: Double, max: Double): Iso[Double, Double] =
+//    Iso[Double, Double](x => x)(x => math.max(min, math.min(max, x)))
+//  def multIso(mult: Double): Iso[Double, Double] =
+//    Iso[Double, Double](_ * mult)(_ / mult)
 
   def navrange(range: NumericRange[Double], value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag =
-    <.div(^.cls := "form-group")(<.input(
-      ^.cls := "form-control",
+    div"form-group"(<.input(
+      c"form-control",
       ^.`type` := "range",
       "min".reactAttr := range.start,
       "max".reactAttr := range.end,
@@ -94,65 +41,58 @@ object Navbar {
   def navrange[A](range: NumericRange[Double], rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false): ReactTag =
     navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
 
-  class Backend(val t: BackendScope[ReusableVar[AppState], String]) {
-    def clickCenter = t.props.modL(AppState.view) { v =>
-      t.props.value.bounds.fold(v) {
-        case Bounds(x, y, width, height) =>
-          val sx = v.width / width
-          val sy = v.height / height
-          val scale = math.min(sx, sy)
-          View(x + width / 2, y + height / 2, scale * 0.975, v.width, v.height)
-      }
+  class Backend(val $: BackendScope[ReusableVar[RGraph], Unit]) {
+//    def clickCenter = $.props.modL(AppState.view) { v =>
+//      $.props.value.bounds.fold(v) {
+//        case Bounds(x, y, width, height) =>
+//          val sx = v.width / width
+//          val sy = v.height / height
+//          val scale = math.min(sx, sy)
+//          View(x + width / 2, y + height / 2, scale * 0.975, v.width, v.height)
+//      }
+//    }
+
+    val dataUrlSvg = IO {
+      val svg = dom.document.getElementById("canvas").outerHTML
+      val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
+      "data:image/svg+xml;base64," + base64
     }
 
-    def loadGly(name: String, gly: Gly): Unit = {
-      (for {
-        _ <- t.props.setL(AppStateL.graphL)(gly.toRGraph)
-        _ <- t.setStateIO(name)
-      } yield ()).unsafePerformIO()
+    val dataUrlGly = IO {
+      import upickle._, Gly._
+      val graph = $.props.value
+      val gly = write[Gly](Gly.from(graph))
+      val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
+      "data:text/plain;base64," + base64
     }
 
-    def saveSvg(): Unit = {
-      import js.Dynamic.{global => g}
-      for (fn <- t.refs[dom.html.Input]("filename").map(_.getDOMNode())) {
-        val base = if (fn.value.isEmpty) "glycano" else fn.value
-        val name = if (base.endsWith(".gly")) base.dropRight(3) + "svg" else base + ".svg"
-        val svg = dom.document.getElementById("canvas").outerHTML
-        val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
-        val dataUrl = "data:image/svg+xml;base64," + base64
+    def nameInput = $.refs[dom.html.Input]("filename").map(_.getDOMNode())
+
+    val baseName = IO(nameInput.map(_.value).filter(_.nonEmpty).getOrElse("glycano"))
+
+    def save(extension: String, dataUrlIO: IO[String]) = for {
+      baseName <- baseName
+      dataUrl <- dataUrlIO
+      _ <- IO {
         val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-        a.asInstanceOf[js.Dynamic].download = name
+        a.asInstanceOf[js.Dynamic].download = baseName + extension
         a.asInstanceOf[js.Dynamic].href = dataUrl
         dom.document.body.appendChild(a)
         a.click()
       }
-    }
+    } yield ()
 
-    def saveGly(): Unit = {
-      import js.Dynamic.{global => g}, upickle._, Gly._
-      for (fn <- t.refs[dom.html.Input]("filename").map(_.getDOMNode())) {
-        val base = if (fn.value.isEmpty) "glycano" else fn.value
-        val name = if (base.endsWith(".gly")) base else base + ".gly"
-        val graph = t.props.value.graph
-        val gly = write[Gly](Gly.from(graph))
-        val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
-        val dataUrl = "data:text/plain;base64," + base64
-        val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
-        a.asInstanceOf[js.Dynamic].download = name
-        a.asInstanceOf[js.Dynamic].href = dataUrl
-        dom.document.body.appendChild(a)
-        a.click()
-      }
-    }
+    val saveSvg = save(".svg", dataUrlSvg)
+    val saveGly = save(".gly", dataUrlGly)
+    val savePng = for {
+      name <- baseName
+      _ <- IO(g.saveSvgAsPng(dom.document.getElementById("canvas"), name + ".png"))
+    } yield ()
 
-    def savePng(): Unit = {
-      import js.Dynamic.{global => g}
-      for (fn <- t.refs[dom.html.Input]("filename").map(_.getDOMNode())) {
-        val base = if (fn.value.isEmpty) "glycano" else fn.value
-        val name = if (base.endsWith(".gly")) base.dropRight(3) + "png" else base + ".png"
-        g.saveSvgAsPng(dom.document.getElementById("canvas"), name)
-      }
-    }
+    def loadGly(name: String, gly: Gly) = for {
+      _ <- $.props.set(gly.toRGraph)
+      _ <- IO(nameInput.foreach(_.value = if (name.endsWith(".gly")) name.dropRight(3) else name))
+    } yield ()
   }
 
   implicit val reuseAppState: Reusability[AppState] =
@@ -171,80 +111,70 @@ object Navbar {
       a.selection match { case (rs, as) => rs.isEmpty && as.isEmpty }
     ))(Reusability.by_==)
 
-  val C = ReactComponentB[ReusableVar[AppState]]("Navbar")
-    .initialState("glycano")
+  val C = ReactComponentB[ReusableVar[RGraph]]("Navbar")
+    .stateless
     .backend(new Backend(_))
     .render { $ =>
-      val appState = $.props
-      val s = appState.value
-      val zoom = appState.value.view.scale * 100
-      val emptySelection = s.selection match {
-        case (rs, as) => rs.isEmpty && as.isEmpty
-      }
+      implicit val graph: RGraph = $.props.value
 
-      <.nav(^.cls := "navbar navbar-default", ^.role := "navigation")(<.div(^.cls := "container-fluid")(
+      <.nav(c"navbar navbar-default", ^.role := "navigation")(div"container-fluid"(
         NavbarHeader("glycano-navbar-collapse", "Glycano"),
-        <.div(^.cls := "collapse navbar-collapse", ^.id := "glycano-navbar-collapse")(
-          <.p(^.cls := "navbar-text", "Load:"),
-          <.form(^.cls := "navbar-form navbar-left")(
-            <.div(^.cls := "form-group")(
+        div"collapse navbar-collapse"(^.id := "glycano-navbar-collapse")(
+          <.p(c"navbar-text", "Load:"),
+          <.form(c"navbar-form navbar-left")(
+            div"form-group"(
               <.input(
                 ^.ref := "loadfile",
                 ^.`type` := "file",
-                ^.cls := "form-control",
+                c"form-control",
                 ^.onChange ==> { (e: ReactEventI) =>
                   println(e.target.files(0).name)
                 }
               )
             )
           ),
-          <.p(^.cls := "navbar-text")("Filename:"),
-          <.form(^.cls := "navbar-form navbar-left")(
-            <.div(^.cls := "form-group")(
-              <.input(
-                ^.ref := "filename",
-                ^.`type` := "text",
-                ^.cls := "form-control",
-                ^.placeholder := "Filename",
-                ^.value := $.state,
-                ^.onChange ~~> ((e: ReactEventI) => $.setStateIO(e.target.value))
+          <.p(c"navbar-text", "Filename:"),
+          <.form(c"navbar-form navbar-left")(
+            div"form-group"(
+              div"input-group"(
+                <.input(
+                  ^.ref := "filename",
+                  ^.`type` := "text",
+                  c"form-control",
+                  ^.placeholder := "Filename"
+                ),
+                div"input-group-btn"(
+                  <.button(c"btn btn-default dropdown-toggle")("Save As...", <.span(c"caret")),
+                  <.ul(c"dropdown-menu dropdown-menu-right")(
+                    <.li(<.a("Glycano (.gly)", ^.onClick ~~> $.backend.saveGly)),
+                    <.li(c"divider"),
+                    <.li(<.a("Vector (.svg)", ^.onClick ~~> $.backend.saveSvg)),
+                    <.li(<.a("Image (.png)", ^.onClick ~~> $.backend.savePng))
+                  )
+                )
               )
             )
           ),
-          <.form(^.cls := "form-inline")(
-            " ", navbtn("Save .gly", IO($.backend.saveGly())),
-            " ", navbtn("Save .svg", IO($.backend.saveSvg())),
-            " ", navbtn("Save .png", IO($.backend.savePng())),
-            " ", navcheckbox("Bond Labels", appState, AppState.bondLabels),
-            " ", navbtn("Clear All", appState.setL(AppStateL.graphL)(RGraph()), s.graph.isEmpty),
-            " ", navbtni("cut", "Cut", appState.mod(GlycanoApp.cutS.exec), emptySelection),
-            " ", navbtni("copy", "Copy", appState.mod(GlycanoApp.copyS.exec), emptySelection),
-            " ", navbtni("paste", "Paste", appState.mod(GlycanoApp.pasteS.exec), s.buffer.isEmpty),
-            " ", navbtni("trash", "Delete", appState.mod(GlycanoApp.deleteS.exec), emptySelection),
-            " ", navbtni("undo", "Undo", appState.mod(GlycanoApp.undo), s.undoPosition + 1 >= s.history.length),
-            " ", navbtni("repeat", "Redo", appState.mod(GlycanoApp.redo), s.undoPosition == 0),
-            " ", navbtni("edit", "Add Annotation", appState.mod(AppState.mode set Mode.PlaceAnnotation)),
-            " ", navnumber("Annotation Font Size", appState, AppState.annotationFontSize),
-            " ", navbtni("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
-            " ", navrange(0.0 to 200.0 by 0.01, appState, AppState.view ^|-> View.scale ^<-> multIso(100)),
-            " ", <.span(f"$zoom%.2f" + "%"),
-            " ", navbtni("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
-            " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
-            " ", navbtn("Center", $.backend.clickCenter),
-            " ", navcheckbox("Snap To Grid", appState, AppState.snapToGrid),
-            " ", navcheckbox("Show Grid", appState, AppState.showGrid),
-            " ", navnumber("Grid Width:", appState, AppState.gridWidth),
-            " ", navcheckbox("Snap Rotation To:", appState, AppState.snapRotation),
-            " ", navnumber("", appState, AppState.snapRotationDegrees ^<-> clampIso(1, 180)),
-            " ", <.span("º"),
-            " ", $.propsChildren
+          <.form(c"form-inline")(
+//            " ", navbtn("Save .gly", $.backend.saveGly),
+//            " ", navbtn("Save .svg", $.backend.saveSvg),
+//            " ", navbtn("Save .png", $.backend.savePng)
+//            " ", navbtni("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
+//            " ", navrange(0.0 to 200.0 by 0.01, appState, AppState.view ^|-> View.scale ^<-> multIso(100)),
+//            " ", <.span(f"$zoom%.2f" + "%"),
+//            " ", navbtni("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
+//            " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
+//            " ", navbtn("Center", $.backend.clickCenter)
           )
         )
       ))
     }
     .configure(Reusability.shouldComponentUpdate)
     .componentDidMount { $ =>
-      for (in <- $.refs[dom.html.Input]("loadfile").map(_.getDOMNode())) {
+      for {
+        load <- $.refs[dom.html.Input]("loadfile")
+        drop <- $.refs[dom.html.Label]("dropfile")
+      } {
         val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
           import upickle._, Gly._
           val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
@@ -256,7 +186,9 @@ object Navbar {
           }
         })
         fileReaderOpts.readAsDefault = "Text"
-        FileReaderJS.setupInput(in, fileReaderOpts)
+        fileReaderOpts.dragClass = "blue"
+        FileReaderJS.setupInput(load.getDOMNode(), fileReaderOpts)
+        FileReaderJS.setupDrop(drop.getDOMNode(), fileReaderOpts)
       }
     }
     .build

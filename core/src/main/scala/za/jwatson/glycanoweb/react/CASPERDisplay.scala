@@ -11,9 +11,9 @@ object CASPERDisplay {
   val component = ReactComponentB[Props]("CASPERDisplay")
     .render((P, C) => {
       val casper = CASPER.getStrings(P.selection)(P.graph).values.mkString("; ")
-      <.form(^.cls := "form-inline")(
-        <.div(^.cls := "form-group", ^.width := "100%")(
-          <.input(^.id := "casper", ^.`type`:="text", ^.cls := "form-control", ^.readOnly := "true", ^.width := "100%")(
+      <.form(c"form-inline")(
+        div"form-group"(^.width := "100%")(
+          <.input(^.id := "casper", ^.`type`:="text", c"form-control", ^.readOnly := "true", ^.width := "100%")(
             ^.value := casper
           )
         )

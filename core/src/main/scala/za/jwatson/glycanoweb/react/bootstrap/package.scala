@@ -1,12 +1,14 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.extra.{ReusableFn, ~=>, ReusableVar, Reusability}
+import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react._
 import org.scalajs.dom
+import org.scalajs.dom.Element
 import za.jwatson.glycanoweb.react.bootstrap.{Bootstrap => bs}
 
+import scala.annotation.tailrec
 import scalaz.effect.IO
 
 package object bootstrap {
@@ -15,19 +17,19 @@ package object bootstrap {
     def apply(navbarId: String, children: ReactNode*) = component(navbarId, children)
     val component = ReactComponentB[String]("NavbarHeader")
       .render { (navbarId, C) =>
-        <.div(^.cls:="navbar-header")(
+        div"navbar-header"(
           <.button(
             ^.`type` := "button",
-            ^.cls := "navbar-toggle collapsed",
+            c"navbar-toggle collapsed",
             "data-toggle".reactAttr := "collapse",
             "data-target".reactAttr := s"#$navbarId"
           )(
-            <.span(^.cls := "sr-only", "Toggle Navigation"),
-            <.span(^.cls := "icon-bar"),
-            <.span(^.cls := "icon-bar"),
-            <.span(^.cls := "icon-bar")
+            <.span(c"sr-only", "Toggle Navigation"),
+            <.span(c"icon-bar"),
+            <.span(c"icon-bar"),
+            <.span(c"icon-bar")
           ),
-          <.a(^.cls := "navbar-brand", ^.href := "#")(C)
+          <.a(c"navbar-brand", ^.href := "#")(C)
         )
       }
       .domType[dom.html.Div]
@@ -45,7 +47,7 @@ package object bootstrap {
       .render { (P, C) =>
         <.input(
           ^.`type` := P.`type`,
-          ^.cls := "form-control",
+          c"form-control",
           ^.onChange ==> P.onChange
         )(C)
       }
@@ -88,7 +90,7 @@ package object bootstrap {
     def apply(icon: String, children: ReactNode*) = component(icon, children)
     val component = ReactComponentB[String]("GlyphIcon")
       .render { (props, children) =>
-        <.span(^.cls := "glyphicon glyphicon-" + props)(children)
+        <.span(c"glyphicon glyphicon-" + props)(children)
       }
       .configure(Reusability.shouldComponentUpdate)
       .build
@@ -110,12 +112,12 @@ package object bootstrap {
       .stateless
       .backend(new Backend(_))
       .render { $ =>
-        <.div(^.cls := "btn-group")(
+        div"btn-group"(
           for (value <- $.props.choices) yield {
             val selected = $.props.selected.value.contains(value)
             <.label($.props.name(value))(
-              ^.cls := "btn btn-default",
-              selected ?= (^.cls := "active"),
+              c"btn btn-default",
+              selected ?= c"active",
               ^.onClick ~~> $.backend.handleClick(value),
               ^.key := value.##
             )
@@ -124,6 +126,71 @@ package object bootstrap {
       }
       .domType[dom.html.Div]
       .configure(Reusability.shouldComponentUpdate[Props[A], Unit, Backend[A], dom.html.Div])
+      .build
+  }
+
+  object Dropdown {    
+    @tailrec def hasParent(n: dom.Node, parent: dom.Node): Boolean = {
+      if (n == null) false
+      else if (parent.isEqualNode(n)) true
+      else hasParent(n.parentNode, parent)
+    }
+
+    implicit val reuseReactTag: Reusability[TagMod] = Reusability.byRef
+    val Toggle = ReactComponentB[(Bootstrap.Size, TagMod)]("Dropdown.Toggle")
+      .initialState(false)
+      .backend(_ => new OnUnmount.Backend)
+      .render { $ =>
+        val (size, button) = $.props
+        div"btn-group"(
+          ^.display.flex,
+          $.state ?= c"open"
+        )(
+          button,
+          <.button(
+            c"btn btn-default btn-$size dropdown-toggle",
+            ^.ref := "toggle", ^.tpe := "button",
+            ^.onClick ~~> $.modStateIO(!_)
+          )(<.span(c"caret")),
+          <.ul(c"dropdown-menu", ^.ref := "dropmenu")($.propsChildren)
+        )
+      }
+      .configure(Reusability.shouldComponentUpdate)
+      .configure(EventListener[dom.Event].installIO(
+        "click",
+        $ => e => {
+          val node = e.target.asInstanceOf[dom.Node]
+          (for {
+            toggleElement <- $.refs[dom.Element]("toggle")
+            if !hasParent(node, toggleElement.getDOMNode())
+            dropMenu <- $.refs[dom.Element]("dropmenu")
+            if !hasParent(node, dropMenu.getDOMNode())
+          } yield $.setStateIO(false)).getOrElse(IO.ioUnit)
+        },
+        _ => dom.document.body
+      ))
+      .build
+    val Hover = ReactComponentB[(Bootstrap.Size, TagMod)]("Dropdown.Hover")
+      .initialState(false)
+      .backend(_ => new OnUnmount.Backend)
+      .render { $ =>
+        val (size, button) = $.props
+        div"btn-group"(
+          ^.display.flex,
+          $.state ?= c"open"
+        )(
+          button,
+          <.button(
+            ^.tpe := "button",
+            c"btn btn-default btn-$size dropdown-toggle",
+            ^.onMouseOver ~~> $.setStateIO(true),
+            ^.onMouseOut ~~> $.setStateIO(false),
+            <.span(c"caret")
+          ),
+          <.ul(c"dropdown-menu")($.propsChildren)
+        )
+      }
+      .configure(Reusability.shouldComponentUpdate)
       .build
   }
 }
