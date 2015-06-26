@@ -54,8 +54,9 @@ object SVGResidue {
       (button(e), $.props.mode.value, $.props.inputState.value) match {
         case (Mouse.Left, Mode.Selection, InputState.Default) =>
           val down = $.props.clientToViewFn((e.clientX, e.clientY))
+          val center = ($.props.ge.x, $.props.ge.y)
           for {
-            _ <- down.fold(IO.ioUnit)(d => $.props.inputState.set(InputState.Drag(d, (0.0, 0.0))))
+            _ <- down.fold(IO.ioUnit)(d => $.props.inputState.set(InputState.Drag(d, (0.0, 0.0), center)))
             _ <- if ($.props.selected) IO.ioUnit else $.props.setSelection((Set($.props.r), Set.empty))
           } yield ()
         case _ => IO.ioUnit

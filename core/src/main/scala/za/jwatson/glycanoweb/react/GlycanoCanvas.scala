@@ -94,8 +94,7 @@ object GlycanoCanvas {
       (p2.x, p2.y)
     }
     
-    def snap(offset: (Double, Double)): (Double, Double) = {
-      val (ox, oy) = offset
+    def selectionCentroid: (Double, Double) = {
       val residuePositions = for {
         r <- $.props.value.selection._1.toSeq
         ge <- r.graphEntry
@@ -106,7 +105,12 @@ object GlycanoCanvas {
       } yield (annot.x, annot.y)
       val positions = residuePositions ++ annotationPositions
       val (sumX, sumY) = positions.foldLeft((0.0, 0.0))({ case ((x0, y0), (x1, y1)) => (x0 + x1, y0 + y1) })
-      val (cx, cy) = (sumX / positions.size, sumY / positions.size)
+      (sumX / positions.size, sumY / positions.size)
+    }
+    
+    def snap(offset: (Double, Double), center: (Double, Double)): (Double, Double) = {
+      val (ox, oy) = offset
+      val (cx, cy) = center
       val snappedX = math.round((cx + ox) / appState.gridWidth).toDouble * appState.gridWidth - cx
       val snappedY = math.round((cy + oy) / appState.gridWidth).toDouble * appState.gridWidth - cy
       (snappedX, snappedY)
@@ -298,12 +302,12 @@ object GlycanoCanvas {
             case (x, y) =>
               $.setStateIO(InputState.AddAnnotation(x, y))
           }
-        case (Mode.Selection, InputState.Drag(down @ (x0, y0), _)) =>
+        case (Mode.Selection, InputState.Drag(down @ (x0, y0), _, center)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
               val offset = (x - x0, y - y0)
-              val snappedOffset = if (appState.snapToGrid) snap(offset) else offset
-              $.setStateIO(InputState.Drag(down, snappedOffset))
+              val snappedOffset = if (appState.snapToGrid) snap(offset, center) else offset
+              $.setStateIO(InputState.Drag(down, snappedOffset, center))
           }
         case (_, InputState.DragView(down @ (x0, y0), (ox, oy))) =>
           if (true/*e.shiftKey*/) clientToCanvasIO(e.clientX, e.clientY) {
@@ -380,7 +384,7 @@ object GlycanoCanvas {
             _ <- $.setStateIO(InputState.Default)
             _ <- $.props.setL(AppState.selection)((residues, annotations))
           } yield ()
-        case (Mode.Selection, InputState.Drag(_, (dx, dy))) =>
+        case (Mode.Selection, InputState.Drag(_, (dx, dy), _)) =>
           for {
             _ <- if (dx != 0 || dy != 0) {
               val (rs, as) = $.props.value.selection
@@ -421,7 +425,9 @@ object GlycanoCanvas {
         case (Mouse.Left, Mode.Selection, InputState.Default) =>
           clientToViewIO(e.clientX, e.clientY) {
             case down =>
-              $.setState(InputState.Drag(down, (0.0, 0.0)))
+              val annot = graph.annotations(id)
+              val center = (annot.x, annot.y)
+              $.setState(InputState.Drag(down, (0.0, 0.0), center))
               if (!$.props.value.selection._2.contains(id))
                 $.props.setL(AppState.selection)((Set.empty, Set(id)))
               else IO.ioUnit
@@ -448,7 +454,7 @@ object GlycanoCanvas {
     case class AddResidue(x: Double, y: Double, children: Map[Int, ResidueId], parent: Option[Link]) extends InputState
     case class AddSubstituent(x: Double, y: Double, target: Option[Link]) extends InputState
     case class BoxSelect(from: (Double, Double), to: (Double, Double)) extends InputState
-    case class Drag(down: (Double, Double), offset: (Double, Double)) extends InputState
+    case class Drag(down: (Double, Double), offset: (Double, Double), center: (Double, Double)) extends InputState
     case class DragView(down: (Double, Double), offset: (Double, Double)) extends InputState
     case class PreCreateBond(r: ResidueId) extends InputState
     case class CreateBond(r: ResidueId, to: (Double, Double), target: Option[Link]) extends InputState
@@ -489,7 +495,7 @@ object GlycanoCanvas {
       }
 
       val (drag, dx, dy) = $.state match {
-        case InputState.Drag(_, (ox, oy)) => (true, ox, oy)
+        case InputState.Drag(_, (ox, oy), _) => (true, ox, oy)
         case _ => (false, 0.0, 0.0)
       }
 
@@ -616,6 +622,29 @@ object GlycanoCanvas {
       }
 
       val gw = appState.gridWidth * viewScale
+      
+      val snapIndicator: Seq[TagMod] = $.state match {
+        case InputState.Drag((downX, downY), (ox, oy), (cx, cy)) =>
+          val tx = cx + ox
+          val ty = cy + oy
+          val lineStyle = Seq(^.svg.strokeWidth := 0.75, ^.svg.stroke := "blue")
+          Seq(
+            <.svg.line(lineStyle, ^.svg.strokeDasharray := "5,10")(
+              ^.svg.x1 := downX, ^.svg.y1 := downY,
+              ^.svg.x2 := tx, ^.svg.y2 := ty
+            ),
+            <.svg.line(lineStyle)(
+              ^.svg.x1 := tx - 100, ^.svg.y1 := ty,
+              ^.svg.x2 := tx + 100, ^.svg.y2 := ty
+            ),
+            <.svg.line(lineStyle)(
+              ^.svg.x1 := tx, ^.svg.y1 := ty - 100,
+              ^.svg.x2 := tx, ^.svg.y2 := ty + 100
+            )
+          )
+        case _ =>
+          Seq.empty
+      }
 
       <.svg.svg(
         ^.svg.width := viewWidth,
@@ -648,6 +677,7 @@ object GlycanoCanvas {
             ^.svg.height := appState.view.height,
             ^.svg.fill := (if (appState.showGrid) "url(#gridPattern)" else "white")
           ),
+          snapIndicator,
           bonds,
           tempBonds,
           <.svg.rect(
