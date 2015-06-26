@@ -623,8 +623,8 @@ object GlycanoCanvas {
 
       val gw = appState.gridWidth * viewScale
       
-      val snapIndicator: Seq[TagMod] = $.state match {
-        case InputState.Drag((downX, downY), (ox, oy), (cx, cy)) =>
+      val gridSnapIndicator: Seq[TagMod] = $.state match {
+        case InputState.Drag((downX, downY), (ox, oy), (cx, cy)) if appState.snapToGrid =>
           val tx = cx + ox
           val ty = cy + oy
           val lineStyle = Seq(^.svg.strokeWidth := 0.75, ^.svg.stroke := "blue")
@@ -677,7 +677,7 @@ object GlycanoCanvas {
             ^.svg.height := appState.view.height,
             ^.svg.fill := (if (appState.showGrid) "url(#gridPattern)" else "white")
           ),
-          snapIndicator,
+          gridSnapIndicator,
           bonds,
           tempBonds,
           <.svg.rect(

@@ -274,7 +274,7 @@ object GlycanoApp {
         ToolBar.C(rvAppStateToolBar),
         div"row"(
           div"col-xs-3"(
-            div"row"(div"col-xs-12 text-center"(
+            div"row"(div"col-xs-12 text-center"(^.marginBottom := 20.px)(
               RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
                 rvDisplayConv,
                 DisplayConv.conventions.values.toSeq,
@@ -285,7 +285,7 @@ object GlycanoApp {
             div"row"(div"col-xs-12"(
               ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc, $.state.scaleSubstituents, $.props.conventions))
             )),
-            div"row"(
+            div"row"(^.marginBottom := 5.px)(
               div"col-xs-8"(
                 <.input(
                   c"form-control",

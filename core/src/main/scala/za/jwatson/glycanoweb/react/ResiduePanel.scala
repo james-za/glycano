@@ -52,7 +52,7 @@ object ResiduePanel {
     }
     .backend(new Backend(_))
     .render { $ =>
-      val residueTabs = <.ul(c"nav nav-tabs", ^.role := "tablist")(
+      val residueTabs = <.ul(c"nav nav-tabs", ^.role := "tablist", ^.marginBottom := 5.px)(
         for (pal <- $.props.dc.conv.palettes :+ Palette.Repeat) yield {
           val f = index[Map[DisplayConv, Palette], DisplayConv, Palette]($.props.dc).set(pal)
           <.li(
@@ -61,8 +61,9 @@ object ResiduePanel {
               ^.onClick ~~> $.modStateIO(f),
               ^.role := "tab",
               "data-toggle".reactAttr := "tab",
-              ($.state eq pal) ?= c"active"
-            )(pal.name)
+              ^.padding := "4px 7px"
+            )(pal.name),
+            $.state.get($.props.dc).contains(pal) ?= c"active"
           )
         }
       )

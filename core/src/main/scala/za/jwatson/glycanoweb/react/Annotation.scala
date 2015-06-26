@@ -44,17 +44,16 @@ object Annotation {
         $.setState((bb.width, bb.height))
       }
     }
-    .componentDidUpdate {
-      case ($, props, state) =>
-        // update bounds if annotation content changed
-        val annot1 = props._3
-        val annot2 = $.props._3
-        if (annot1.text != annot2.text || annot1.size != annot2.size) {
-          for (text <- $.refs[dom.svg.Text]("text")) {
-            val bb = text.getDOMNode().getBBox()
-            $.setState((bb.width, bb.height))
-          }
+    .componentDidUpdate { ($, props, state) =>
+      // update bounds if annotation content changed
+      val annot1 = props._3
+      val annot2 = $.props._3
+      if (annot1.text != annot2.text || annot1.size != annot2.size) {
+        for (text <- $.refs[dom.svg.Text]("text")) {
+          val bb = text.getDOMNode().getBBox()
+          $.setState((bb.width, bb.height))
         }
+      }
     }
     .shouldComponentUpdate((T, P, S) => T.props._2 != P._2 || T.props._3 != P._3 || T.props._4 != P._4 || T.state != S)
     .build

@@ -116,7 +116,7 @@ object ToolBar {
 
       div"row"(
         div"col-xs-12"(
-          div"btn-toolbar"(
+          div"btn-toolbar"(^.marginBottom := 20.px)(
             div"btn-group"(
               toolbtni("file", "Clear All", appState.setL(AppStateL.graphL)(RGraph()), s.graph.isEmpty)
             ),
