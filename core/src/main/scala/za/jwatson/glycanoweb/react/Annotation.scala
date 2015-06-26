@@ -22,6 +22,7 @@ object Annotation {
       <.svg.g(
         ^.onMouseDown ~~> io,
         <.svg.text(text)(
+          ^.ref := "text",
           ^.svg.pointerEvents := "none",
           ^.svg.fontSize := size,
           ^.svg.x := x,
@@ -38,18 +39,21 @@ object Annotation {
       )
     }
     .componentDidMount { $ =>
-      val e = $.getDOMNode().asInstanceOf[dom.svg.G]
-      val bb = e.firstElementChild.asInstanceOf[dom.svg.Text].getBBox()
-      $.setState((bb.width, bb.height))
+      for (text <- $.refs[dom.svg.Text]("text")) {
+        val bb = text.getDOMNode().getBBox()
+        $.setState((bb.width, bb.height))
+      }
     }
     .componentDidUpdate {
-      case (scope, props, state) =>
+      case ($, props, state) =>
+        // update bounds if annotation content changed
         val annot1 = props._3
-        val annot2 = scope.props._3
+        val annot2 = $.props._3
         if (annot1.text != annot2.text || annot1.size != annot2.size) {
-          val e = scope.getDOMNode().asInstanceOf[dom.svg.G]
-          val bb = e.firstElementChild.asInstanceOf[dom.svg.Text].getBBox()
-          scope.setState((bb.width, bb.height))
+          for (text <- $.refs[dom.svg.Text]("text")) {
+            val bb = text.getDOMNode().getBBox()
+            $.setState((bb.width, bb.height))
+          }
         }
     }
     .shouldComponentUpdate((T, P, S) => T.props._2 != P._2 || T.props._3 != P._3 || T.props._4 != P._4 || T.state != S)
