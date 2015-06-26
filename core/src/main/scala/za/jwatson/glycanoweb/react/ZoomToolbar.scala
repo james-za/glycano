@@ -58,14 +58,16 @@ object ZoomToolbar {
     .stateless
     .backend(new Backend(_))
     .render { $ =>
-      <.form(c"form-inline")(
+      <.form(c"form-inline text-right")(
         div"form-group"(
+          <.button(c"btn btn-sm", "Fit everything in view", ^.onClick ~~> $.backend.clickCenter)(^.margin := "0 5px"),
+          <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> $.props.view.setL(View.scale)(1.0))(^.margin := "0 5px"),
           <.input(
             c"form-control",
-            ^.value := f"${$.props.view.value.scale * 100.0}%.2f",
+            ^.value := f"${$.props.view.value.scale * 100.0}%.2f %%",
             ^.`type` := "text",
-            ^.onChange ~~> $.backend.zoomChange _,
-            ^.width := 80.px,
+            ^.readOnly := true,
+            ^.width := 100.px,
             ^.margin := "0 5px"
           ),
           <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> $.props.view.modL(View.scale)(_ / 1.1))(^.margin := "0 5px"),
