@@ -50,7 +50,6 @@ object ZoomToolbar {
 
     def zoomChange(e: ReactEventI) = {
       val scale = Try(e.target.value.toDouble * 0.01)
-      println(scale)
       scale.toOption.fold(IO.ioUnit)($.props.view.setL(View.scale))
     }
   }
