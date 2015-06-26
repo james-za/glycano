@@ -93,6 +93,7 @@ object ToolBar {
       a.history.length,
       a.buffer.isEmpty,
       a.mode,
+      a.view,
       a.selection match { case (rs, as) => rs.isEmpty && as.isEmpty }
     ))(Reusability.by_==)
 

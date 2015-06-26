@@ -596,7 +596,7 @@ object GlycanoCanvas {
         case _ => None
       }
 
-      val gw = appState.gridWidth
+      val gw = appState.gridWidth * viewScale
 
       <.svg.svg(
         ^.svg.width := viewWidth,
@@ -610,9 +610,9 @@ object GlycanoCanvas {
         ^.onMouseDown ~~> $.backend.mouseDown _
       )(
         <.svg.defs(
-          appState.showGrid ?= <.svg.pattern(
+          <.svg.pattern(
             ^.svg.id := "gridPattern", ^.svg.patternUnits := "userSpaceOnUse",
-            ^.svg.width := gw, ^.svg.height := gw
+            ^.svg.x := -viewX * viewScale, ^.svg.y := -viewY * viewScale, ^.svg.width := gw, ^.svg.height := gw
           ) (
             <.svg.path(^.svg.d := s"M0,${gw}V0H$gw", ^.svg.fill := "none", ^.svg.strokeWidth := 0.5, ^.svg.stroke := "black")
           )
