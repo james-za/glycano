@@ -17,7 +17,7 @@ object BondStatus {
       val (bond, graph, dc, highlightBond) = $.props
       val hl = highlightBond.value.contains(bond)
       implicit val g: RGraph = graph.value
-      div"col-xs-6"(
+      div"row"(
         for {
           ge1 <- g.residues.get(bond.from)
           ge2 <- g.residues.get(bond.to.r)

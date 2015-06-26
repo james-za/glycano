@@ -189,13 +189,15 @@ object GlycanoApp {
       $.modState(AppState.limitUpdateRate modify { v => !v })
     }
 
-    val refCanvas = Ref[dom.html.Div]("canvas")
-    val refPage = Ref[dom.html.Div]("page")
-    val resizeIO = IO(for (canvas <- refCanvas($); page <- refPage($)) {
+    val refCanvasPanel = Ref[dom.html.Div]("canvaspanel")
+    val refCanvasColumn = Ref[dom.html.Div]("canvascolumn")
+    val resizeIO = IO(for (canvas <- refCanvasPanel($); canvasOuter <- refCanvasColumn($)) {
       val nodeCanvas = canvas.getDOMNode()
-      val nodePage = page.getDOMNode()
-      val surrounding = nodePage.offsetHeight - nodeCanvas.clientHeight
-      val height = dom.window.innerHeight - surrounding
+      val nodeOuter = canvasOuter.getDOMNode()
+
+      val bottom = nodeOuter.getBoundingClientRect().bottom
+      val surrounding = bottom - nodeCanvas.clientHeight
+      val height = (dom.window.innerHeight - surrounding).max(0)
       val setWidth = AppState.view ^|-> View.width set (nodeCanvas.clientWidth - 1).toInt
       val setHeight = AppState.view ^|-> View.height set height.toInt
       $.modState(setWidth andThen setHeight)
@@ -230,6 +232,7 @@ object GlycanoApp {
 
     val setAppStateFn: AppState ~=> IO[Unit] = ReusableFn($.setStateIO(_))
     val setModeFn: Mode ~=> IO[Unit] = ReusableFn($._setStateL(AppState.mode))
+    val setViewFn: View ~=> IO[Unit] = ReusableFn($._setStateL(AppState.view))
     val setGraphFn: RGraph ~=> IO[Unit] = ReusableFn($._setStateL(AppStateL.graphL))
     val setHighlightBondFn: Option[ResidueId] ~=> IO[Unit] = ReusableFn($._setStateL(AppState.highlightBond))
     val setDisplayConvFn: Option[DisplayConv] ~=> IO[Unit] = ReusableFn(_.fold(IO.ioUnit)($._setStateL(AppState.displayConv)))
@@ -264,6 +267,7 @@ object GlycanoApp {
       val rvAnomer = $.backend.setAnomerFn.asVar($.state.placeAnomer)
       val rvAbsolute = $.backend.setAbsoluteFn.asVar($.state.placeAbsolute)
       val rvMode = $.backend.setModeFn.asVar($.state.mode)
+      val rvView = $.backend.setViewFn.asVar($.state.view)
 
       div"container-fluid"(
         div"row"(Navbar.C(rvGraph)),
@@ -324,16 +328,20 @@ object GlycanoApp {
             )
           ),
           div"col-xs-6"(
-            div"row"(div"col-xs-12"(
-              CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
-            )),
-            div"row"(div"col-xs-12"(
+            div"row"(div"col-xs-12"(^.ref := "canvascolumn")(
               div"panel panel-default"(
+                div"panel panel-header"(^.marginBottom := 0)(
+                  CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
+                ),
                 div"panel-body"(
                   ^.ref := "canvaspanel",
-                  ^.padding := 0.px
+                  ^.padding := 0.px, ^.fontSize := 0,
+                  ^.borderTop := "1px solid #ddd"
                 )(
                   GlycanoCanvas(rvAppStateCanvas)
+                ),
+                div"panel-footer"(
+                  ZoomToolbar.C(ZoomToolbar.Props(rvView, $.state.bounds))
                 )
               )
             ))

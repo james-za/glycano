@@ -596,6 +596,8 @@ object GlycanoCanvas {
         case _ => None
       }
 
+      val gw = appState.gridWidth
+
       <.svg.svg(
         ^.svg.width := viewWidth,
         ^.svg.height := viewHeight,
@@ -607,12 +609,23 @@ object GlycanoCanvas {
         ^.onMouseUp ~~> $.backend.mouseUp _,
         ^.onMouseDown ~~> $.backend.mouseDown _
       )(
-        <.svg.g(^.svg.transform := s"translate(${viewWidth / 2} ${viewHeight / 2}) scale($viewScale) translate(${-viewX} ${-viewY})", ^.ref := "view")(
+        <.svg.defs(
+          appState.showGrid ?= <.svg.pattern(
+            ^.svg.id := "gridPattern", ^.svg.patternUnits := "userSpaceOnUse",
+            ^.svg.width := gw, ^.svg.height := gw
+          ) (
+            <.svg.path(^.svg.d := s"M0,${gw}V0H$gw", ^.svg.fill := "none", ^.svg.strokeWidth := 0.5, ^.svg.stroke := "black")
+          )
+        ),
+        <.svg.g(
+          ^.svg.transform := s"translate(${viewWidth / 2} ${viewHeight / 2}) scale($viewScale) translate(${-viewX} ${-viewY})",
+          ^.ref := "view"
+        )(
           <.svg.rect(
             ^.svg.transform := s"translate($viewX, $viewY) scale(${1.0 / viewScale}) translate(${-viewWidth / 2}, ${-viewHeight / 2})",
-            ^.svg.fill := "white",
             ^.svg.width := appState.view.width,
-            ^.svg.height := appState.view.height
+            ^.svg.height := appState.view.height,
+            ^.svg.fill := (if (appState.showGrid) "url(#gridPattern)" else "white")
           ),
           bonds,
           tempBonds,

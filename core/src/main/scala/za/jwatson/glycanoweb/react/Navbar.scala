@@ -21,25 +21,6 @@ import scala.util.Try
 import scalaz.effect.IO
 
 object Navbar {
-//  def clampIso(min: Double, max: Double): Iso[Double, Double] =
-//    Iso[Double, Double](x => x)(x => math.max(min, math.min(max, x)))
-//  def multIso(mult: Double): Iso[Double, Double] =
-//    Iso[Double, Double](_ * mult)(_ / mult)
-
-  def navrange(range: NumericRange[Double], value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag =
-    div"form-group"(<.input(
-      c"form-control",
-      ^.`type` := "range",
-      "min".reactAttr := range.start,
-      "max".reactAttr := range.end,
-      ^.step := range.step,
-      ^.value := value,
-      ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
-      disabled ?= (^.disabled := true)
-    ))
-
-  def navrange[A](range: NumericRange[Double], rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false): ReactTag =
-    navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
 
   class Backend(val $: BackendScope[ReusableVar[RGraph], Unit]) {
 //    def clickCenter = $.props.modL(AppState.view) { v =>
@@ -117,57 +98,34 @@ object Navbar {
     .render { $ =>
       implicit val graph: RGraph = $.props.value
 
-      <.nav(c"navbar navbar-default", ^.role := "navigation")(div"container-fluid"(
-        NavbarHeader("glycano-navbar-collapse", "Glycano"),
-        div"collapse navbar-collapse"(^.id := "glycano-navbar-collapse")(
-          <.p(c"navbar-text", "Load:"),
-          <.form(c"navbar-form navbar-left")(
-            div"form-group"(
-              <.input(
-                ^.ref := "loadfile",
-                ^.`type` := "file",
-                c"form-control",
-                ^.onChange ==> { (e: ReactEventI) =>
-                  println(e.target.files(0).name)
-                }
-              )
-            )
-          ),
-          <.p(c"navbar-text", "Filename:"),
-          <.form(c"navbar-form navbar-left")(
-            div"form-group"(
-              div"input-group"(
-                <.input(
-                  ^.ref := "filename",
-                  ^.`type` := "text",
-                  c"form-control",
-                  ^.placeholder := "Filename"
-                ),
-                div"input-group-btn"(
-                  <.button(c"btn btn-default dropdown-toggle")("Save As...", <.span(c"caret")),
-                  <.ul(c"dropdown-menu dropdown-menu-right")(
-                    <.li(<.a("Glycano (.gly)", ^.onClick ~~> $.backend.saveGly)),
-                    <.li(c"divider"),
-                    <.li(<.a("Vector (.svg)", ^.onClick ~~> $.backend.saveSvg)),
-                    <.li(<.a("Image (.png)", ^.onClick ~~> $.backend.savePng))
+      <.nav(c"navbar navbar-default", ^.role := "navigation")(
+        div"container-fluid"(
+          NavbarHeader("glycano-navbar-collapse", "Glycano"),
+          div"collapse navbar-collapse"(
+            <.form(c"navbar-form")(
+              div"form-group"(
+                <.label("Load:")(^.marginLeft := 5.px),
+                <.input(c"form-control", ^.tpe := "file", ^.ref := "loadfile")(^.marginLeft := 5.px)
+              ),
+              div"form-group"(
+                <.label("Filename:")(^.marginLeft := 5.px),
+                div"input-group"(^.marginLeft := 5.px)(
+                  <.input(c"form-control", ^.tpe := "text", ^.ref := "filename", ^.placeholder := "Filename"),
+                  div"input-group-btn"(
+                    <.button(c"btn btn-default dropdown-toggle")("Save As...", <.span(c"caret")),
+                    <.ul(c"dropdown-menu dropdown-menu-right")(
+                      <.li(<.a("Glycano (.gly)", ^.onClick ~~> $.backend.saveGly)),
+                      <.li(c"divider"),
+                      <.li(<.a("Vector (.svg)", ^.onClick ~~> $.backend.saveSvg)),
+                      <.li(<.a("Image (.png)", ^.onClick ~~> $.backend.savePng))
+                    )
                   )
                 )
               )
             )
-          ),
-          <.form(c"form-inline")(
-//            " ", navbtn("Save .gly", $.backend.saveGly),
-//            " ", navbtn("Save .svg", $.backend.saveSvg),
-//            " ", navbtn("Save .png", $.backend.savePng)
-//            " ", navbtni("search-minus", "", appState.modL(AppState.view ^|-> View.scale)(_ / 1.1)),
-//            " ", navrange(0.0 to 200.0 by 0.01, appState, AppState.view ^|-> View.scale ^<-> multIso(100)),
-//            " ", <.span(f"$zoom%.2f" + "%"),
-//            " ", navbtni("search-plus", "", appState.modL(AppState.view ^|-> View.scale)(_ * 1.1)),
-//            " ", navbtn("Reset Zoom", appState.setL(AppState.view ^|-> View.scale)(1.0)),
-//            " ", navbtn("Center", $.backend.clickCenter)
           )
         )
-      ))
+      )
     }
     .configure(Reusability.shouldComponentUpdate)
     .componentDidMount { $ =>
@@ -178,12 +136,7 @@ object Navbar {
         val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
           import upickle._, Gly._
           val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
-          try {
-            val gly = read[Gly](str)(rwGly)
-            $.backend.loadGly(file.name, gly)
-          } catch {
-            case e: Exception =>
-          }
+          $.backend.loadGly(file.name, read[Gly](str)(rwGly)).except(_ => IO.ioUnit)
         })
         fileReaderOpts.readAsDefault = "Text"
         fileReaderOpts.dragClass = "blue"
