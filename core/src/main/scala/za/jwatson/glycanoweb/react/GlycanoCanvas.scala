@@ -332,8 +332,13 @@ object GlycanoCanvas {
             y1 <- r.y
             (x2, y2) <- clientToView(e.clientX, e.clientY).toOption
           } yield {
-            val rot = math.toDegrees(js.Math.atan2(y2 - y1, x2 - x1))
-            $.setStateIO(InputState.Rotate(r, rot + 90))
+            val rot = math.toDegrees(js.Math.atan2(y2 - y1, x2 - x1)) + 90
+            val snapped = if (appState.snapRotation) {
+              val deg = appState.snapRotationDegrees
+              val rounded = math.round(rot / deg).toDouble * deg
+              rounded
+            } else rot
+            $.setStateIO(InputState.Rotate(r, snapped))
           }).getOrElse(IO.ioUnit)
         case _ => IO.ioUnit
       } else IO.ioUnit

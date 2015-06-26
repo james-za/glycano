@@ -59,20 +59,21 @@ object ToolBar {
   def navcheckbox[A](name: String, rv: ReusableVar[A], lens: monocle.Lens[A, Boolean], disabled: Boolean = false): ReactTag =
     navcheckbox(name, lens.get(rv.value), rv.modL(lens)(!_), disabled)
 
-  def toolnumber(name: String, value: Double, action: Double => IO[Unit], disabled: Boolean, dropdown: Boolean): ReactTag = {
+  def toolnumber(name: String, value: Double, action: Double => IO[Unit], disabled: Boolean, dropdown: Boolean): ReactTag =
     div"form-group"(
       dropdown ?= Seq(^.marginLeft := 5.px, ^.marginRight := 5.px, ^.marginBottom := 0),
       <.label(name, ^.paddingRight := 5.px),
       <.input(
         c"form-control",
-        ^.value := value,
+        ^.defaultValue := value,
         ^.`type` := "number",
-        ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
+        ^.onChange ~~> { (e: ReactEventI) =>
+          Try(e.target.value.toDouble).toOption.filter(_ != value).map(action).getOrElse(IO.ioUnit)
+        },
         !dropdown ?= (^.width := 80.px),
         disabled ?= (^.disabled := true)
       )
     )
-  }
 
   def toolnumber[A](name: String, rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false, dropdown: Boolean = false): ReactTag =
     toolnumber(name, lens.get(rv.value), rv.setL(lens), disabled, dropdown)
@@ -146,7 +147,7 @@ object ToolBar {
             ),
             Dropdown.Toggle(
               (Bootstrap.Sm, tooltogglei_(Seq(<.i(c"fa fa-lg fa-magnet"), <.b("º")), "Snap Rotation", appState, AppState.snapRotation)),
-              toolnumber("Snap To (º):", appState, AppState.annotationFontSize, dropdown = true)
+              toolnumber("Snap To (º):", appState, AppState.snapRotationDegrees, dropdown = true)
             )
           )
         )

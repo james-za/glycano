@@ -98,7 +98,7 @@ object OverviewPanel {
                   "Font Size", <.input(
                     c"form-control",
                     ^.`type` := "number",
-                    ^.value := fontSize,
+                    ^.defaultValue := fontSize,
                     ^.onChange ~~> ((e: ReactEventI) => for {
                       _ <- e.preventDefaultIO
                       _ <- Try(e.target.value.toDouble) match {

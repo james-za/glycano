@@ -60,19 +60,20 @@ object ZoomToolbar {
     .render { $ =>
       <.form(c"form-inline text-right")(
         div"form-group"(
-          <.button(c"btn btn-sm", "Fit everything in view", ^.onClick ~~> $.backend.clickCenter)(^.margin := "0 5px"),
-          <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> $.props.view.setL(View.scale)(1.0))(^.margin := "0 5px"),
-          <.input(
-            c"form-control",
-            ^.value := f"${$.props.view.value.scale * 100.0}%.2f %%",
-            ^.`type` := "text",
-            ^.readOnly := true,
-            ^.width := 100.px,
-            ^.margin := "0 5px"
-          ),
-          <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> $.props.view.modL(View.scale)(_ / 1.1))(^.margin := "0 5px"),
-          navrange(0.01 to 200.0 by 0.01, $.props.view, View.scale ^<-> multIso(100))(^.margin := "0 5px"),
-          <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ~~> $.props.view.modL(View.scale)(_ * 1.1))(^.margin := "0 5px")
+          for (element <- Seq(
+            <.button(c"btn btn-sm", "Fit everything in view", ^.onClick ~~> $.backend.clickCenter),
+            <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> $.props.view.setL(View.scale)(1.0)),
+            <.input(
+              c"form-control",
+              ^.value := f"${$.props.view.value.scale * 100.0}%.2f %%",
+              ^.`type` := "text",
+              ^.readOnly := true,
+              ^.width := 100.px
+            ),
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> $.props.view.modL(View.scale)(_ / 1.1)),
+            navrange(0.01 to 200.0 by 0.01, $.props.view, View.scale ^<-> multIso(100)),
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ~~> $.props.view.modL(View.scale)(_ * 1.1))
+          )) yield element(^.margin := "0 5px")
         )
       )
     }
