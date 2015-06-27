@@ -206,7 +206,6 @@ object GlycanoApp {
     val keydownFunc: js.Function1[dom.KeyboardEvent, Unit] = keyDown _
 
     def keyDown(e: dom.KeyboardEvent): Unit = {
-
       val shift = e.asInstanceOf[js.Dynamic].shiftKey.asInstanceOf[js.UndefOr[Boolean]].getOrElse(false)
       val ctrl = e.asInstanceOf[js.Dynamic].ctrlKey.asInstanceOf[js.UndefOr[Boolean]]
       val meta = e.asInstanceOf[js.Dynamic].metaKey.asInstanceOf[Boolean]
@@ -355,7 +354,7 @@ object GlycanoApp {
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
     .configure(EventListener.installIO("resize", _.backend.resizeIO, _ => dom.window))
-    .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e))))
+    .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e)), _ => dom.window))
     .componentDidMountIO(_.backend.resizeIO)
     .build
 }
