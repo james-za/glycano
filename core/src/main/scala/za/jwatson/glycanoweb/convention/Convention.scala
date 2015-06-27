@@ -47,7 +47,7 @@ object Convention {
   object Rect {
     val fromMap = (map: Map[String, String]) => Rect(
       map.getOrElse("x", "0"), map.getOrElse("y", "0"),
-      map("width"), map("height"),
+      map.getOrElse("width", "0"), map.getOrElse("height", "0"),
       map.getOrElse("rx", "0"), map.getOrElse("ry", "0")
     )
   }

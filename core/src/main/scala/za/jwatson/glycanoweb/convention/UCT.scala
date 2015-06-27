@@ -18,6 +18,17 @@ object UCT {
       |   def SevenL    = Path(d="M45,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
       |   def EightL    = Path(d="M45,40 m-18,-22 v44 h36 v-4 h-32 v-40 Z")
       |
+      |   def AGlycerol = Path(d="M-7,-7h28v-28h14v28h28v14h-70z")
+      |   def AErythritol = Path(d="M-7,-7h28v-28h14v28h14v-28h14v28h28v14h-98z")
+      |   def AThreitol = Path(d="M-7,-7h98v14h-28v28h-14v-28h-14v28h-14v-28h-28z")
+      |   def AMesoRibitol = Path(d="M-7,-7h28v-28h14v28h14v-28h14v28h14v-28h14v28h28v14h-126z")
+      |   def AArabinitol = Path(d="M-7,-7h126v14h-28v28h-14v-28h-14v28h-14v-28h-14v28h-14v-28h-28z")
+      |   def AMesoXylitol = Path(d="M-7,-7h56v-28h14v28h56v14h-28v28h-14v-28h-42v28h-14v-28h-28z")
+      |   def AGlucitol = Path(d="M-7,-7h28v-28h14v28h14v-28h14v28h14v-28h14v28h14v-28h14v28h28v14h-154z")
+      |   def AUnknownA = Path(d="M-7,-7h154v14h-28v28h-14v-28h-14v28h-14v-28h-14v28h-14v-28h-14v28h-14v-28h-28z")
+      |   def AUnknownB = Path(d="M-7,-7h28v-28h14v28h70v-28h14v28h28v14h-56v28h-14v-28h-14v28h-14v-28h-56z")
+      |   def AMesoAllitol = Path(d="M-7,-7h56v-28h14v28h14v-28h14v28h56v14h-28v28h-14v-28h-70v28h-14v-28h-28z")
+      |
       |   palette "Aldoses" {
       |      Glycero, Erythro, Threo, Ara, Lyx, Rib, Xyl, Ido, All, Alt, Gal, Glc, Gul, Man, Tal
       |   }
@@ -163,6 +174,73 @@ object UCT {
       |   (Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, AltHep, ManOct)
       |   -> style [outline] { fill: none; stroke: #000000; stroke-width: 11 }
       |   -> style [outlinefront] { fill: none; stroke: #FFFFFF; stroke-width: 9 }
+      |
+      |   (Glycerol)
+      |   -> #0 [primary] AGlycerol
+      |   -> #2 [border] AGlycerol
+      |   -> #3 [links] Polygon(points="56,0 0,0 28,-28")
+      |   -> #4 [outline] Polygon(points="-7,-35 63,7")
+      |   (Erythritol)
+      |   -> #0 [primary] AErythritol
+      |   -> #2 [border] AErythritol
+      |   -> #3 [links] Polygon(points="84,0 0,0 28,-28 56,-28")
+      |   -> #4 [outline] Polygon(points="-7,-35 91,7")
+      |   (Threitol)
+      |   -> #0 [primary] AThreitol
+      |   -> #2 [border] AThreitol
+      |   -> #3 [links] Polygon(points="84,0 56,28 28,28 0,0")
+      |   -> #4 [outline] Polygon(points="-7,-7 91,35")
+      |   (MesoRibitol)
+      |   -> #0 [primary] AMesoRibitol
+      |   -> #2 [border] AMesoRibitol
+      |   -> #3 [links] Polygon(points="112,0 0,0 28,-28 56,-28 84,-28")
+      |   -> #4 [outline] Polygon(points="-7,-35 119,7")
+      |   (Arabinitol)
+      |   -> #0 [primary] AArabinitol
+      |   -> #2 [border] AArabinitol
+      |   -> #3 [links] Polygon(points="112,0 84,28 56,28 28,28 0,0")
+      |   -> #4 [outline] Polygon(points="-7,-7 119,35")
+      |   (MesoXylitol)
+      |   -> #0 [primary] AMesoXylitol
+      |   -> #1 [secondary] Path(d="M35,-7h14v-28h14v28h14v14h-42z")
+      |   -> #2 [border] AMesoXylitol
+      |   -> #3 [links] Polygon(points="112,0 84,28 56,-28 28,28 0,0")
+      |   -> #4 [outline] Polygon(points="-7,-35 119,35")
+      |   (Glucitol)
+      |   -> #0 [primary] AGlucitol
+      |   -> #2 [border] AGlucitol
+      |   -> #3 [links] Polygon(points="140,0 0,0 28,-28 56,-28 84,-28 112,-28")
+      |   -> #4 [outline] Polygon(points="-7,-35 147,7")
+      |   (UnknownA)
+      |   -> #0 [primary] AUnknownA
+      |   -> #2 [border] AUnknownA
+      |   -> #3 [links] Polygon(points="140,0 112,28 84,28 56,28 28,28 0,0")
+      |   -> #4 [outline] Polygon(points="-7,-7 147,35")
+      |   (UnknownB)
+      |   -> #0 [primary] AUnknownB
+      |   -> #1 [secondary] Path(d="M49,-7h42v42h-14v-28h-14v28h-14z")
+      |   -> #2 [border] AUnknownB
+      |   -> #3 [links] Polygon(points="140,0 84,28 56,28 0,0 28,-28 112,-28")
+      |   -> #4 [outline] Polygon(points="-7,-35 147,35")
+      |   (MesoAllitol)
+      |   -> #0 [primary] AMesoAllitol
+      |   -> #1 [secondary] Path(d="M35,-7h14v-28h14v28h14v-28h14v28h14v14h-70z")
+      |   -> #2 [border] AMesoAllitol
+      |   -> #3 [links] Polygon(points="140,0 112,28 28,28 0,0 56,-28 84,-28")
+      |   -> #4 [outline] Polygon(points="-7,-35 147,35")
+      |
+      |   (Glycerol, Erythritol, Threitol, MesoRibitol, Arabinitol, MesoXylitol, Glucitol, UnknownA, UnknownB, MesoAllitol)
+      |   -> style [border] { fill: none; stroke: #000000; stroke-width: 1 }
+      |   -> style [links] { fill: none }
+      |   -> style [outline] { fill: none; stroke: none }
+      |
+      |   (Glycerol, Erythritol, MesoRibitol, Glucitol, UnknownB)
+      |   -> style [primary] { fill: #FFFFFF }
+      |   -> style [secondary] { fill: #000000 }
+      |
+      |   (Threitol, Arabinitol, MesoXylitol, UnknownA, MesoAllitol)
+      |   -> style [primary] { fill: #000000 }
+      |   -> style [secondary] { fill: #FFFFFF }
       |}
     """.stripMargin
 }

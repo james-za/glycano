@@ -40,7 +40,13 @@ object BondStatus {
             <.p(s"${ge1.residue.ano.desc}-${bond.to.position}")
           ),
           div"col-xs-4"(
-            <.button(c"btn btn-link", ^.onClick ~~> graph.mod(_ - bond))("remove bond")
+            <.button(
+              c"btn btn-link", "remove bond",
+              ^.onClick ~~> (for {
+                _ <- graph.mod(_ - bond)
+                _ <- highlightBond.set(None)
+              } yield ())
+            )
           )
         )
       )

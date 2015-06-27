@@ -7,7 +7,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Iso
 import za.jwatson.glycanoweb.react.GlycanoApp.{AppState, AppStateL, Mode}
 import za.jwatson.glycanoweb.react.bootstrap.{Dropdown, Bootstrap}
-import za.jwatson.glycanoweb.structure.RGraph
+import za.jwatson.glycanoweb.structure.{AnnotId, ResidueId, RGraph}
 
 import scala.util.{Success, Failure, Try}
 import scalaz.effect.IO
@@ -81,6 +81,7 @@ object ToolBar {
   class Backend(val $: BackendScope[ReusableVar[AppState], String]) {
   }
 
+  implicit val reuseSelection: Reusability[(Set[ResidueId], Set[AnnotId])] = Reusability.by_==
   implicit val reuseAppState: Reusability[AppState] =
     Reusability.by((a: AppState) => (
       a.annotationFontSize,
@@ -95,7 +96,7 @@ object ToolBar {
       a.buffer.isEmpty,
       a.mode,
       a.view,
-      a.selection match { case (rs, as) => rs.isEmpty && as.isEmpty }
+      a.selection
     ))(Reusability.by_==)
 
   val C = ReactComponentB[ReusableVar[AppState]]("ToolBar")
