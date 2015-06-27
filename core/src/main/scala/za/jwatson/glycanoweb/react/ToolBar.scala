@@ -132,12 +132,15 @@ object ToolBar {
               toolbtni("undo", "Undo", appState.mod(GlycanoApp.undo), s.undoPosition + 1 >= s.history.length),
               toolbtni("repeat", "Redo", appState.mod(GlycanoApp.redo), s.undoPosition == 0)
             ),
-            Dropdown.Toggle(
-              (Bootstrap.Sm, btnAnnotation),
-              toolnumber("Font Size:", appState, AppState.annotationFontSize, dropdown = true)
+            div"btn-group"(
+              toolbtni("chain", "Add Bond", appState.setL(AppState.mode)(Mode.CreateBond), s.graph.isEmpty)
             ),
             div"btn-group"(
               tooltogglei_(<.b("\u03B1|\u03B2"), "Bond Labels", appState, AppState.bondLabels)
+            ),
+            Dropdown.Toggle(
+              (Bootstrap.Sm, btnAnnotation),
+              toolnumber("Font Size:", appState, AppState.annotationFontSize, dropdown = true)
             ),
             Dropdown.Toggle(
               (Bootstrap.Sm, Seq(

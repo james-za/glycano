@@ -62,7 +62,7 @@ object GlycanoApp {
     @Lenses case class PlaceResidue(residue: Residue) extends Mode
     case class PlaceSubstituent(st: SubstituentType) extends Mode
     case object PlaceAnnotation extends Mode
-
+    case object CreateBond extends Mode
     implicit val reusability: Reusability[Mode] = Reusability.by_==
   }
 

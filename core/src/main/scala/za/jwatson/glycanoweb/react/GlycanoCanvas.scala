@@ -159,12 +159,18 @@ object GlycanoCanvas {
         case (Mouse.Right, Mode.PlaceResidue(_), _) => resetMode()
         case (Mouse.Right, Mode.PlaceSubstituent(_), _) => resetMode()
         case (Mouse.Right, Mode.PlaceAnnotation, _) => resetMode()
+        case (Mouse.Right, Mode.CreateBond, _) => resetMode()
         case (Mouse.Right, Mode.Selection, InputState.CreateBond(_, _, _)) =>
           $.setStateIO(InputState.Default)
         case (Mouse.Left, Mode.Selection, InputState.CreateBond(from, (x, y), target)) =>
           for {
-            _ <- target.map(to => $.props.modL(AppStateL.graphL)(RGraph.addBondRemovingOld(from)(to).exec)).orZero
+            _ <- target.map(to => $.props.modL(AppStateL.graphL)(RGraph.addBondRemovingOld(from.r)(to).exec)).orZero
             _ <- $.setStateIO(InputState.Default)
+          } yield ()
+        case (Mouse.Left, Mode.CreateBond, InputState.CreateBondFree(rOpt, to)) =>
+          for {
+            _ <- $.setStateIO(rOpt.fold[InputState](InputState.Default)(r => InputState.CreateBond(Link(r, 1), to, None)))
+            _ <- $.props.setL(AppState.mode)(Mode.Selection)
           } yield ()
         case _ => IO.ioUnit
       }
@@ -179,6 +185,18 @@ object GlycanoCanvas {
         dsq = dx * dx + dy * dy if dsq < tsq
       } yield Link(r, i) -> dsq
       links.nonEmpty option links.minBy(_._2)
+    }
+
+    def closestLinkHandle(x: Double, y: Double): Option[ResidueId] = {
+      val inRange = for {
+        r <- graph.residues.keys.toSeq
+        ge <- r.graphEntry
+        residueLinks = appState.displayConv.links(ge.residue)
+        (lx, ly) = appState.displayConv.linkPos(residueLinks, ge, 1)
+        (dx, dy) = (lx - x, ly - y)
+        dsq = dx * dx + dy * dy if dsq < 100 * 100
+      } yield r -> dsq
+      inRange.sortBy(_._2).headOption.map(_._1)
     }
 
     def closestLink(x: Double, y: Double, threshold: Double = 400): Option[Link] = {
@@ -320,11 +338,11 @@ object GlycanoCanvas {
               _ <- $.props.modL(AppState.view)({ View.x modify (_ + ox) } andThen { View.y modify (_ + oy) })
             } yield ()
           }
-        case (Mode.Selection, InputState.CreateBond(r, last, _)) =>
+        case (Mode.Selection, InputState.CreateBond(from, last, _)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case (x, y) =>
-              val target = closestValidLink(r, x, y)
-              $.setStateIO(InputState.CreateBond(r, (x, y), target))
+              val target = closestValidLink(from.r, x, y)
+              $.setStateIO(InputState.CreateBond(from, (x, y), target))
           }
         case (Mode.Selection, InputState.Rotate(r, _)) =>
           (for {
@@ -340,6 +358,12 @@ object GlycanoCanvas {
             } else rot
             $.setStateIO(InputState.Rotate(r, snapped))
           }).getOrElse(IO.ioUnit)
+        case (Mode.CreateBond, _) =>
+          clientToViewIO(e.clientX, e.clientY) {
+            case to @ (x, y) =>
+              val closest = closestLinkHandle(x, y)
+              $.setStateIO(InputState.CreateBondFree(closest, to))
+          }
         case _ => IO.ioUnit
       } else IO.ioUnit
 
@@ -415,7 +439,7 @@ object GlycanoCanvas {
         case (Mode.Selection, InputState.PreCreateBond(r)) =>
           clientToViewIO(e.clientX, e.clientY) {
             case to =>
-              $.setStateIO(InputState.CreateBond(r, to, None))
+              $.setStateIO(InputState.CreateBond(Link(r, 1), to, None))
           }
         case (Mode.Selection, InputState.Rotate(r, rot)) =>
           for {
@@ -462,7 +486,8 @@ object GlycanoCanvas {
     case class Drag(down: (Double, Double), offset: (Double, Double), center: (Double, Double)) extends InputState
     case class DragView(down: (Double, Double), offset: (Double, Double)) extends InputState
     case class PreCreateBond(r: ResidueId) extends InputState
-    case class CreateBond(r: ResidueId, to: (Double, Double), target: Option[Link]) extends InputState
+    case class CreateBond(from: Link, to: (Double, Double), target: Option[Link]) extends InputState
+    case class CreateBondFree(r: Option[ResidueId], to: (Double, Double)) extends InputState
     case object PostCreateBond extends InputState
     case class Rotate(r: ResidueId, rotation: Double) extends InputState
     case class AddAnnotation(x: Double, y: Double) extends InputState
@@ -533,9 +558,9 @@ object GlycanoCanvas {
       }
 
       val tempBonds = (appState.mode, $.state) match {
-        case (Mode.Selection, InputState.CreateBond(r, mouse, target)) =>
-          for (ge <- r.graphEntry.toSeq) yield {
-            val from = appState.displayConv.linkPos(allLinks(r), ge, 1)
+        case (Mode.Selection, InputState.CreateBond(fromLink, mouse, target)) =>
+          for (ge <- fromLink.r.graphEntry.toSeq) yield {
+            val from = appState.displayConv.linkPos(allLinks(fromLink.r), ge, fromLink.position)
             val targetLink = for {
               Link(rLink, pos) <- target
               geLink <- rLink.graphEntry
@@ -651,6 +676,19 @@ object GlycanoCanvas {
           Seq.empty
       }
 
+      val createBondFreeIndicator = $.state match {
+        case InputState.CreateBondFree(Some(r), _) =>
+          for {
+            ge <- r.graphEntry
+            outline = appState.displayConv.links(ge.residue)
+            (x, y) = appState.displayConv.linkPos(outline, ge, 1)
+          } yield <.svg.circle(^.svg.cx := x, ^.svg.cy := y, ^.svg.r := 15, ^.svg.fill := "grey", ^.svg.fillOpacity := "50%")
+        case InputState.CreateBondFree(None, (x, y)) =>
+          Some(<.svg.circle(^.svg.cx := x, ^.svg.cy := y, ^.svg.r := 15, ^.svg.fill := "grey", ^.svg.fillOpacity := "50%"))
+        case _ =>
+          None
+      }
+
       <.svg.svg(
         ^.svg.width := viewWidth,
         ^.svg.height := viewHeight,
@@ -699,7 +737,8 @@ object GlycanoCanvas {
             tempResidue,
             annotations,
             tempAnnotation
-          )
+          ),
+          createBondFreeIndicator
         )
       )
     }
