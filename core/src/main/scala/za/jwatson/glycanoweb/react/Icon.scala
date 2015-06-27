@@ -5,7 +5,10 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 object Icon {
   val C = ReactComponentB[Unit]("Icon")
-    .render(_ => <.svg.svg(c"ui avatar image", ^.svg.width := "64px", ^.svg.height := "64px", ^.svg.viewBox := "-3 -3 106 86", ^.svg.xmlns := "http://www.w3.org/2000/svg")(
+    .render(_ => <.svg.svg(
+      ^.display.`inline-block`, c"pull-left", ^.marginTop := (-14).px, ^.marginRight := 5.px,
+      ^.svg.width := "48px", ^.svg.height := "48px", ^.svg.viewBox := "-3 -3 106 86", ^.svg.xmlns := "http://www.w3.org/2000/svg"
+    )(
       <.svg.g(
         <.svg.polygon(^.svg.points := "90,40 65,80 25,80 0,40 25,0 65,0", ^.svg.fill := "#0000FF"),
         <.svg.polygon(^.svg.points := "90,40 65,80 25,80 0,40 25,0 65,0", ^.svg.fill := "none", ^.svg.stroke := "#000000", ^.svg.strokeWidth := "3")

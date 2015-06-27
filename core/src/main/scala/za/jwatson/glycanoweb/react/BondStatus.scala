@@ -1,6 +1,6 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.ReactComponentB
+import japgolly.scalajs.react.{BackendScope, ReactComponentB}
 import japgolly.scalajs.react.extra.{OnUnmount, EventListener, Reusability, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ScalazReact._
@@ -9,10 +9,19 @@ import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.{ResidueId, ResidueType, RGraph}
 import za.jwatson.glycanoweb.structure.RGraph._
 
+import scalaz.effect.IO
+
 object BondStatus {
-  val C = ReactComponentB[(Bond, ReusableVar[RGraph], DisplayConv, ReusableVar[Option[ResidueId]])]("BondStatus")
+  type Props = (Bond, ReusableVar[RGraph], DisplayConv, ReusableVar[Option[ResidueId]])
+  class Backend($: BackendScope[Props, Unit]) extends OnUnmount {
+    val mouseEnterIO = for {
+      from <- IO($.props._1.from)
+      _ <- $.props._4.set(Some(from))
+    } yield ()
+  }
+  val C = ReactComponentB[Props]("BondStatus")
     .stateless
-    .backend(_ => new OnUnmount.Backend)
+    .backend(new Backend(_))
     .render { $ =>
       val (bond, graph, dc, highlightBond) = $.props
       val hl = highlightBond.value.contains(bond)
@@ -53,7 +62,8 @@ object BondStatus {
     }
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate)
-    .configure(EventListener.installIO("mouseenter", $ => $.props._4.set(Some($.props._1.from))))
+    .configure(EventListener.installIO("mouseenter", _.backend.mouseEnterIO))
     .configure(EventListener.installIO("mouseleave", _.props._4.set(None)))
     .build
+
 }

@@ -100,7 +100,7 @@ object Navbar {
 
       <.nav(c"navbar navbar-default", ^.role := "navigation")(
         div"container-fluid"(
-          NavbarHeader("glycano-navbar-collapse", "Glycano"),
+          NavbarHeader("glycano-navbar-collapse", Icon.C(), "Glycano"),
           div"collapse navbar-collapse"(
             <.form(c"navbar-form")(
               div"form-group"(
