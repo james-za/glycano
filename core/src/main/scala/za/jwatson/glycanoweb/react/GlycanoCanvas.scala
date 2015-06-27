@@ -252,7 +252,8 @@ object GlycanoCanvas {
           }
         case (Mode.PlaceResidue(residue), _) =>
           clientToViewIO(e.clientX, e.clientY) {
-            case (x, y) =>
+            case viewPos =>
+              val (x, y) = if (appState.snapToGrid) snap(viewPos, (0, 0)) else viewPos
               val ((xm, ym), w, h) = appState.displayConv.bounds(residue)
               val dsqThreshold: Double = 500 * 500
               val facing: (Double, Double) = (1, 0)
@@ -317,7 +318,8 @@ object GlycanoCanvas {
           }
         case (Mode.PlaceAnnotation, _) =>
           clientToViewIO(e.clientX, e.clientY) {
-            case (x, y) =>
+            case viewPos =>
+              val (x, y) = if (appState.snapToGrid) snap(viewPos, (0, 0)) else viewPos
               $.setStateIO(InputState.AddAnnotation(x, y))
           }
         case (Mode.Selection, InputState.Drag(down @ (x0, y0), _, center)) =>
