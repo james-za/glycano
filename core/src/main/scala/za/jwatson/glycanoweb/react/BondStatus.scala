@@ -51,10 +51,7 @@ object BondStatus {
           div"col-xs-4"(
             <.button(
               c"btn btn-link", "remove bond",
-              ^.onClick ~~> (for {
-                _ <- graph.mod(_ - bond)
-                _ <- highlightBond.set(None)
-              } yield ())
+              ^.onClick ~~> graph.mod(_ - bond)
             )
           )
         )

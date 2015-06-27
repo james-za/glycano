@@ -356,6 +356,6 @@ object GlycanoApp {
     .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
     .configure(EventListener.installIO("resize", _.backend.resizeIO, _ => dom.window))
     .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e))))
-    .componentDidMountIO($ => IO.putStrLn("cdm").flatMap(_ => $.backend.resizeIO))
+    .componentDidMountIO(_.backend.resizeIO)
     .build
 }
