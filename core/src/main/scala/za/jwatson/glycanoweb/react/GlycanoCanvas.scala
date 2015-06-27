@@ -707,6 +707,7 @@ object GlycanoCanvas {
             ^.svg.y := -viewY * viewScale + viewHeight / 2,
             ^.svg.width := gw, ^.svg.height := gw
           ) (
+            <.svg.rect(^.svg.width := gw, ^.svg.height := gw, ^.svg.fill := "white"),
             <.svg.path(^.svg.d := s"M0,${gw}V0H$gw", ^.svg.fill := "none", ^.svg.strokeWidth := 0.5, ^.svg.stroke := "black")
           )
         ),

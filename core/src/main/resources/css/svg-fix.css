@@ -7,3 +7,7 @@ svg * {
     -ms-user-select: none;
     user-select: none;
 }
+
+input.blue {
+    border-color: blue;
+}

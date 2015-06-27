@@ -23,16 +23,6 @@ import scalaz.effect.IO
 object Navbar {
 
   class Backend(val $: BackendScope[ReusableVar[RGraph], Boolean]) extends OnUnmount {
-//    def clickCenter = $.props.modL(AppState.view) { v =>
-//      $.props.value.bounds.fold(v) {
-//        case Bounds(x, y, width, height) =>
-//          val sx = v.width / width
-//          val sy = v.height / height
-//          val scale = math.min(sx, sy)
-//          View(x + width / 2, y + height / 2, scale * 0.975, v.width, v.height)
-//      }
-//    }
-
     val dataUrlSvg = IO {
       val svg = dom.document.getElementById("canvas").outerHTML
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
@@ -72,7 +62,7 @@ object Navbar {
 
     def loadGly(name: String, gly: Gly) = for {
       _ <- $.props.set(gly.toRGraph)
-      _ <- IO(nameInput.foreach(_.value = if (name.endsWith(".gly")) name.dropRight(3) else name))
+      _ <- IO(nameInput.foreach(_.value = if (name.endsWith(".gly")) name.dropRight(4) else name))
     } yield ()
   }
 
@@ -103,7 +93,7 @@ object Navbar {
           NavbarHeader("glycano-navbar-collapse", Icon.C.withKey("icon")(), <.span("Glycano", ^.key := "text")),
           div"collapse navbar-collapse"(
             <.form(c"navbar-form")(
-              div"form-group"(^.ref := "dropfile")(
+              div"form-group"(
                 <.label("Load:")(^.marginLeft := 5.px),
                 <.input(c"form-control", ^.tpe := "file", ^.ref := "loadfile")(^.marginLeft := 5.px)
               ),
@@ -146,10 +136,7 @@ object Navbar {
       _ => dom.document.body
     ))
     .componentDidMount { $ =>
-      for {
-        load <- $.refs[dom.html.Input]("loadfile")
-        drop <- $.refs[dom.html.Label]("dropfile")
-      } {
+      for (load <- $.refs[dom.html.Input]("loadfile")) {
         val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
           import upickle._, Gly._
           val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
@@ -157,8 +144,9 @@ object Navbar {
         })
         fileReaderOpts.readAsDefault = "Text"
         fileReaderOpts.dragClass = "blue"
-        FileReaderJS.setupInput(load.getDOMNode(), fileReaderOpts)
-        FileReaderJS.setupDrop(drop.getDOMNode(), fileReaderOpts)
+        val node = load.getDOMNode()
+        FileReaderJS.setupInput(node, fileReaderOpts)
+        FileReaderJS.setupDrop(node, fileReaderOpts)
       }
     }
     .build
