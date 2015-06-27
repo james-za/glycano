@@ -129,13 +129,7 @@ package object bootstrap {
       .build
   }
 
-  object Dropdown {    
-    @tailrec def hasParent(n: dom.Node, parent: dom.Node): Boolean = {
-      if (n == null) false
-      else if (parent.isEqualNode(n)) true
-      else hasParent(n.parentNode, parent)
-    }
-
+  object Dropdown {
     implicit val reuseReactTag: Reusability[TagMod] = Reusability.byRef
     val Toggle = ReactComponentB[(Bootstrap.Size, TagMod)]("Dropdown.Toggle")
       .initialState(false)

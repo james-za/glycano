@@ -4,7 +4,9 @@ import japgolly.scalajs.react.ReactComponentC.{ReqProps, DefaultProps, ConstProp
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra.Reusability
 import japgolly.scalajs.react.vdom.{ClassNameAttr, TagMod}
+import org.scalajs.dom
 
+import scala.annotation.tailrec
 import scala.scalajs.js
 import scala.scalajs.js.UndefOr
 
@@ -24,5 +26,11 @@ package object react {
     def cls(args: Any*): TagMod = ClassNameAttr := sc.s(args: _*)
     def c(args: Any*): TagMod = ClassNameAttr := sc.s(args: _*)
     def div(args: Any*): vdom.ReactTag = vdom.Tags.div(ClassNameAttr := sc.s(args: _*))
+  }
+
+  @tailrec def hasParent(n: dom.Node, parent: dom.Node): Boolean = {
+    if (n == null) false
+    else if (parent.isEqualNode(n)) true
+    else hasParent(n.parentNode, parent)
   }
 }

@@ -22,7 +22,7 @@ import scalaz.effect.IO
 
 object Navbar {
 
-  class Backend(val $: BackendScope[ReusableVar[RGraph], Unit]) {
+  class Backend(val $: BackendScope[ReusableVar[RGraph], Boolean]) extends OnUnmount {
 //    def clickCenter = $.props.modL(AppState.view) { v =>
 //      $.props.value.bounds.fold(v) {
 //        case Bounds(x, y, width, height) =>
@@ -93,7 +93,7 @@ object Navbar {
     ))(Reusability.by_==)
 
   val C = ReactComponentB[ReusableVar[RGraph]]("Navbar")
-    .stateless
+    .initialState(false)
     .backend(new Backend(_))
     .render { $ =>
       implicit val graph: RGraph = $.props.value
@@ -103,7 +103,7 @@ object Navbar {
           NavbarHeader("glycano-navbar-collapse", Icon.C.withKey("icon")(), <.span("Glycano", ^.key := "text")),
           div"collapse navbar-collapse"(
             <.form(c"navbar-form")(
-              div"form-group"(
+              div"form-group"(^.ref := "dropfile")(
                 <.label("Load:")(^.marginLeft := 5.px),
                 <.input(c"form-control", ^.tpe := "file", ^.ref := "loadfile")(^.marginLeft := 5.px)
               ),
@@ -112,12 +112,16 @@ object Navbar {
                 div"input-group"(^.marginLeft := 5.px)(
                   <.input(c"form-control", ^.tpe := "text", ^.ref := "filename", ^.placeholder := "Filename"),
                   div"input-group-btn"(
-                    <.button(c"btn btn-default dropdown-toggle")("Save As...", <.span(c"caret")),
-                    <.ul(c"dropdown-menu dropdown-menu-right")(
-                      <.li(<.a("Glycano (.gly)", ^.onClick ~~> $.backend.saveGly)),
+                    $.state ?= c"open",
+                    <.button(
+                      c"btn btn-default dropdown-toggle",
+                      ^.onClick ~~> $.modStateIO(!_), ^.ref := "toggle"
+                    )("Save As...", <.span(c"caret")),
+                    <.ul(c"dropdown-menu dropdown-menu-right", ^.ref := "dropmenu")(
+                      <.li(<.a(c"btn", "Glycano (.gly)", ^.onClick ~~> $.backend.saveGly)),
                       <.li(c"divider"),
-                      <.li(<.a("Vector (.svg)", ^.onClick ~~> $.backend.saveSvg)),
-                      <.li(<.a("Image (.png)", ^.onClick ~~> $.backend.savePng))
+                      <.li(<.a(c"btn", "Vector (.svg)", ^.onClick ~~> $.backend.saveSvg)),
+                      <.li(<.a(c"btn", "Image (.png)", ^.onClick ~~> $.backend.savePng))
                     )
                   )
                 )
@@ -128,6 +132,19 @@ object Navbar {
       )
     }
     .configure(Reusability.shouldComponentUpdate)
+    .configure(EventListener[dom.Event].installIO(
+      "click",
+      $ => e => {
+        val node = e.target.asInstanceOf[dom.Node]
+        (for {
+          toggleElement <- $.refs[dom.Element]("toggle")
+          if !hasParent(node, toggleElement.getDOMNode())
+          dropMenu <- $.refs[dom.Element]("dropmenu")
+          if !hasParent(node, dropMenu.getDOMNode())
+        } yield $.setStateIO(false)).getOrElse(IO.ioUnit)
+      },
+      _ => dom.document.body
+    ))
     .componentDidMount { $ =>
       for {
         load <- $.refs[dom.html.Input]("loadfile")
@@ -136,7 +153,7 @@ object Navbar {
         val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
           import upickle._, Gly._
           val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
-          $.backend.loadGly(file.name, read[Gly](str)(rwGly)).except(_ => IO.ioUnit)
+          Try($.backend.loadGly(file.name, read[Gly](str)(rwGly)).unsafePerformIO())
         })
         fileReaderOpts.readAsDefault = "Text"
         fileReaderOpts.dragClass = "blue"
