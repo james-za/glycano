@@ -1,6 +1,7 @@
 package za.jwatson.glycanoweb
 
 import japgolly.scalajs.react.ReactComponentC.{ReqProps, DefaultProps, ConstProps}
+import japgolly.scalajs.react.ScalazReact.SzRExt_SEvent
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra.Reusability
 import japgolly.scalajs.react.vdom.{ClassNameAttr, TagMod}
@@ -9,6 +10,7 @@ import org.scalajs.dom
 import scala.annotation.tailrec
 import scala.scalajs.js
 import scala.scalajs.js.UndefOr
+import scalaz.effect.IO
 
 package object react {
   abstract class Component[P, S, +B, +N <: TopNode](val component: ReqProps[P, S, B, N]) {
@@ -33,4 +35,10 @@ package object react {
     else if (parent.isEqualNode(n)) true
     else hasParent(n.parentNode, parent)
   }
+
+  def preventingDefaultIO(io: => IO[Unit]) =
+    (e: ReactEvent) => e.preventDefaultIO.flatMap(_ => io)
+
+  def preventingDefaultIOF[N <: TopNode, E <: SyntheticEvent[N]](io: E => IO[Unit]) =
+    (e: E) => e.preventDefaultIO.flatMap(_ => io(e))
 }

@@ -104,8 +104,8 @@ object Navbar {
                   div"input-group-btn"(
                     $.state ?= c"open",
                     <.button(
-                      c"btn btn-default dropdown-toggle",
-                      ^.onClick ~~> $.modStateIO(!_), ^.ref := "toggle"
+                      c"btn btn-default dropdown-toggle", ^.ref := "toggle",
+                      ^.onClick ~~> preventingDefaultIO($.modStateIO(!_))
                     )("Save As...", <.span(c"caret")),
                     <.ul(c"dropdown-menu dropdown-menu-right", ^.ref := "dropmenu")(
                       <.li(<.a(c"btn", "Glycano (.gly)", ^.onClick ~~> $.backend.saveGly)),

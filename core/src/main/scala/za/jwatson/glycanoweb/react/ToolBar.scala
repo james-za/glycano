@@ -21,20 +21,14 @@ object ToolBar {
   def toolbtni_(tag: TagMod, name: String, action: => IO[Unit], disabled: Boolean = false) =
     <.button(c"btn btn-default btn-sm text-center")(
       tag, <.br, name,
-      ^.onClick ~~> ((e: ReactEvent) => for {
-        _ <- e.preventDefaultIO
-        _ <- action
-      } yield ()),
+      ^.onClick ~~> preventingDefaultIO(action),
       disabled ?= (^.disabled := true)
     )
 
   def toolbtni(icon: String, name: String, action: => IO[Unit], disabled: Boolean = false) =
     <.button(c"btn btn-default btn-sm text-center")(
       <.i(c"fa fa-lg fa-$icon"), <.br, name,
-      ^.onClick ~~> ((e: ReactEvent) => for {
-        _ <- e.preventDefaultIO
-        _ <- action
-      } yield ()),
+      ^.onClick ~~> preventingDefaultIO(action),
       disabled ?= (^.disabled := true)
     )
 

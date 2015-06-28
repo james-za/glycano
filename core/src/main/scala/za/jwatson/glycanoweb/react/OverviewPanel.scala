@@ -88,10 +88,7 @@ object OverviewPanel {
                     c"form-control",
                     ^.`type` := "text",
                     ^.value := annotationText,
-                    ^.onChange ~~> ((e: ReactEventI) => for {
-                      _ <- e.preventDefaultIO
-                      _ <- $.props._1.mod(RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.text set e.target.value)
-                    } yield ())
+                    ^.onChange ~~> preventingDefaultIOF((e: ReactEventI) => $.props._1.mod(RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.text set e.target.value))
                   )
                 ),
                 div"form-group input-group"(
@@ -99,13 +96,10 @@ object OverviewPanel {
                     c"form-control",
                     ^.`type` := "number",
                     ^.defaultValue := fontSize,
-                    ^.onChange ~~> ((e: ReactEventI) => for {
-                      _ <- e.preventDefaultIO
-                      _ <- Try(e.target.value.toDouble) match {
-                        case Failure(exception) => IO.ioUnit
-                        case Success(value) => $.props._1.mod(RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.size set value)
-                      }
-                    } yield ())
+                    ^.onChange ~~> preventingDefaultIOF((e: ReactEventI) => Try(e.target.value.toDouble) match {
+                      case Failure(exception) => IO.ioUnit
+                      case Success(value) => $.props._1.mod(RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.size set value)
+                    })
                   )
                 )
               )
