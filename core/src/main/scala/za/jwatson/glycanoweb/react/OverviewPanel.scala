@@ -5,6 +5,7 @@ import japgolly.scalajs.react.extra.{ReusableFn, ~=>, Reusability, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ScalazReact._
 import monocle.Monocle._
+import za.jwatson.glycanoweb.react.GlycanoApp.{AppStateL, AppState}
 import za.jwatson.glycanoweb.react.bootstrap.RadioGroupMap
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph.{GraphEntry, Bond}
@@ -14,15 +15,15 @@ import scala.util.{Success, Failure, Try}
 import scalaz.effect.IO
 
 object OverviewPanel {
-  def selected(in: Set[ResidueId]) = RGraph.residues ^|->> filterIndex(in.contains) ^|-> GraphEntry.residue
-  class Backend($: BackendScope[Props, Unit]) {
+  def selected(in: Set[ResidueId]) = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(in.contains) ^|-> GraphEntry.residue
+  class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
     implicit val reuseSelection: Reusability[Set[ResidueId]] = Reusability.by_==
 
     val setSelAnoFn = ReusableFn { (sel: Set[ResidueId], ano: Option[Anomer]) =>
-      ano.fold(IO.ioUnit)(ano => $.props._1.mod(selected(sel) ^|-> Residue.ano set ano))
+      ano.fold(IO.ioUnit)(ano => $.props.mod(selected(sel) ^|-> Residue.ano set ano))
     }
     val setSelAbsFn = ReusableFn { (sel: Set[ResidueId], abs: Option[Absolute]) =>
-      abs.fold(IO.ioUnit)(abs => $.props._1.mod(selected(sel) ^|-> Residue.abs set abs))
+      abs.fold(IO.ioUnit)(abs => $.props.mod(selected(sel) ^|-> Residue.abs set abs))
     }
 
     val getNameAnoFn = ReusableFn((_: Anomer).desc)
@@ -32,15 +33,14 @@ object OverviewPanel {
   val RadioAnomer = RadioGroupMap[Anomer]
   val RadioAbsolute = RadioGroupMap[Absolute]
 
-  type Props = (ReusableVar[RGraph], (Set[ResidueId], Set[AnnotId]), DisplayConv, ReusableVar[Option[ResidueId]])
-
-  implicit val reuseSelection: Reusability[(Set[ResidueId], Set[AnnotId])] = Reusability.by_==
-  val C = ReactComponentB[Props]("OverviewPanel")
+  val reuseAppState = Reusability.by((s: AppState) => (s.graph, s.selection, s.displayConv, s.highlightBond))(Reusability.by_==)
+  val C = ReactComponentB[ReusableVar[AppState]]("OverviewPanel")
     .stateless
     .backend(new Backend(_))
     .render { $ =>
-      val (rvGraph, (rs, as), dc, rvHighlightBond) = $.props
-      implicit val graph: RGraph = rvGraph.value
+      val appState = $.props.value
+      implicit val graph: RGraph = appState.graph
+      val (rs, as) = appState.selection
       val rsel = graph.residues.filterKeys(rs.contains)
       val asel = graph.annotations.filterKeys(as.contains)
 
@@ -60,12 +60,13 @@ object OverviewPanel {
             rsel.toList match {
               case Nil => ""
               case (id, ge) :: Nil =>
-                val first = for (link <- ge.parent.toSeq) yield BondStatus.C((Bond(id, link), rvGraph, dc, rvHighlightBond))
-                val rest = for ((i, from) <- ge.children.toSeq) yield BondStatus.C((Bond(from, Link(id, i)), rvGraph, dc, rvHighlightBond))
+                val rvAppStateBondStatus = $.props.withReusability(BondStatus.reuseAppState)
+                val first = for (link <- ge.parent.toSeq) yield BondStatus.C(BondStatus.Props(Bond(id, link), rvAppStateBondStatus))
+                val rest = for ((i, from) <- ge.children.toSeq) yield BondStatus.C(BondStatus.Props(Bond(from, Link(id, i)), rvAppStateBondStatus))
                 val subs = for {
                   (i, stack) <- ge.residue.subs.toSeq
                   (st, j) <- stack.zipWithIndex
-                } yield SubStatus.C((id, i, j, st, rvGraph))
+                } yield SubStatus.C((id, i, j, st, $.props.withReusability(SubStatus.reuseAppState)))
                 first ++ rest ++ subs
               case resList =>
                 for ((id, ge) <- resList) yield {
@@ -88,7 +89,7 @@ object OverviewPanel {
                     c"form-control",
                     ^.`type` := "text",
                     ^.value := annotationText,
-                    ^.onChange ~~> preventingDefaultIOF((e: ReactEventI) => $.props._1.mod(RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.text set e.target.value))
+                    ^.onChange ~~> preventingDefaultIOF((e: ReactEventI) => $.props.mod(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.text set e.target.value))
                   )
                 ),
                 div"form-group input-group"(
@@ -98,7 +99,7 @@ object OverviewPanel {
                     ^.defaultValue := fontSize,
                     ^.onChange ~~> preventingDefaultIOF((e: ReactEventI) => Try(e.target.value.toDouble) match {
                       case Failure(exception) => IO.ioUnit
-                      case Success(value) => $.props._1.mod(RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.size set value)
+                      case Success(value) => $.props.mod(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.size set value)
                     })
                   )
                 )

@@ -229,15 +229,11 @@ object GlycanoApp {
       }
     }
 
-    val setAppStateFn: AppState ~=> IO[Unit] = ReusableFn($.setStateIO(_))
-    val setModeFn: Mode ~=> IO[Unit] = ReusableFn($._setStateL(AppState.mode))
-    val setViewFn: View ~=> IO[Unit] = ReusableFn($._setStateL(AppState.view))
-    val setGraphFn: RGraph ~=> IO[Unit] = ReusableFn($._setStateL(AppStateL.graphL))
-    val setHighlightBondFn: Option[ResidueId] ~=> IO[Unit] = ReusableFn($._setStateL(AppState.highlightBond))
+    def rvAppState(r: Reusability[AppState]): ReusableVar[AppState] = setAppStateFn.asVarR($.state, r)
+    val setAppStateFn = ReusableFn($).setStateIO
+
     val setDisplayConvFn: Option[DisplayConv] ~=> IO[Unit] = ReusableFn(_.fold(IO.ioUnit)($._setStateL(AppState.displayConv)))
     val getNameDisplayConvFn: DisplayConv ~=> String = ReusableFn(_.name)
-    val setAnomerFn: Anomer ~=> IO[Unit] = ReusableFn($._setStateL(AppState.placeAnomer))
-    val setAbsoluteFn: Absolute ~=> IO[Unit] = ReusableFn($._setStateL(AppState.placeAbsolute))
   }
 
   val RadioDisplayConv = RadioGroupMap[DisplayConv]
@@ -252,24 +248,18 @@ object GlycanoApp {
       implicit val g: RGraph = $.state.graph
       implicit val dc: DisplayConv = $.state.displayConv
 
-      val rvAppStateToolBar = $.backend.setAppStateFn.asVarR($.state, ToolBar.reuseAppState)
-      val rvAppStateCanvas = $.backend.setAppStateFn.asVarR($.state, GlycanoCanvas.reuseAppState)
+      val rvAppStateToolBar = $.backend.rvAppState(ToolBar.reuseAppState)
+      val rvAppStateCanvas = $.backend.rvAppState(GlycanoCanvas.reuseAppState)
 
       val rtTemplate = $.state.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
         case _ => None
       }
 
-      val rvGraph = $.backend.setGraphFn.asVar($.state.graph)
-      val rvHighlightBond = $.backend.setHighlightBondFn.asVar($.state.highlightBond)
       val rvDisplayConv = $.backend.setDisplayConvFn.asVar(Some($.state.displayConv))
-      val rvAnomer = $.backend.setAnomerFn.asVar($.state.placeAnomer)
-      val rvAbsolute = $.backend.setAbsoluteFn.asVar($.state.placeAbsolute)
-      val rvMode = $.backend.setModeFn.asVar($.state.mode)
-      val rvView = $.backend.setViewFn.asVar($.state.view)
 
       div"container-fluid"(
-        div"row"(Navbar.C(rvGraph)),
+        div"row"(Navbar.C($.backend.rvAppState(Navbar.reuseAppState))),
         ToolBar.C(rvAppStateToolBar),
         div"row"(
           div"col-xs-3"(
@@ -282,7 +272,10 @@ object GlycanoApp {
               ))
             )),
             div"row"(div"col-xs-12"(
-              ResiduePanel.C(ResiduePanel.Props(rvAnomer, rvAbsolute, rvMode, dc, $.state.scaleSubstituents, $.props.conventions))
+              ResiduePanel.C(ResiduePanel.Props(
+                $.backend.rvAppState(ResiduePanel.reuseAppState),
+                $.props.conventions
+              ))
             )),
             div"row"(^.marginBottom := 5.px)(
               div"col-xs-8"(
@@ -308,10 +301,7 @@ object GlycanoApp {
               )
             ),
             div"row"(div"col-xs-12"(
-              SubstituentPanel((
-                rvMode,
-                $.state.scaleSubstituents
-              ))
+              SubstituentPanel.C($.backend.rvAppState(SubstituentPanel.reuseAppState))
             )),
             div"row"(
               div"checkbox"(
@@ -340,13 +330,13 @@ object GlycanoApp {
                   GlycanoCanvas(rvAppStateCanvas)
                 ),
                 div"panel-footer"(
-                  ZoomToolbar.C(ZoomToolbar.Props(rvView, $.state.bounds))
+                  ZoomToolbar.C($.backend.rvAppState(ZoomToolbar.reuseAppState))
                 )
               )
             ))
           ),
           div"col-xs-3"(
-            OverviewPanel.C((rvGraph, $.state.selection, $.state.displayConv, rvHighlightBond))
+            OverviewPanel.C($.backend.rvAppState(OverviewPanel.reuseAppState))
           )
         )
       )

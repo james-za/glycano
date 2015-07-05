@@ -6,6 +6,7 @@ import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react.extra.{Reusability, ReusableVar}
 import monocle.Iso
 import org.scalajs.dom
+import za.jwatson.glycanoweb.react.GlycanoApp.AppState
 import za.jwatson.glycanoweb.react.GlycanoCanvas.{Bounds, View}
 
 import scala.collection.immutable.NumericRange
@@ -36,13 +37,9 @@ object ZoomToolbar {
   def navrange[A](range: NumericRange[Double], rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false): ReactTag =
     navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
 
-  case class Props(view: ReusableVar[View], bounds: Option[Bounds])
-
-  implicit val reuseProps = Reusability.caseclass2(Props.unapply)
-
-  class Backend($: BackendScope[Props, Unit]) {
-    def clickCenter = preventingDefaultIO($.props.view.mod { v =>
-      $.props.bounds.fold(v) {
+  class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
+    def clickCenter = preventingDefaultIO($.props.modL(AppState.view) { v =>
+      $.props.value.bounds.fold(v) {
         case Bounds(x, y, width, height) =>
           val sx = v.width / width
           val sy = v.height / height
@@ -53,29 +50,31 @@ object ZoomToolbar {
 
     def zoomChange(e: ReactEventI) = {
       val scale = Try(e.target.value.toDouble * 0.01)
-      scale.toOption.fold(IO.ioUnit)($.props.view.setL(View.scale))
+      scale.toOption.fold(IO.ioUnit)($.props.setL(AppState.view ^|-> View.scale))
     }
   }
 
-  val C = ReactComponentB[Props]("ZoomToolbar")
+  val reuseAppState = Reusability.by((s: AppState) => (s.view, s.bounds))
+  val C = ReactComponentB[ReusableVar[AppState]]("ZoomToolbar")
     .stateless
     .backend(new Backend(_))
     .render { $ =>
+      val view = $.props.value.view
       <.form(c"form-inline text-right")(
         div"form-group"(
           for (element <- Seq(
             <.button(c"btn btn-sm", "Fit everything in view", ^.onClick ~~> $.backend.clickCenter),
-            <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> preventingDefaultIO($.props.view.setL(View.scale)(1.0))),
+            <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> preventingDefaultIO($.props.setL(AppState.view ^|-> View.scale)(1.0))),
             <.input(
               c"form-control",
-              ^.value := f"${$.props.view.value.scale * 100.0}%.2f %%",
+              ^.value := f"${view.scale * 100.0}%.2f %%",
               ^.`type` := "text",
               ^.readOnly := true,
               ^.width := 100.px
             ),
-            <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> preventingDefaultIO($.props.view.modL(View.scale)(_ / 1.1))),
-            navrange(0.01 to 200.0 by 0.01, $.props.view, View.scale ^<-> multIso(100)),
-            <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ~~> preventingDefaultIO($.props.view.modL(View.scale)(_ * 1.1)))
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ / 1.1))),
+            navrange(0.01 to 200.0 by 0.01, $.props, AppState.view ^|-> View.scale ^<-> multIso(100)),
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ~~> preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ * 1.1)))
           )) yield element(^.margin := "0 5px")
         )
       )

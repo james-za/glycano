@@ -3,7 +3,7 @@ package za.jwatson.glycanoweb
 import japgolly.scalajs.react.ReactComponentC.{ReqProps, DefaultProps, ConstProps}
 import japgolly.scalajs.react.ScalazReact.SzRExt_SEvent
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.extra.Reusability
+import japgolly.scalajs.react.extra.{ReusableVar, Reusability}
 import japgolly.scalajs.react.vdom.{ClassNameAttr, TagMod}
 import org.scalajs.dom
 
@@ -41,4 +41,13 @@ package object react {
 
   def preventingDefaultIOF[N <: TopNode, E <: SyntheticEvent[N]](io: E => IO[Unit]) =
     (e: E) => e.preventDefaultIO.flatMap(_ => io(e))
+
+  implicit class WithReusability[A](private val rv: ReusableVar[A]) extends AnyVal {
+    def withReusability(r: Reusability[A]) = ReusableVar(rv.value)(rv.set)(r)
+  }
+
+  object RVarValue {
+    def unapply[A](rv: ReusableVar[A]): Option[A] = Some(rv.value)
+
+  }
 }

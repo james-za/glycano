@@ -22,7 +22,7 @@ import scalaz.effect.IO
 
 object Navbar {
 
-  class Backend(val $: BackendScope[ReusableVar[RGraph], Boolean]) extends OnUnmount {
+  class Backend(val $: BackendScope[ReusableVar[AppState], Boolean]) extends OnUnmount {
     val dataUrlSvg = IO {
       val svg = dom.document.getElementById("canvas").outerHTML
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
@@ -31,7 +31,7 @@ object Navbar {
 
     val dataUrlGly = IO {
       import upickle._, Gly._
-      val graph = $.props.value
+      val graph = $.props.value.graph
       val gly = write[Gly](Gly.from(graph))
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
       "data:text/plain;base64," + base64
@@ -61,12 +61,12 @@ object Navbar {
     } yield ()
 
     def loadGly(name: String, gly: Gly) = for {
-      _ <- $.props.set(gly.toRGraph)
+      _ <- $.props.setL(AppStateL.graphL)(gly.toRGraph)
       _ <- IO(nameInput.foreach(_.value = if (name.endsWith(".gly")) name.dropRight(4) else name))
     } yield ()
   }
 
-  implicit val reuseAppState: Reusability[AppState] =
+  val reuseAppState: Reusability[AppState] =
     Reusability.by((a: AppState) => (
       a.annotationFontSize,
       a.bondLabels,
@@ -82,11 +82,11 @@ object Navbar {
       a.selection match { case (rs, as) => rs.isEmpty && as.isEmpty }
     ))(Reusability.by_==)
 
-  val C = ReactComponentB[ReusableVar[RGraph]]("Navbar")
+  val C = ReactComponentB[ReusableVar[AppState]]("Navbar")
     .initialState(false)
     .backend(new Backend(_))
     .render { $ =>
-      implicit val graph: RGraph = $.props.value
+      implicit val graph: RGraph = $.props.value.graph
 
       <.nav(c"navbar navbar-default", ^.role := "navigation")(
         div"container-fluid"(
