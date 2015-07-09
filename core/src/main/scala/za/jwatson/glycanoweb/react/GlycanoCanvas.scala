@@ -57,7 +57,16 @@ object GlycanoCanvas {
     val Right = 2
   }
 
-  @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1, width: Int = 800, height: Int = 600)
+  @Lenses case class View(x: Double = 0, y: Double = 0, scale: Double = 1, width: Int = 800, height: Int = 600) {
+    def fitBounds(bounds: Bounds): View = {
+      val sx = width / bounds.width
+      val sy = height / bounds.height
+      val fitScale = math.min(sx, sy)
+      val fitX = bounds.x + bounds.width / 2
+      val fitY = bounds.y + bounds.height / 2
+      View(x, y, scale * 0.975, width, height)
+    }
+  }
 
   object View {
     implicit val reusability: Reusability[View] = Reusability.by_==

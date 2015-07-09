@@ -38,15 +38,10 @@ object ZoomToolbar {
     navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
 
   class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
-    def clickCenter = preventingDefaultIO($.props.modL(AppState.view) { v =>
-      $.props.value.bounds.fold(v) {
-        case Bounds(x, y, width, height) =>
-          val sx = v.width / width
-          val sy = v.height / height
-          val scale = math.min(sx, sy)
-          View(x + width / 2, y + height / 2, scale * 0.975, v.width, v.height)
-      }
-    })
+    val clickCenter = preventingDefaultIO($.props.modL(AppState.view)(v => $.props.value.bounds.fold(v)(v.fitBounds)))
+    val clickReset = preventingDefaultIO($.props.setL(AppState.view ^|-> View.scale)(1.0))
+    val clickZoomIn = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ / 1.1))
+    val clickZoomOut = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ * 1.1))
 
     def zoomChange(e: ReactEventI) = {
       val scale = Try(e.target.value.toDouble * 0.01)
@@ -64,7 +59,7 @@ object ZoomToolbar {
         div"form-group"(
           for (element <- Seq(
             <.button(c"btn btn-sm", "Fit everything in view", ^.onClick ~~> $.backend.clickCenter),
-            <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> preventingDefaultIO($.props.setL(AppState.view ^|-> View.scale)(1.0))),
+            <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> $.backend.clickReset),
             <.input(
               c"form-control",
               ^.value := f"${view.scale * 100.0}%.2f %%",
@@ -72,9 +67,9 @@ object ZoomToolbar {
               ^.readOnly := true,
               ^.width := 100.px
             ),
-            <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ / 1.1))),
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> $.backend.clickZoomIn),
             navrange(0.01 to 200.0 by 0.01, $.props, AppState.view ^|-> View.scale ^<-> multIso(100)),
-            <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ~~> preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ * 1.1)))
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ~~> $.backend.clickZoomOut)
           )) yield element(^.margin := "0 5px")
         )
       )
