@@ -38,10 +38,10 @@ object ZoomToolbar {
     navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
 
   class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
-    val clickCenter = preventingDefaultIO($.props.modL(AppState.view)(v => $.props.value.bounds.fold(v)(v.fitBounds)))
-    val clickReset = preventingDefaultIO($.props.setL(AppState.view ^|-> View.scale)(1.0))
-    val clickZoomIn = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ / 1.1))
-    val clickZoomOut = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ * 1.1))
+    def clickCenter = preventingDefaultIO($.props.modL(AppState.view)(v => $.props.value.bounds.fold(v)(v.fitBounds)))
+    def clickReset = preventingDefaultIO($.props.setL(AppState.view ^|-> View.scale)(1.0))
+    def clickZoomIn = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ / 1.1))
+    def clickZoomOut = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ * 1.1))
 
     def zoomChange(e: ReactEventI) = {
       val scale = Try(e.target.value.toDouble * 0.01)
@@ -55,6 +55,7 @@ object ZoomToolbar {
     .backend(new Backend(_))
     .render { $ =>
       val view = $.props.value.view
+      println(s"view=$view")
       <.form(c"form-inline text-right")(
         div"form-group"(
           for (element <- Seq(

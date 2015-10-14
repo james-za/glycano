@@ -15,10 +15,11 @@ import scalaz.effect.IO
 object BondStatus {
   case class Props(bond: Bond, rvAppState: ReusableVar[AppState])
   class Backend($: BackendScope[Props, Unit]) extends OnUnmount {
-    val mouseEnterIO = for {
+    def mouseEnterIO = for {
       from <- IO($.props.bond.from)
       _ <- $.props.rvAppState.setL(AppState.highlightBond)(Some(from))
     } yield ()
+    def mouseLeaveIO(): Unit = $.props.rvAppState.setL(AppState.highlightBond)(None).unsafePerformIO()
   }
   val reuseAppState = Reusability.by((s: AppState) => (s.graph, s.displayConv, s.highlightBond))
   implicit val reusability: Reusability[Props] = Reusability.caseclass2(Props.unapply)
@@ -63,7 +64,7 @@ object BondStatus {
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate)
     .configure(EventListener.installIO("mouseenter", _.backend.mouseEnterIO))
-    .configure(EventListener.installIO("mouseleave", _.props.rvAppState.setL(AppState.highlightBond)(None)))
+    .configure(EventListener.install("mouseleave", _.backend.mouseLeaveIO))
     .build
 
 }
