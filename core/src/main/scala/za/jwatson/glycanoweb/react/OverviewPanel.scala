@@ -33,7 +33,7 @@ object OverviewPanel {
   val RadioAnomer = RadioGroupMap[Anomer]
   val RadioAbsolute = RadioGroupMap[Absolute]
 
-  val reuseAppState: Reusability[AppState] = Reusability.by_== //((s: AppState) => (s.graph, s.selection, s.displayConv, s.highlightBond))(Reusability.by_==)
+  val reuseAppState: Reusability[AppState] = Reusability.by((s: AppState) => (s.graph, s.selection, s.displayConv, s.highlightBond, s.view))(Reusability.by_==)
   val C = ReactComponentB[ReusableVar[AppState]]("OverviewPanel")
     .stateless
     .backend(new Backend(_))

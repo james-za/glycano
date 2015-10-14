@@ -55,7 +55,6 @@ object ZoomToolbar {
     .backend(new Backend(_))
     .render { $ =>
       val view = $.props.value.view
-      println(s"view=$view")
       <.form(c"form-inline text-right")(
         div"form-group"(
           for (element <- Seq(
