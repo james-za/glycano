@@ -536,7 +536,7 @@ object GlycanoCanvas {
             case _ => ge.residue.ano
           }
           val highlight = appState.highlightBond.contains(r)
-          SVGBond.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, appState.bondLabels, highlight))
+          SVGBond.C.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, appState.bondLabels, highlight))
         }
 
       val tempBonds = (appState.mode, state) match {
@@ -548,7 +548,7 @@ object GlycanoCanvas {
               geLink <- rLink.graphEntry
             } yield appState.displayConv.linkPos(allLinks(rLink), geLink, pos)
             val to = targetLink getOrElse mouse
-            SVGBond.withKey("tempBond")(SVGBond.Props(ge.residue.ano, target.map(_.position), from, to, appState.bondLabels))
+            SVGBond.C.withKey("tempBond")(SVGBond.Props(ge.residue.ano, target.map(_.position), from, to, appState.bondLabels))
           }
         case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y, children, parent)) =>
           val ((rx, ry), rw, rh) = appState.displayConv.bounds(residue)
@@ -559,7 +559,7 @@ object GlycanoCanvas {
               val fromPos = appState.displayConv.linkPos(allLinks(id), ge, 1)
               val (ox, oy) = appState.displayConv.links(residue)(i - 1)
               val toPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
-              SVGBond.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
+              SVGBond.C.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
             }
 
           val to = for {
@@ -569,7 +569,7 @@ object GlycanoCanvas {
               val (ox, oy) = appState.displayConv.links(residue).head
               val fromPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
               val toPos = appState.displayConv.linkPos(allLinks(id), ge, i)
-              SVGBond.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
+              SVGBond.C.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
             }
 
           from ++ to
@@ -619,7 +619,7 @@ object GlycanoCanvas {
       val annotations = for ((id, annot) <- graph.annotations.toSeq) yield {
         val selected = appState.selection._2.contains(id)
         val annot2 = if (drag && selected) annot.copy(x = annot.x + dx, y = annot.y + dy) else annot
-        Annotation.withKey(id.id)((annotationMouseDown(id), id, annot2, selected))
+        Annotation.C.withKey(id.id)((annotationMouseDown(id), id, annot2, selected))
       }
 
       val tempAnnotation = (appState.mode, state) match {

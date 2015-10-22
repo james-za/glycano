@@ -14,9 +14,7 @@ object SVGBond {
 
   implicit val reuseProps: Reusability[Props] = Reusability.by_==
 
-  def apply(props: Props, children: ReactNode*) = component(props, children)
-  def withKey(key: js.Any) = component.withKey(key)
-  val component = ReactComponentB[Props]("SVGBond")
+  val C = ReactComponentB[Props]("SVGBond")
     .render_P { props =>
       val (x1, y1) = props.from
       val (x2, y2) = props.to

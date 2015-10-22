@@ -2,6 +2,7 @@ package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react._
+import japgolly.scalajs.react.extra.Reusability
 import japgolly.scalajs.react.vdom.prefix_<^._
 import org.scalajs.dom
 import za.jwatson.glycanoweb.structure.{Annot, AnnotId}
@@ -12,6 +13,7 @@ import scalaz.effect.IO
 
 object Annotation {
   type Props = (ReactMouseEvent => Callback, AnnotId, Annot, Boolean)
+  implicit val reusability: Reusability[Props] = Reusability.by((p: Props) => (p._2, p._3, p._4))
   class Backend($: BackendScope[Props, (Double, Double)]) {
     val updateTextBBox = for {
       text <- CallbackOption.liftOptionLike($.refs[dom.svg.Text]("text"))
@@ -42,9 +44,10 @@ object Annotation {
       )
     }
   }
-  def apply(props: Props, children: ReactNode*) = component(props, children)
-  def withKey(key: js.Any) = component.withKey(key)
-  val component = ReactComponentB[Props]("Annotation")
+
+  implicit val reuseState = Reusability.by_==[(Double, Double)]
+
+  val C = ReactComponentB[Props]("Annotation")
     .initialState[(Double, Double)]((0, 0))
     .renderBackend[Backend]
     .componentDidMount(_.backend.updateTextBBox)
@@ -52,8 +55,9 @@ object Annotation {
       // update bounds if annotation content changed
       val annot1 = c.prevProps._3
       val annot2 = c.$.props._3
-      c.$.backend.updateTextBBox.filter(_ => annot1.text != annot2.text || annot1.size != annot2.size)
+      val contentChanged = annot1.text != annot2.text || annot1.size != annot2.size
+      c.$.backend.updateTextBBox.filter(_ => contentChanged)
     }
-    .shouldComponentUpdate(c => c.$.props._2 != c.nextProps._2 || c.$.props._3 != c.nextProps._3 || c.$.props._4 != c.nextProps._4 || c.$.state != c.nextState)
+    .configure(Reusability.shouldComponentUpdate)
     .build
 }

@@ -1,8 +1,12 @@
 package za.jwatson.glycanoweb.structure
 
+import japgolly.scalajs.react.extra.Reusability
+
 case class SubstituentType(symbol: String, name: String)
 
 object SubstituentType {
+  implicit val reusability = Reusability.caseClass[SubstituentType]
+
   private def st(s: String, n: String) = new SubstituentType(s, n)
   private def st(t: String) = new SubstituentType(t, t)
   val p = st("P", "Phosphorus")

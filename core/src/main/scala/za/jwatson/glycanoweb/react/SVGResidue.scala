@@ -79,7 +79,7 @@ object SVGResidue {
       } yield {
           val (x1, y1) = residueLinks(i - 1)
           <.svg.g(^.svg.transform := s"translate($x1, $y1) scale($scaleSubstituents)")(
-            SVGSubstituentStack.withKey(i)(sts)
+            SVGSubstituentStack.C.withKey(i)(sts)
           )
         }
 
@@ -134,7 +134,7 @@ object SVGResidue {
       val substituents = for ((i, sts) <- ge.residue.subs.toSeq) yield {
         val (x1, y1) = residueLinks(i - 1)
         <.svg.g(^.svg.transform := s"translate($x1, $y1) scale($scaleSubstituents)")(
-          SVGSubstituentStack.withKey(i)(sts)
+          SVGSubstituentStack.C.withKey(i)(sts)
         )
       }
 
@@ -144,5 +144,6 @@ object SVGResidue {
         )
       )
     }
+    .configure(Reusability.shouldComponentUpdate)
     .build
 }

@@ -42,7 +42,7 @@ object BondStatus {
               ^.svg.width := 40.px,
               ^.svg.height := 30.px,
               ^.svg.viewBox := "0 0 120 90"
-            )(SVGBond(SVGBond.Props(anomer, None, (0, 45), (120, 45), highlight = hl))),
+            )(SVGBond.C(SVGBond.Props(anomer, None, (0, 45), (120, 45), highlight = hl))),
             ResidueStatus.C((ge2.residue, appState.displayConv))
           ),
           div"col-xs-2"(

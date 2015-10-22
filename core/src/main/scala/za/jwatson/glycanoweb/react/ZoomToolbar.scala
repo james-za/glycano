@@ -22,27 +22,13 @@ object ZoomToolbar {
   def multIso(mult: Double): Iso[Double, Double] =
     Iso[Double, Double](_ * mult)(_ / mult)
 
-  def navrange(range: NumericRange[Double], value: Double, action: Double => Callback, disabled: Boolean): ReactTag =
-    div"form-group"(<.input(
-      c"form-control",
-      ^.`type` := "range",
-      "min".reactAttr := range.start,
-      "max".reactAttr := range.end,
-      ^.step := range.step,
-      ^.value := value,
-      ^.onChange ==> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
-      disabled ?= (^.disabled := true)
-    ))
-
-  def navrange[A](range: NumericRange[Double], rv: ReusableVar[A], lens: monocle.Lens[A, Double], disabled: Boolean = false): ReactTag =
-    navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
-
   class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
     def handler(f: ReusableVar[AppState] => Callback) = (e: ReactMouseEvent) => preventDefault(e) >> $.props.flatMap(f)
     val clickCenter = handler(props => props.modL(AppState.view)(v => props.value.bounds.fold(v)(v.fitBounds)))
     val clickReset = handler(_.setL(AppState.view ^|-> View.scale)(1.0))
     val clickZoomIn = handler(_.modL(AppState.view ^|-> View.scale)(_ / 1.1))
     val clickZoomOut = handler(_.modL(AppState.view ^|-> View.scale)(_ * 1.1))
+    val changeZoomSlider = (e: ReactEventI) => preventDefault(e) >> $.props.flatMap(p => p.setL(AppState.view ^|-> View.scale)(Try(e.target.value.toDouble).getOrElse(p.value.view.scale) / 100))
 
     def zoomChange(e: ReactEventI): Callback = for {
       scale <- CallbackOption.liftOptionLike(Try(e.target.value.toDouble * 0.01))
@@ -65,7 +51,15 @@ object ZoomToolbar {
               ^.width := 100.px
             ),
             <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ==> clickZoomIn),
-            navrange(0.01 to 200.0 by 0.01, rvAppState, AppState.view ^|-> View.scale ^<-> multIso(100)),
+            div"form-group"(<.input(
+              c"form-control",
+              ^.`type` := "range",
+              "min".reactAttr := 0.01,
+              "max".reactAttr := 200.0,
+              ^.step := 0.01,
+              ^.value := view.scale * 100,
+              ^.onChange ==> changeZoomSlider
+            )),
             <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ==> clickZoomOut)
           )) yield element(^.margin := "0 5px")
         )

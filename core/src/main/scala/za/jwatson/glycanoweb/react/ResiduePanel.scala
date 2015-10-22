@@ -86,7 +86,7 @@ object ResiduePanel {
               val substituents = for ((i, sts) <- subs.toSeq) yield {
                 val (x1, y1) = residueLinks(i - 1)
                 <.svg.g(^.svg.transform := s"translate($x1, $y1) scale(${appState.scaleSubstituents})")(
-                  SVGSubstituentStack.withKey(i)(sts)
+                  SVGSubstituentStack.C.withKey(i)(sts)
                 )
               }
               val selected = appState.mode match {

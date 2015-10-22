@@ -9,10 +9,7 @@ import za.jwatson.glycanoweb.structure.SubstituentType
 import scala.scalajs.js
 
 object SVGSubstituentStack {
-  def apply(props: Vector[SubstituentType], children: ReactNode*) = component(props, children)
-  def withKey(key: js.Any) = component.withKey(key)
-  implicit val reuseProps: Reusability[Vector[SubstituentType]] = Reusability.by_==
-  val component = ReactComponentB[Vector[SubstituentType]]("SVGBond")
+  val C = ReactComponentB[Vector[SubstituentType]]("SVGBond")
     .render_P { props =>
       val (shapes, sizes) = props.map(SubstituentShape.apply).unzip
       val (widths, heights) = sizes.unzip
