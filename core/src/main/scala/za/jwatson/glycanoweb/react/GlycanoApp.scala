@@ -10,6 +10,7 @@ import monocle.Lens
 import monocle.Monocle._
 import monocle.macros.Lenses
 import org.scalajs.dom
+import org.scalajs.dom.EventTarget
 import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.raw.SVGRect
 import za.jwatson.glycanoweb.Gly
@@ -54,6 +55,49 @@ object GlycanoApp {
     snapRotationDegrees: Double = 15.0
   ) {
     def graph: RGraph = history(undoPosition)
+
+    def doCopy = {
+      val copiedResidues = graph.residues.filterKeys(selection._1.contains)
+      val copiedAnnotations = graph.annotations.filterKeys(selection._2.contains)
+      this &|-> AppState.buffer set RGraph(copiedResidues, copiedAnnotations)
+    }
+
+    def doDelete = {
+      val remainingResidues = graph.residues.filterKeys(r => !selection._1.contains(r))
+      val remainingAnnotations = graph.annotations.filterKeys(a => !selection._2.contains(a))
+      this &|-> AppStateL.graphL set RGraph(remainingResidues, remainingAnnotations)
+    }
+
+    def doCut = this.doCopy.doDelete
+
+    private val offsetAmount = 20
+    private val offsetBufferResidues = RGraph.residues ^|->> each modify {
+      (GraphEntry.x modify (_ + offsetAmount)) andThen (GraphEntry.y modify (_ + offsetAmount))
+    }
+    private val offsetBufferAnnotations = RGraph.annotations ^|->> each modify {
+      (Annot.x modify (_ + offsetAmount)) andThen (Annot.y modify (_ + offsetAmount))
+    }
+    private val offsetBuffer = offsetBufferResidues andThen offsetBufferAnnotations
+
+    def doPaste = {
+      val buf = offsetBuffer(buffer)
+      val lookupR = buf.residues.map { case (id, _) => id -> ResidueId.next() }
+      val lookupA = buf.annotations.map { case (id, _) => id -> AnnotId.next() }
+
+      val modChildren = GraphEntry.children ^|->> each modify lookupR
+      val modParent = GraphEntry.parent ^<-? some ^|-> Link.r modify lookupR
+      val updateLinks = modChildren andThen modParent
+
+      val addedResidues = for ((r, ge) <- buf.residues) yield lookupR(r) -> updateLinks(ge)
+      val addedAnnotations = for ((id, a) <- buf.annotations) yield lookupA(id) -> a
+
+      val updateBuffer = AppState.buffer set buf
+      val old = graph
+      val pasteBuffer = AppStateL.graphL set RGraph(old.residues ++ addedResidues, old.annotations ++ addedAnnotations)
+      val updateSelection = AppState.selection set (addedResidues.keySet, addedAnnotations.keySet)
+
+      (updateBuffer andThen pasteBuffer andThen updateSelection)(this)
+    }
   }
 
   sealed trait Mode
@@ -92,60 +136,6 @@ object GlycanoApp {
     val graphL = Lens[AppState, RGraph](_.graph)(setGraph)
   }
 
-  def removeSelection(sel: (Set[ResidueId], Set[AnnotId])) = (sel._1.foldLeft(_: RGraph)(_ - _)) andThen (sel._2.foldLeft(_: RGraph)(_ - _))
-
-  val copyS = for {
-    sel <- State.gets((_: AppState).selection)
-    g <- State.gets((_: AppState).graph)
-    dr = g.residues.keySet diff sel._1
-    da = g.annotations.keySet diff sel._2
-    _ <- State.modify(AppState.buffer set removeSelection(dr, da)(g))
-  } yield ()
-
-  val deleteS = for {
-    sel <- State.gets((_: AppState).selection)
-    _ <- State.modify(AppStateL.modGraph(removeSelection(sel)))
-  } yield ()
-
-  val cutS = for {
-    _ <- copyS
-    _ <- deleteS
-  } yield ()
-
-  val offsetAmount = 20
-  val offsetBufferResidues = RGraph.residues ^|->> each modify {
-    (GraphEntry.x modify (_ + offsetAmount)) andThen (GraphEntry.y modify (_ + offsetAmount))
-  }
-  val offsetBufferAnnotations = RGraph.annotations ^|->> each modify {
-    (Annot.x modify (_ + offsetAmount)) andThen (Annot.y modify (_ + offsetAmount))
-  }
-  val offsetBuffer = offsetBufferResidues andThen offsetBufferAnnotations
-  val pasteS = for {
-    buf <- State.gets((_: AppState).buffer)
-    gSel <- State.gets { s: AppState =>
-      val old = s.graph
-      var g = old
-
-      val lookupR = buf.residues.map { case (id, _) => id -> ResidueId.next() }
-      val lookupA = buf.annotations.map { case (id, _) => id -> AnnotId.next() }
-
-      for ((r, ge) <- buf.residues) {
-        val modChildren = GraphEntry.children ^|->> each modify lookupR
-        val modParent = GraphEntry.parent ^<-? some ^|-> Link.r modify lookupR
-        g = g &|-> RGraph.residues modify { _ + (lookupR(r) -> (modChildren andThen modParent)(ge)) }
-      }
-
-      for ((id, annot) <- buf.annotations) {
-        g = g &|-> RGraph.annotations modify { _ + (lookupA(id) -> annot) }
-      }
-
-      (g, (lookupR.values.toSet, lookupA.values.toSet))
-    }
-    _ <- State.modify(AppStateL setGraph gSel._1)
-    _ <- State.modify(AppState.selection set gSel._2)
-    _ <- State.modify(AppState.buffer modify offsetBuffer)
-  } yield ()
-
   def undo(as: AppState): AppState =
     if (as.undoPosition < as.history.size - 1)
       AppState.undoPosition.modify(_ + 1)(as)
@@ -156,10 +146,6 @@ object GlycanoApp {
     else as
 
   class Backend($: BackendScope[Props, AppState]) extends OnUnmount {
-    def modState(mod: AppState => AppState): Unit = {
-      $.modState(mod)
-    }
-
     def toggleBondLabels(): Unit = {
       $.modState(AppState.bondLabels.modify(bl => !bl))
     }
@@ -169,97 +155,74 @@ object GlycanoApp {
     def zoomReset(): Unit = $.modState(AppState.view ^|-> View.scale set 1.0)
     //def zoomWheel(e: ReactWheelEvent): Unit = t.modState(State.view ^|-> View.scale modify (_ + e.deltaY(e.nativeEvent)))
 
-    def cut(): Unit = $.modState(cutS.exec)
-    def copy(): Unit = $.modState(copyS.exec)
-    def paste(): Unit = $.modState(pasteS.exec)
-    def delete(): Unit = $.modState(deleteS.exec)
+//    def cut(): Unit = $.modState(cutS.exec)
+//    def copy(): Unit = $.modState(copyS.exec)
+//    def paste(): Unit = $.modState(pasteS.exec)
+//    def delete(): Unit = $.modState(deleteS.exec)
 
-    def clearAll(): Unit = $.modState(AppStateL setGraph RGraph())
+    def clearAll = $.modState(AppStateL setGraph RGraph())
 
-    def scaleSubstituentsSlider(): Unit = scaleSubstituents("ssSlider")
-    def scaleSubstituentsNumber(): Unit = scaleSubstituents("ssNumber")
-    def scaleSubstituents(ref: String): Unit = {
-      for (input <- $.refs[dom.html.Input](ref)) {
-        val scale = Try(input.getDOMNode().value.toDouble).getOrElse(1.0)
-        $.modState(AppState.scaleSubstituents set scale)
-      }
+    def scaleSubstituentsSlider = scaleSubstituents("ssSlider")
+    def scaleSubstituentsNumber = scaleSubstituents("ssNumber")
+    def scaleSubstituents(ref: String) = {
+      for {
+        input: dom.html.Input <- CallbackOption.liftOptionLike(Ref[dom.html.Input](ref)($))
+        scale = Try(input.value.toDouble).getOrElse(1.0)
+        _ <- $.modState(AppState.scaleSubstituents set scale).toCBO
+      } yield ()
     }
 
-    def toggleLimitUpdateRate(): Unit = {
-      $.modState(AppState.limitUpdateRate modify { v => !v })
-    }
+    val toggleLimitUpdateRate = $.modState(AppState.limitUpdateRate modify { v => !v })
 
     val refCanvasPanel = Ref[dom.html.Div]("canvaspanel")
     val refCanvasColumn = Ref[dom.html.Div]("canvascolumn")
-    val resizeIO = IO(for (canvas <- refCanvasPanel($); canvasOuter <- refCanvasColumn($)) {
-      val nodeCanvas = canvas.getDOMNode()
-      val nodeOuter = canvasOuter.getDOMNode()
 
-      val bottom = nodeOuter.getBoundingClientRect().bottom
-      val surrounding = bottom - nodeCanvas.clientHeight
-      val height = (dom.window.innerHeight - surrounding).max(0)
-      val setWidth = AppState.view ^|-> View.width set (nodeCanvas.clientWidth - 1).toInt
-      val setHeight = AppState.view ^|-> View.height set height.toInt
-      $.modState(setWidth andThen setHeight)
-    })
-
-    val keydownFunc: js.Function1[dom.KeyboardEvent, Unit] = keyDown _
-
-    def keyDown(e: dom.KeyboardEvent): Unit = {
-      val shift = e.asInstanceOf[js.Dynamic].shiftKey.asInstanceOf[js.UndefOr[Boolean]].getOrElse(false)
-      val ctrl = e.asInstanceOf[js.Dynamic].ctrlKey.asInstanceOf[js.UndefOr[Boolean]]
-      val meta = e.asInstanceOf[js.Dynamic].metaKey.asInstanceOf[Boolean]
-      val mod = meta || ctrl.getOrElse(false)
-      e.keyCode match {
-        case 46 =>
-          delete()
-        case 27 | 32 =>
-          $.modState(AppState.mode set Mode.Selection)
-        case 88 /*X*/ if mod =>
-          cut()
-        case 67 /*C*/ if mod =>
-          copy()
-        case 86 /*V*/ if mod =>
-          paste()
-        case 90 /*Z*/ if mod =>
-          $.modState(if (shift) redo else undo)
-        case 89 /*Y*/ if mod =>
-          $.modState(redo)
-        case _ =>
+    val resizeCB = for {
+      canvas <- CallbackOption.liftOptionLike(refCanvasPanel($))
+      canvasOuter <- CallbackOption.liftOptionLike(refCanvasColumn($))
+      _ <- $.modState {
+        val bottom = canvasOuter.getBoundingClientRect().bottom
+        val surrounding = bottom - canvas.clientHeight
+        val height = (dom.window.innerHeight - surrounding).max(0)
+        val setWidth = AppState.view ^|-> View.width set (canvas.clientWidth - 1).toInt
+        val setHeight = AppState.view ^|-> View.height set height.toInt
+        setWidth andThen setHeight
       }
-    }
+    } yield ()
 
-    def rvAppState(r: Reusability[AppState]): ReusableVar[AppState] = setAppStateFn.asVarR($.state, r)
-    val setAppStateFn = ReusableFn($).setStateIO
+    def keydownCB(e: dom.KeyboardEvent) = CallbackOption.matchPF(e.keyCode) {
+      case 46 => $.modState(_.doDelete)
+      case 27 | 32 => $.modState(AppState.mode set Mode.Selection)
+      case 88 /*X*/ if e.ctrlKey || e.metaKey => $.modState(_.doCut)
+      case 67 /*C*/ if e.ctrlKey || e.metaKey => $.modState(_.doCopy)
+      case 86 /*V*/ if e.ctrlKey || e.metaKey => $.modState(_.doPaste)
+      case 90 /*Z*/ if e.ctrlKey || e.metaKey => $.modState(if (e.shiftKey) redo else undo)
+      case 89 /*Y*/ if e.ctrlKey || e.metaKey => $.modState(redo)
+    }.flatMap(_.toCBO)
 
-    val setDisplayConvFn: Option[DisplayConv] ~=> IO[Unit] = ReusableFn(_.fold(IO.ioUnit)($._setStateL(AppState.displayConv)))
+    val setAppStateFn = ReusableFn($).setState
+
+    val setDisplayConvFn: Option[DisplayConv] ~=> Callback = ReusableFn(_.fold(Callback.empty)($._setStateL(AppState.displayConv)))
     val getNameDisplayConvFn: DisplayConv ~=> String = ReusableFn(_.name)
-  }
 
-  val RadioDisplayConv = RadioGroupMap[DisplayConv]
+    def render(p: Props, s: AppState) = {
+      def rvAppState(r: Reusability[AppState]): ReusableVar[AppState] = setAppStateFn.asVarR(s, r)
 
-  val C = ReactComponentB[Props]("GlycanoApp")
-    .initialStateP(props => AppState(
-      history = Vector(loadGraph()),
-      displayConv = props.conventions.getOrElse("UCT", DisplayConv.convDefault)
-    ))
-    .backend(new Backend(_))
-    .render { $ =>
-      implicit val g: RGraph = $.state.graph
-      implicit val dc: DisplayConv = $.state.displayConv
+      implicit val g: RGraph = s.graph
+      implicit val dc: DisplayConv = s.displayConv
 
-      val rvAppStateToolBar = $.backend.rvAppState(ToolBar.reuseAppState)
-      val rvAppStateCanvas = $.backend.rvAppState(GlycanoCanvas.reuseAppState)
+      val rvAppStateToolBar = rvAppState(ToolBar.reuseAppState)
+      val rvAppStateCanvas = rvAppState(GlycanoCanvas.reuseAppState)
 
-      val rtTemplate = $.state.mode match {
+      val rtTemplate = s.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
         case _ => None
       }
 
-      val rvDisplayConv = $.backend.setDisplayConvFn.asVar(Some($.state.displayConv))
+      val rvDisplayConv = setDisplayConvFn.asVar(Some(dc))
 
       div"container-fluid"(
-        div"row"(Navbar.C($.backend.rvAppState(Navbar.reuseAppState))),
+        div"row"(Navbar.C(rvAppState(Navbar.reuseAppState))),
         ToolBar.C(rvAppStateToolBar),
         div"row"(
           div"col-xs-3"(
@@ -267,14 +230,14 @@ object GlycanoApp {
               RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
                 rvDisplayConv,
                 DisplayConv.conventions.values.toSeq,
-                $.backend.getNameDisplayConvFn,
+                getNameDisplayConvFn,
                 toggle = false
               ))
             )),
             div"row"(div"col-xs-12"(
               ResiduePanel.C(ResiduePanel.Props(
-                $.backend.rvAppState(ResiduePanel.reuseAppState),
-                $.props.conventions
+                rvAppState(ResiduePanel.reuseAppState),
+                p.conventions
               ))
             )),
             div"row"(^.marginBottom := 5.px)(
@@ -286,8 +249,8 @@ object GlycanoApp {
                   "min".reactAttr := 0.1,
                   "max".reactAttr := 2.0,
                   ^.step := 0.01,
-                  ^.value := $.state.scaleSubstituents,
-                  ^.onChange --> $.backend.scaleSubstituentsSlider
+                  ^.value := s.scaleSubstituents,
+                  ^.onChange --> scaleSubstituentsSlider
                 )
               ),
               div"col-xs-4"(
@@ -295,21 +258,21 @@ object GlycanoApp {
                   c"form-control",
                   ^.ref := "ssNumber",
                   ^.`type` := "number",
-                  ^.value := $.state.scaleSubstituents,
-                  ^.onChange --> $.backend.scaleSubstituentsNumber
+                  ^.value := s.scaleSubstituents,
+                  ^.onChange --> scaleSubstituentsNumber
                 )
               )
             ),
             div"row"(div"col-xs-12"(
-              SubstituentPanel.C($.backend.rvAppState(SubstituentPanel.reuseAppState))
+              SubstituentPanel.C(rvAppState(SubstituentPanel.reuseAppState))
             )),
             div"row"(
               div"checkbox"(
                 <.label(
                   <.input(
                     ^.`type` := "checkbox",
-                    ^.checked := $.state.limitUpdateRate,
-                    ^.onChange --> $.backend.toggleLimitUpdateRate
+                    ^.checked := s.limitUpdateRate,
+                    ^.onChange --> toggleLimitUpdateRate
                   ),
                   "Limit Update Rate"
                 )
@@ -320,7 +283,7 @@ object GlycanoApp {
             div"row"(div"col-xs-12"(^.ref := "canvascolumn")(
               div"panel panel-default"(
                 div"panel panel-header"(^.marginBottom := 0)(
-                  CASPERDisplay(CASPERDisplay.Props($.state.history($.state.undoPosition), $.state.selection._1))
+                  CASPERDisplay(CASPERDisplay.Props(s.history(s.undoPosition), s.selection._1))
                 ),
                 div"panel-body"(
                   ^.ref := "canvaspanel",
@@ -330,21 +293,31 @@ object GlycanoApp {
                   GlycanoCanvas(rvAppStateCanvas)
                 ),
                 div"panel-footer"(
-                  ZoomToolbar.C($.backend.rvAppState(ZoomToolbar.reuseAppState))
+                  ZoomToolbar.C(rvAppState(ZoomToolbar.reuseAppState))
                 )
               )
             ))
           ),
           div"col-xs-3"(
-            OverviewPanel.C($.backend.rvAppState(OverviewPanel.reuseAppState))
+            OverviewPanel.C(rvAppState(OverviewPanel.reuseAppState))
           )
         )
       )
     }
+  }
+
+  val RadioDisplayConv = RadioGroupMap[DisplayConv]
+
+  val C = ReactComponentB[Props]("GlycanoApp")
+    .initialState_P(props => AppState(
+      history = Vector(loadGraph()),
+      displayConv = props.conventions.getOrElse("UCT", DisplayConv.convDefault)
+    ))
+    .renderBackend[Backend]
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
-    .configure(EventListener.installIO("resize", _.backend.resizeIO, _ => dom.window))
-    .configure(EventListener[dom.KeyboardEvent].installIO("keydown", $ => e => IO($.backend.keyDown(e)), _ => dom.window))
-    .componentDidMountIO(_.backend.resizeIO)
+    .configure(EventListener.install("resize", _.backend.resizeCB, _ => dom.window))
+    .configure(EventListener[dom.KeyboardEvent].install("keydown", $ => e => $.backend.keydownCB(e), _ => dom.window))
+    .componentDidMount(_.backend.resizeCB)
     .build
 }

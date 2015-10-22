@@ -2,7 +2,7 @@ package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra._
-import japgolly.scalajs.react.ScalazReact._
+import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import za.jwatson.glycanoweb.convention.Convention.Palette
 
@@ -22,66 +22,61 @@ object ResiduePanel {
   implicit val reuseDouble: Reusability[Double] = Reusability.by_==
   implicit val reuseConventions: Reusability[Map[String, DisplayConv]] = Reusability.by_==
   implicit val reuseState: Reusability[Map[DisplayConv, Palette]] = Reusability.by_==
-  implicit val reuseProps: Reusability[Props] = Reusability.caseclass2(Props.unapply)
+  implicit val reuseProps: Reusability[Props] = Reusability.caseClass[Props]
 
   class Backend($: BackendScope[Props, Map[DisplayConv, Palette]]) {
-    def clickResidue(rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]): IO[Unit] = $.props.rvAppState.modL(AppState.mode) {
-      case Mode.PlaceResidue(r) if r.rt == rt && r.subs == subs => Mode.Selection
-      case _ => Mode.PlaceResidue(Residue(
-        $.props.rvAppState.value.placeAnomer,
-        $.props.rvAppState.value.placeAbsolute,
-        rt, subs
-      ))
-    }
+    def clickResidue(rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = for {
+      p <- $.props
+      _ <- p.rvAppState.modL(AppState.mode) {
+        case Mode.PlaceResidue(r) if r.rt == rt && r.subs == subs => Mode.Selection
+        case _ => Mode.PlaceResidue(Residue(
+          p.rvAppState.value.placeAnomer,
+          p.rvAppState.value.placeAbsolute,
+          rt, subs
+        ))
+      }
+    } yield ()
 
-    def setOption[A](lens: monocle.Lens[AppState, A])(a: Option[A]): IO[Unit] = a.fold(IO.ioUnit)($.props.rvAppState.setL(lens))
-    val setAnoFn: Option[Anomer] ~=> IO[Unit] = ReusableFn(setOption(AppState.placeAnomer))
-    val setAbsFn: Option[Absolute] ~=> IO[Unit] = ReusableFn(setOption(AppState.placeAbsolute))
+    def setOption[A](lens: monocle.Lens[AppState, A])(a: Option[A]) = for {
+      p <- $.props
+      v <- CallbackOption.liftOption(a)
+      _ <- p.rvAppState.setL(lens)(v)
+    } yield ()
+    val setAnoFn: Option[Anomer] ~=> Callback = ReusableFn(setOption(AppState.placeAnomer))
+    val setAbsFn: Option[Absolute] ~=> Callback = ReusableFn(setOption(AppState.placeAbsolute))
     val getNameAnoFn: Anomer ~=> String = ReusableFn(_.symbol)
     val getNameAbsFn: Absolute ~=> String = ReusableFn(_.symbol)
-  }
 
-  val RadioAnomer = RadioGroupMap[Anomer]
-  val RadioAbsolute = RadioGroupMap[Absolute]
-
-  val reuseAppState = Reusability.by((s: AppState) => (s.placeAnomer, s.placeAbsolute, s.mode, s.displayConv, s.scaleSubstituents))
-  val C = ReactComponentB[Props]("ResiduePanel")
-    .initialStateP[Map[DisplayConv, Palette]] { props =>
-      props.conventions.map {
-        case (_, dc) => dc -> dc.conv.palettes.head
-      }
-    }
-    .backend(new Backend(_))
-    .render { $ =>
-      val appState = $.props.rvAppState.value
+    def render(props: Props, state: Map[DisplayConv, Palette]) = {
+      val appState = props.rvAppState.value
       val residueTabs = <.ul(c"nav nav-tabs", ^.role := "tablist", ^.marginBottom := 5.px)(
         for (pal <- appState.displayConv.conv.palettes :+ Palette.Repeat) yield {
           val f = index[Map[DisplayConv, Palette], DisplayConv, Palette](appState.displayConv).set(pal)
           <.li(
             <.a(
               ^.href := "#",
-              ^.onClick ~~> $.modStateIO(f),
+              ^.onClick --> $.modState(f),
               ^.role := "tab",
               "data-toggle".reactAttr := "tab",
               ^.padding := "4px 7px"
             )(pal.name),
-            $.state.get(appState.displayConv).contains(pal) ?= c"active"
+            state.get(appState.displayConv).contains(pal) ?= c"active"
           )
         }
       )
 
-      val rvAno = $.backend.setAnoFn.asVar(Some(appState.placeAnomer))
-      val rvAbs = $.backend.setAbsFn.asVar(Some(appState.placeAbsolute))
+      val rvAno = setAnoFn.asVar(Some(appState.placeAnomer))
+      val rvAbs = setAbsFn.asVar(Some(appState.placeAbsolute))
 
       val residueConfig = div"btn-toolbar"(^.role := "toolbar", ^.display.`inline-block`)(
-        RadioAnomer(RadioGroupMap.Props[Anomer](rvAno, Anomer.Anomers, $.backend.getNameAnoFn, toggle = false)),
-        RadioAbsolute(RadioGroupMap.Props[Absolute](rvAbs, Absolute.Absolutes, $.backend.getNameAbsFn, toggle = false))
+        RadioAnomer(RadioGroupMap.Props[Anomer](rvAno, Anomer.Anomers, getNameAnoFn, toggle = false)),
+        RadioAbsolute(RadioGroupMap.Props[Absolute](rvAbs, Absolute.Absolutes, getNameAbsFn, toggle = false))
       )
 
       val residuePages = div"btn-group"("data-toggle".reactAttr := "buttons")(
         div"tab-content"(
           div"tab-pane active"(^.role := "tabpanel")(
-            for ((rt, subs) <- $.state(appState.displayConv).residues) yield {
+            for ((rt, subs) <- state(appState.displayConv).residues) yield {
               val res = Residue(appState.placeAnomer, appState.placeAbsolute, rt, subs)
               val ((x, y), w, h) = appState.displayConv.bounds(res)
               val scale = 0.4
@@ -99,7 +94,7 @@ object ResiduePanel {
                 case _ => false
               }
               <.span(
-                <.button(^.cls := s"btn btn-default", selected ?= c"active", ^.title := rt.desc, ^.padding := 2.px, ^.onClick ~~> $.backend.clickResidue(rt, subs))(
+                <.button(^.cls := s"btn btn-default", selected ?= c"active", ^.title := res.desc, ^.padding := 2.px, ^.onClick --> clickResidue(rt, subs))(
                   <.svg.svg(
                     ^.svg.width := (w + 20) * scale,
                     ^.svg.height := (h + 20) * scale
@@ -124,6 +119,19 @@ object ResiduePanel {
         )
       )
     }
+  }
+
+  val RadioAnomer = RadioGroupMap[Anomer]
+  val RadioAbsolute = RadioGroupMap[Absolute]
+
+  val reuseAppState = Reusability.by((s: AppState) => (s.placeAnomer, s.placeAbsolute, s.mode, s.displayConv, s.scaleSubstituents))
+  val C = ReactComponentB[Props]("ResiduePanel")
+    .initialState_P[Map[DisplayConv, Palette]] { props =>
+      props.conventions.map {
+        case (_, dc) => dc -> dc.conv.palettes.head
+      }
+    }
+    .renderBackend[Backend]
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate)
     .build

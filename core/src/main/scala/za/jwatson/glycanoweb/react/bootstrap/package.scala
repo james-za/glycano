@@ -16,7 +16,7 @@ package object bootstrap {
   object NavbarHeader {
     def apply(navbarId: String, children: ReactNode*) = component(navbarId, children)
     val component = ReactComponentB[String]("NavbarHeader")
-      .render { (navbarId, C) =>
+      .renderPC { ($, navbarId, C) =>
         div"navbar-header"(
           <.button(
             ^.`type` := "button",
@@ -38,13 +38,13 @@ package object bootstrap {
   }
 
   object FormInput {
-    case class Props(`type`: String, onChange: ReactEventI => Unit)
+    case class Props(`type`: String, onChange: ReactEventI => Callback)
 
     implicit val reuseProps: Reusability[Props] = Reusability.by((_: Props).`type`)
 
     def apply(props: Props, children: ReactNode*) = component(props, children)
     val component = ReactComponentB[Props]("Input")
-      .render { (P, C) =>
+      .renderPC { ($, P, C) =>
         <.input(
           ^.`type` := P.`type`,
           c"form-control",
@@ -57,7 +57,7 @@ package object bootstrap {
   }
 
   object Button {
-    case class Props(onClick: () => Unit,
+    case class Props(onClick: Callback,
                      style: bs.Style = bs.Default,
                      size: bs.Size = bs.Md,
                      block: Boolean = false,
@@ -73,12 +73,12 @@ package object bootstrap {
     val component = ReactComponentB[Props]("Button")
       .initialState(false)
       .noBackend
-      .render((P, C, S, B) => {
+      .renderPCS(($, P, C, S) => {
         val block = if (P.block) " btn-block" else ""
         val nav = if (P.nav) " navbar-btn" else ""
         <.button(
           ^.cls := s"btn btn-${P.style.name} btn-${P.size.name}$block$nav",
-          ^.onClick --> P.onClick()
+          ^.onClick --> P.onClick
         )(C)
       })
       .domType[dom.html.Button]
@@ -89,7 +89,7 @@ package object bootstrap {
   object GlyphIcon {
     def apply(icon: String, children: ReactNode*) = component(icon, children)
     val component = ReactComponentB[String]("GlyphIcon")
-      .render { (props, children) =>
+      .renderPC { ($, props, children) =>
         <.span(c"glyphicon glyphicon-" + props)(children)
       }
       .configure(Reusability.shouldComponentUpdate)
@@ -101,12 +101,14 @@ package object bootstrap {
     case class Props[A](selected: ReusableVar[Option[A]], choices: Seq[A], name: A ~=> String = defaultName, toggle: Boolean = false)
 
     class Backend[A]($: BackendScope[Props[A], Unit]) {
-      def handleClick(a: A): IO[Unit] =
-        $.props.selected.mod(s => if ($.props.toggle && s.contains(a)) None else Some(a))
+      def handleClick(a: A): Callback = for {
+        props <- $.props
+        _ <- props.selected.mod(s => if (props.toggle && s.contains(a)) None else Some(a))
+      } yield ()
     }
 
     implicit def reuseChoices[A]: Reusability[Seq[A]] = Reusability.by_==
-    implicit def reuseProps[A]: Reusability[Props[A]] = Reusability.caseclass4(Props.unapply[A])
+    implicit def reuseProps[A]: Reusability[Props[A]] = Reusability.caseClass[Props[A]]
 
     def apply[A] = ReactComponentB[Props[A]]("RadioGroupMap")
       .stateless
@@ -118,7 +120,7 @@ package object bootstrap {
             <.label($.props.name(value))(
               c"btn btn-default",
               selected ?= c"active",
-              ^.onClick ~~> $.backend.handleClick(value),
+              ^.onClick --> $.backend.handleClick(value),
               ^.key := value.##
             )
           }
@@ -144,22 +146,23 @@ package object bootstrap {
           <.button(
             c"btn btn-default btn-$size dropdown-toggle",
             ^.ref := "toggle", ^.tpe := "button",
-            ^.onClick ~~> $.modStateIO(!_)
+            ^.onClick --> $.modState(!_)
           )(<.span(c"caret")),
           <.ul(c"dropdown-menu", ^.ref := "dropmenu")($.propsChildren)
         )
       }
       .configure(Reusability.shouldComponentUpdate)
-      .configure(EventListener[dom.Event].installIO(
+      .configure(EventListener[dom.Event].install(
         "click",
         $ => e => {
           val node = e.target.asInstanceOf[dom.Node]
-          (for {
-            toggleElement <- $.refs[dom.Element]("toggle")
+          for {
+            toggleElement <- CallbackOption.liftOptionLike($.refs[dom.Element]("toggle"))
             if !hasParent(node, toggleElement.getDOMNode())
-            dropMenu <- $.refs[dom.Element]("dropmenu")
+            dropMenu <- CallbackOption.liftOptionLike($.refs[dom.Element]("dropmenu"))
             if !hasParent(node, dropMenu.getDOMNode())
-          } yield $.setStateIO(false)).getOrElse(IO.ioUnit)
+            _ <- $.setState(false)
+          } yield ()
         },
         _ => dom.document.body
       ))
@@ -177,8 +180,8 @@ package object bootstrap {
           <.button(
             ^.tpe := "button",
             c"btn btn-default btn-$size dropdown-toggle",
-            ^.onMouseOver ~~> $.setStateIO(true),
-            ^.onMouseOut ~~> $.setStateIO(false),
+            ^.onMouseOver --> $.setState(true),
+            ^.onMouseOut --> $.setState(false),
             <.span(c"caret")
           ),
           <.ul(c"dropdown-menu")($.propsChildren)

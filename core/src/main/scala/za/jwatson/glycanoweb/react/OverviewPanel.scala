@@ -15,30 +15,46 @@ import scala.util.{Success, Failure, Try}
 import scalaz.effect.IO
 
 object OverviewPanel {
-  def selected(in: Set[ResidueId]) = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(in.contains) ^|-> GraphEntry.residue
-  class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
-    implicit val reuseSelection: Reusability[Set[ResidueId]] = Reusability.by_==
+  val RadioAnomer = RadioGroupMap[Anomer]
+  val RadioAbsolute = RadioGroupMap[Absolute]
 
-    val setSelAnoFn = ReusableFn { (sel: Set[ResidueId], ano: Option[Anomer]) =>
-      ano.fold(IO.ioUnit)(ano => $.props.mod(selected(sel) ^|-> Residue.ano set ano))
+  def selectedResidues(in: Set[ResidueId]) = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(in.contains) ^|-> GraphEntry.residue
+  def selectedAnnotations(asel: Map[AnnotId, Annot]) = AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains)
+
+  class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
+    val setSelAnoFn = ReusableFn[Set[ResidueId], Option[Anomer], Callback] { (sel, ano) =>
+      for {
+        anomer <- CallbackOption.liftOption(ano)
+        rvAppState <- $.props
+        _ <- rvAppState.mod(selectedResidues(sel) ^|-> Residue.ano set anomer)
+      } yield ()
     }
-    val setSelAbsFn = ReusableFn { (sel: Set[ResidueId], abs: Option[Absolute]) =>
-      abs.fold(IO.ioUnit)(abs => $.props.mod(selected(sel) ^|-> Residue.abs set abs))
+    val setSelAbsFn = ReusableFn[Set[ResidueId], Option[Absolute], Callback] { (sel, abs) =>
+      for {
+        absolute <- CallbackOption.liftOption(abs)
+        rvAppState <- $.props
+        _ <- rvAppState.mod(selectedResidues(sel) ^|-> Residue.abs set absolute)
+      } yield ()
     }
 
     val getNameAnoFn = ReusableFn((_: Anomer).desc)
     val getNameAbsFn = ReusableFn((_: Absolute).desc)
-  }
 
-  val RadioAnomer = RadioGroupMap[Anomer]
-  val RadioAbsolute = RadioGroupMap[Absolute]
+    def changeText(asel: Map[AnnotId, Annot])(e: ReactEventI) = for {
+      _ <- e.preventDefaultCB
+      rvAppState <- $.props
+      _ <- rvAppState.mod(selectedAnnotations(asel) ^|-> Annot.text set e.target.value)
+    } yield ()
 
-  val reuseAppState: Reusability[AppState] = Reusability.by((s: AppState) => (s.graph, s.selection, s.displayConv, s.highlightBond, s.view))(Reusability.by_==)
-  val C = ReactComponentB[ReusableVar[AppState]]("OverviewPanel")
-    .stateless
-    .backend(new Backend(_))
-    .render { $ =>
-      val appState = $.props.value
+    def changeFontSize(asel: Map[AnnotId, Annot])(e: ReactEventI) = for {
+      _ <- e.preventDefaultCB
+      rvAppState <- $.props
+      value <- CallbackOption.liftOptionLike(Try(e.target.value.toDouble))
+      _ <- rvAppState.mod(selectedAnnotations(asel) ^|-> Annot.size set value)
+    } yield ()
+
+    def render(rvAppState: ReusableVar[AppState]) = {
+      val appState = rvAppState.value
       implicit val graph: RGraph = appState.graph
       val (rs, as) = appState.selection
       val rsel = graph.residues.filterKeys(rs.contains)
@@ -50,23 +66,23 @@ object OverviewPanel {
             for (hd <- rsel.values.headOption) yield {
               val repeat = rsel.values.exists(_.residue.rt.category == ResidueCategory.Repeat)
               def unanimously[A](f: GraphEntry => A) = if (!repeat && rsel.values.tail.forall(f(_) == f(hd))) Some(f(hd)) else None
-              val rvSelAno = $.backend.setSelAnoFn(rs).asVar(unanimously(_.residue.ano))
-              val rvSelAbs = $.backend.setSelAbsFn(rs).asVar(unanimously(_.residue.abs))
+              val rvSelAno = setSelAnoFn(rs).asVar(unanimously(_.residue.ano))
+              val rvSelAbs = setSelAbsFn(rs).asVar(unanimously(_.residue.abs))
               div"btn-toolbar"(^.role := "toolbar", ^.display.`inline-block`)(
-                RadioAnomer(RadioGroupMap.Props[Anomer](rvSelAno, Anomer.Anomers, $.backend.getNameAnoFn)),
-                RadioAbsolute(RadioGroupMap.Props[Absolute](rvSelAbs, Absolute.Absolutes, $.backend.getNameAbsFn))
+                RadioAnomer(RadioGroupMap.Props[Anomer](rvSelAno, Anomer.Anomers, getNameAnoFn)),
+                RadioAbsolute(RadioGroupMap.Props[Absolute](rvSelAbs, Absolute.Absolutes, getNameAbsFn))
               )
             },
             rsel.toList match {
               case Nil => ""
               case (id, ge) :: Nil =>
-                val rvAppStateBondStatus = $.props.withReusability(BondStatus.reuseAppState)
+                val rvAppStateBondStatus = rvAppState.withReusability(BondStatus.reuseAppState)
                 val first = for (link <- ge.parent.toSeq) yield BondStatus.C(BondStatus.Props(Bond(id, link), rvAppStateBondStatus))
                 val rest = for ((i, from) <- ge.children.toSeq) yield BondStatus.C(BondStatus.Props(Bond(from, Link(id, i)), rvAppStateBondStatus))
                 val subs = for {
                   (i, stack) <- ge.residue.subs.toSeq
                   (st, j) <- stack.zipWithIndex
-                } yield SubStatus.C((id, i, j, st, $.props.withReusability(SubStatus.reuseAppState)))
+                } yield SubStatus.C((id, i, j, st, rvAppState.withReusability(SubStatus.reuseAppState)))
                 first ++ rest ++ subs
               case resList =>
                 for ((id, ge) <- resList) yield {
@@ -89,7 +105,7 @@ object OverviewPanel {
                     c"form-control",
                     ^.`type` := "text",
                     ^.value := annotationText,
-                    ^.onChange ~~> preventingDefaultIOF((e: ReactEventI) => $.props.mod(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.text set e.target.value))
+                    ^.onChange ==> changeText(asel)
                   )
                 ),
                 div"form-group input-group"(
@@ -97,10 +113,7 @@ object OverviewPanel {
                     c"form-control",
                     ^.`type` := "number",
                     ^.defaultValue := fontSize,
-                    ^.onChange ~~> preventingDefaultIOF((e: ReactEventI) => Try(e.target.value.toDouble) match {
-                      case Failure(exception) => IO.ioUnit
-                      case Success(value) => $.props.mod(AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains) ^|-> Annot.size set value)
-                    })
+                    ^.onChange ==> changeFontSize(asel)
                   )
                 )
               )
@@ -109,6 +122,12 @@ object OverviewPanel {
         )
       ))
     }
+  }
+
+  val reuseAppState: Reusability[AppState] = Reusability.by((s: AppState) => (s.graph, s.selection, s.displayConv, s.highlightBond, s.view))(Reusability.by_==)
+  val C = ReactComponentB[ReusableVar[AppState]]("OverviewPanel")
+    .stateless
+    .renderBackend[Backend]
     .configure(Reusability.shouldComponentUpdate)
     .build
 }

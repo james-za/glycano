@@ -19,7 +19,7 @@ import monocle.macros.Lenses
   def desc: String = rt match {
     case ResidueType.Begin => s"${ano.desc}-${rt.desc}"
     case ResidueType.End => rt.desc
-    case _ => s"${ano.desc}-${abs.desc}-${rt.desc}"
+    case _ => s"${ano.desc}-${abs.desc}-${rt.desc}$substSymbol"
   }
   
   override def toString: String = desc

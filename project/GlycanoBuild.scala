@@ -8,7 +8,7 @@ import com.lihaoyi.workbench.Plugin._
 
 object GlycanoBuildSettings {
   val paradiseVersion = "2.1.0-M5"
-  val scalajsReactVersion = "0.9.0"
+  val scalajsReactVersion = "0.10.0"
   val monocleVersion = "1.1.1"
 
   def jsMinified(name: String) = ProvidedJS / s"js/$name.js" minified s"js/$name.min.js"
@@ -25,7 +25,7 @@ object GlycanoBuild extends sbt.Build {
     .settings(buildSettings: _*)
     .settings(
       incOptions := incOptions.value.withNameHashing(nameHashing = false),
-      scalaVersion := "2.11.6",
+      scalaVersion := "2.11.7",
       scalacOptions ++= Seq(
         "-deprecation",
         "-unchecked",
@@ -42,13 +42,14 @@ object GlycanoBuild extends sbt.Build {
       ),
       addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
       libraryDependencies ++= Seq(
-        "org.scala-js"                      %%% "scalajs-dom"    % "0.8.0",
-        "be.doeraene"                       %%% "scalajs-jquery" % "0.8.0",
+        "org.scala-js"                      %%% "scalajs-dom"    % "0.8.2",
+        "be.doeraene"                       %%% "scalajs-jquery" % "0.8.1",
         //"com.lihaoyi"                       %%% "scalatags"      % "0.4.5",
         "com.lihaoyi"                       %%% "upickle"        % "0.2.6",
-        "com.github.japgolly.fork.scalaz"   %%% "scalaz-core"    % "7.1.1-2",
+        //"com.github.japgolly.fork.scalaz"   %%% "scalaz-core"    % "7.1.1-2",
         "com.github.japgolly.scalajs-react" %%% "core"           % scalajsReactVersion,
         "com.github.japgolly.scalajs-react" %%% "extra"          % scalajsReactVersion,
+        "com.github.japgolly.scalajs-react" %%% "ext-monocle"    % scalajsReactVersion,
         "com.github.japgolly.fork.monocle"  %%% "monocle-core"   % monocleVersion,
         "com.github.japgolly.fork.monocle"  %%% "monocle-macro"  % monocleVersion,
         "name.myltsev"                      %%% "shapeless"      % "2.0.0",

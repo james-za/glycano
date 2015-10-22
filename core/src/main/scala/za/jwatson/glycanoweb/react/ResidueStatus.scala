@@ -9,7 +9,7 @@ import za.jwatson.glycanoweb.structure.Residue
 
 object ResidueStatus {
   val C = ReactComponentB[(Residue, DisplayConv)]("ResidueStatus")
-    .render { props =>
+    .render_P { props =>
       val (r, dc) = props
       val (residue, handle) = dc.shapes(r)
       val ((x, y), w, h) = dc.bounds(r)

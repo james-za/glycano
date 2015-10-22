@@ -2,7 +2,7 @@ package za.jwatson.glycanoweb.react
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
-import japgolly.scalajs.react.ScalazReact._
+import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react.extra.{Reusability, ReusableVar}
 import monocle.Iso
 import org.scalajs.dom
@@ -22,7 +22,7 @@ object ZoomToolbar {
   def multIso(mult: Double): Iso[Double, Double] =
     Iso[Double, Double](_ * mult)(_ / mult)
 
-  def navrange(range: NumericRange[Double], value: Double, action: Double => IO[Unit], disabled: Boolean): ReactTag =
+  def navrange(range: NumericRange[Double], value: Double, action: Double => Callback, disabled: Boolean): ReactTag =
     div"form-group"(<.input(
       c"form-control",
       ^.`type` := "range",
@@ -30,7 +30,7 @@ object ZoomToolbar {
       "max".reactAttr := range.end,
       ^.step := range.step,
       ^.value := value,
-      ^.onChange ~~> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
+      ^.onChange ==> ((e: ReactEventI) => action(Try(e.target.value.toDouble).getOrElse(value))),
       disabled ?= (^.disabled := true)
     ))
 
@@ -38,28 +38,25 @@ object ZoomToolbar {
     navrange(range, lens.get(rv.value), rv.setL(lens), disabled)
 
   class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
-    def clickCenter = preventingDefaultIO($.props.modL(AppState.view)(v => $.props.value.bounds.fold(v)(v.fitBounds)))
-    def clickReset = preventingDefaultIO($.props.setL(AppState.view ^|-> View.scale)(1.0))
-    def clickZoomIn = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ / 1.1))
-    def clickZoomOut = preventingDefaultIO($.props.modL(AppState.view ^|-> View.scale)(_ * 1.1))
+    def handler(f: ReusableVar[AppState] => Callback) = (e: ReactMouseEvent) => preventDefault(e) >> $.props.flatMap(f)
+    val clickCenter = handler(props => props.modL(AppState.view)(v => props.value.bounds.fold(v)(v.fitBounds)))
+    val clickReset = handler(_.setL(AppState.view ^|-> View.scale)(1.0))
+    val clickZoomIn = handler(_.modL(AppState.view ^|-> View.scale)(_ / 1.1))
+    val clickZoomOut = handler(_.modL(AppState.view ^|-> View.scale)(_ * 1.1))
 
-    def zoomChange(e: ReactEventI) = {
-      val scale = Try(e.target.value.toDouble * 0.01)
-      scale.toOption.fold(IO.ioUnit)($.props.setL(AppState.view ^|-> View.scale))
-    }
-  }
+    def zoomChange(e: ReactEventI): Callback = for {
+      scale <- CallbackOption.liftOptionLike(Try(e.target.value.toDouble * 0.01))
+      rvAppState <- $.props
+      _ <- rvAppState.setL(AppState.view ^|-> View.scale)(scale)
+    } yield ()
 
-  val reuseAppState = Reusability.by((s: AppState) => (s.view, s.bounds))
-  val C = ReactComponentB[ReusableVar[AppState]]("ZoomToolbar")
-    .stateless
-    .backend(new Backend(_))
-    .render { $ =>
-      val view = $.props.value.view
+    def render(rvAppState: ReusableVar[AppState]) = {
+      val view = rvAppState.value.view
       <.form(c"form-inline text-right")(
         div"form-group"(
           for (element <- Seq(
-            <.button(c"btn btn-sm", "Fit everything in view", ^.onClick ~~> $.backend.clickCenter),
-            <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ~~> $.backend.clickReset),
+            <.button(c"btn btn-sm", "Fit everything in view", ^.onClick ==> clickCenter),
+            <.button(c"btn btn-sm", "Reset to 100%", ^.onClick ==> clickReset),
             <.input(
               c"form-control",
               ^.value := f"${view.scale * 100.0}%.2f %%",
@@ -67,13 +64,19 @@ object ZoomToolbar {
               ^.readOnly := true,
               ^.width := 100.px
             ),
-            <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ~~> $.backend.clickZoomIn),
-            navrange(0.01 to 200.0 by 0.01, $.props, AppState.view ^|-> View.scale ^<-> multIso(100)),
-            <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ~~> $.backend.clickZoomOut)
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-minus"), ^.onClick ==> clickZoomIn),
+            navrange(0.01 to 200.0 by 0.01, rvAppState, AppState.view ^|-> View.scale ^<-> multIso(100)),
+            <.button(c"btn btn-sm", <.i(c"fa fa-search-plus"), ^.onClick ==> clickZoomOut)
           )) yield element(^.margin := "0 5px")
         )
       )
     }
+  }
+
+  val reuseAppState = Reusability.by((s: AppState) => (s.view, s.bounds))
+  val C = ReactComponentB[ReusableVar[AppState]]("ZoomToolbar")
+    .stateless
+    .renderBackend[Backend]
     .configure(Reusability.shouldComponentUpdate)
     .build
 }

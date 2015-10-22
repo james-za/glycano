@@ -13,7 +13,7 @@ object SVGSubstituentStack {
   def withKey(key: js.Any) = component.withKey(key)
   implicit val reuseProps: Reusability[Vector[SubstituentType]] = Reusability.by_==
   val component = ReactComponentB[Vector[SubstituentType]]("SVGBond")
-    .render { props =>
+    .render_P { props =>
       val (shapes, sizes) = props.map(SubstituentShape.apply).unzip
       val (widths, heights) = sizes.unzip
       val stack = for {

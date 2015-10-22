@@ -23,52 +23,51 @@ object SVGResidue {
 //                   selected: Boolean, scaleSubstituents: Double)
   case class Props(r: ResidueId, ge: GraphEntry, dc: DisplayConv, selected: Boolean, scaleSubstituents: Double,
                    inputState: ReusableVar[InputState], mode: ReusableVar[Mode],
-                   modGraph: (RGraph => RGraph) ~=> IO[Unit],
-                   setSelection: (Set[ResidueId], Set[AnnotId]) ~=> IO[Unit],
+                   modGraph: (RGraph => RGraph) ~=> Callback,
+                   setSelection: (Set[ResidueId], Set[AnnotId]) ~=> Callback,
                    clientToViewFn: (Double, Double) ~=> UndefOr[(Double, Double)])
 
   implicit val reuseDouble: Reusability[Double] = Reusability.by_==
-  implicit val reuseProps: Reusability[Props] = Reusability.caseclass10(Props.unapply)
+  implicit val reuseProps: Reusability[Props] = Reusability.caseClass[Props]
 
-  implicitly[Reusability[(RGraph => RGraph) ~=> IO[Unit]]]
+  implicitly[Reusability[(RGraph => RGraph) ~=> Callback]]
 
   class Backend($: BackendScope[Props, Boolean]) {
-    def handleMouseDown(e: ReactMouseEvent): IO[Unit] =
-      (button(e), $.props.mode.value) match {
-        case (Mouse.Left, Mode.Selection) =>
-          for {
-            _ <- $.props.inputState.set(InputState.PreCreateBond($.props.r))
-            _ <- $.props.ge.parent.fold(IO.ioUnit) (link => $.props.modGraph(_ - link))
-          } yield ()
-        case _ => IO.ioUnit
-      }
+    def render(props: Props, state: Boolean) = {
+      def handleMouseDown(e: ReactMouseEvent) =
+        (button(e), props.mode.value) match {
+          case (Mouse.Left, Mode.Selection) =>
+            for {
+              _ <- props.inputState.set(InputState.PreCreateBond(props.r)).toCBO
+              link <- CallbackOption.liftOption(props.ge.parent)
+              _ <- props.modGraph(_ - link)
+            } yield ()
+          case _ => CallbackOption.empty
+        }
 
-    def rotatorMouseDown(e: ReactMouseEvent): IO[Unit] =
-      (button(e), $.props.mode.value, $.props.inputState.value) match {
-        case (Mouse.Left, Mode.Selection, InputState.Default) =>
-          $.props.inputState.set(InputState.Rotate($.props.r, $.props.ge.rotation))
-        case _ => IO.ioUnit
-      }
+      def rotatorMouseDown(e: ReactMouseEvent) =
+        (button(e), props.mode.value, props.inputState.value) match {
+          case (Mouse.Left, Mode.Selection, InputState.Default) =>
+            props.inputState.set(InputState.Rotate(props.r, props.ge.rotation))
+          case _ => Callback.empty
+        }
 
-    def residueMouseDown(e: ReactMouseEvent): IO[Unit] =
-      (button(e), $.props.mode.value, $.props.inputState.value) match {
-        case (Mouse.Left, Mode.Selection, InputState.Default) =>
-          val down = $.props.clientToViewFn((e.clientX, e.clientY))
-          val center = ($.props.ge.x, $.props.ge.y)
-          for {
-            _ <- down.fold(IO.ioUnit)(d => $.props.inputState.set(InputState.Drag(d, (0.0, 0.0), center)))
-            _ <- if ($.props.selected) IO.ioUnit else $.props.setSelection((Set($.props.r), Set.empty))
-          } yield ()
-        case _ => IO.ioUnit
-      }
-  }
+      def residueMouseDown(e: ReactMouseEvent) =
+        (button(e), props.mode.value, props.inputState.value) match {
+          case (Mouse.Left, Mode.Selection, InputState.Default) =>
+            val down = props.clientToViewFn((e.clientX, e.clientY))
+            val center = (props.ge.x, props.ge.y)
+            for {
+              d <- CallbackOption.liftOptionLike(down)
+              _ <- props.inputState.set(InputState.Drag(d, (0.0, 0.0), center))
+              _ <- CallbackOption.unless(props.selected)
+              _ <- props.setSelection((Set(props.r), Set.empty))
+            } yield ()
+          case _ => CallbackOption.empty
+        }
 
-  val C = ReactComponentB[Props]("SVGResidue")
-    .initialState(false)
-    .backend(new Backend(_))
-    .render { $ =>
-      val Props(r, ge, dc, selected, scaleSubstituents, _, _, _, _, _) = $.props
-      
+      val Props(r, ge, dc, selected, scaleSubstituents, _, _, _, _, _) = props
+
       val GraphEntry(_, x, y, rot, _, _) = ge
       val ((x0, y0), w, h) = dc.bounds(ge.residue)
       val (cx, cy) = (x0 + w / 2.0, y0 + h / 2.0)
@@ -78,11 +77,11 @@ object SVGResidue {
       val substituents = for {
         (i, sts) <- ge.residue.subs.toSeq
       } yield {
-        val (x1, y1) = residueLinks(i - 1)
-        <.svg.g(^.svg.transform := s"translate($x1, $y1) scale($scaleSubstituents)")(
-          SVGSubstituentStack.withKey(i)(sts)
-        )
-      }
+          val (x1, y1) = residueLinks(i - 1)
+          <.svg.g(^.svg.transform := s"translate($x1, $y1) scale($scaleSubstituents)")(
+            SVGSubstituentStack.withKey(i)(sts)
+          )
+        }
 
       <.svg.g(^.svg.transform := s"translate($x $y) rotate($rot)")(
         selected ?= <.svg.rect(
@@ -98,27 +97,32 @@ object SVGResidue {
           ^.svg.r := 8,
           ^.svg.fill := "#808080",
           ^.svg.stroke := "#404040",
-          ^.onMouseDown ~~> $.backend.rotatorMouseDown _
+          ^.onMouseDown ==> rotatorMouseDown
         ),
         <.svg.g(^.svg.transform := s"translate(${-cx} ${-cy})")(
           residue(
-            ^.onMouseDown ~~> $.backend.residueMouseDown _
+            ^.onMouseDown ==> residueMouseDown
           ),
           handle(
-            ^.onMouseOver ~~> $.setStateIO(true),
-            ^.onMouseOut ~~> $.setStateIO(false),
-            ^.onMouseDown ~~> $.backend.handleMouseDown _,
-            $.state ?= Seq(^.svg.strokeWidth := "3", ^.svg.stroke := "blue")
+            ^.onMouseOver --> $.setState(true),
+            ^.onMouseOut --> $.setState(false),
+            ^.onMouseDown ==> handleMouseDown,
+            state ?= Seq(^.svg.strokeWidth := "3", ^.svg.stroke := "blue")
           ),
-          $.props.dc.name == "UCT" ?= substituents
+          props.dc.name == "UCT" ?= substituents
         )
       )
     }
+  }
+
+  val C = ReactComponentB[Props]("SVGResidue")
+    .initialState(false)
+    .renderBackend[Backend]
     .configure(Reusability.shouldComponentUpdate[Props, Boolean, Backend, TopNode])
     .build
 
   val T = ReactComponentB[(GraphEntry, DisplayConv, Double)]("SVGTempResidue")
-    .render { props =>
+    .render_P { props =>
       val (ge, dc, scaleSubstituents) = props
       val GraphEntry(res, x, y, rot, _, _) = ge
 
@@ -140,6 +144,5 @@ object SVGResidue {
         )
       )
     }
-    .configure(Reusability.shouldComponentUpdate)
     .build
 }

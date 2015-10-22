@@ -1,6 +1,6 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.ScalazReact._
+import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -79,449 +79,420 @@ object GlycanoCanvas {
   }
 
   class Backend($: BackendScope[ReusableVar[AppState], InputState]) extends OnUnmount {
-    def appState: AppState = $.props.value
-    implicit def graph: RGraph = appState.graph
 
-    def clientToViewIO(x: Double, y: Double)(f: ((Double, Double)) => IO[Unit]): IO[Unit] =
-      clientToView(x, y).fold(IO.ioUnit)(f)
+    def clientToViewCB(x: Double, y: Double)(f: ((Double, Double)) => CallbackOption[Unit]) =
+      CallbackOption.liftOptionLike(clientToView(x, y)).flatMap(f)
     def clientToView(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
-      svg <- Ref[dom.svg.SVG]("canvas")($).map(_.getDOMNode())
-      view <- Ref[dom.svg.G]("view")($).map(_.getDOMNode())
+      svg <- Ref[dom.svg.SVG]("canvas")($)
+      view <- Ref[dom.svg.G]("view")($)
     } yield {
       val p = svg.createSVGPoint(); p.x = x; p.y = y
       val p2 = p.matrixTransform(view.getScreenCTM().inverse())
       (p2.x, p2.y)
     }
 
-    def clientToCanvasIO(x: Double, y: Double)(f: ((Double, Double)) => IO[Unit]): IO[Unit] =
-      clientToCanvas(x, y).map(f).getOrElse(IO.ioUnit)
+    def clientToCanvasCB(x: Double, y: Double)(f: ((Double, Double)) => CallbackOption[Unit]) =
+      CallbackOption.liftOptionLike(clientToCanvas(x, y)).flatMap(f)
     def clientToCanvas(x: Double, y: Double): js.UndefOr[(Double, Double)] = for {
-      svg <- Ref[dom.svg.SVG]("canvas")($).map(_.getDOMNode())
+      svg <- Ref[dom.svg.SVG]("canvas")($)
     } yield {
       val p = svg.createSVGPoint(); p.x = x; p.y = y
       val p2 = p.matrixTransform(svg.getScreenCTM().inverse())
       (p2.x, p2.y)
     }
-    
-    def selectionCentroid: (Double, Double) = {
-      val residuePositions = for {
-        r <- $.props.value.selection._1.toSeq
-        ge <- r.graphEntry
-      } yield (ge.x, ge.y)
-      val annotationPositions = for {
-        a <- $.props.value.selection._2.toSeq
-        annot <- graph.annotations.get(a)
-      } yield (annot.x, annot.y)
-      val positions = residuePositions ++ annotationPositions
-      val (sumX, sumY) = positions.foldLeft((0.0, 0.0))({ case ((x0, y0), (x1, y1)) => (x0 + x1, y0 + y1) })
-      (sumX / positions.size, sumY / positions.size)
-    }
-    
-    def snap(offset: (Double, Double), center: (Double, Double)): (Double, Double) = {
-      val (ox, oy) = offset
-      val (cx, cy) = center
-      val snappedX = math.round((cx + ox) / appState.gridWidth).toDouble * appState.gridWidth - cx
-      val snappedY = math.round((cy + oy) / appState.gridWidth).toDouble * appState.gridWidth - cy
-      (snappedX, snappedY)
-    }
 
-    def rotatePointRadians(point: (Double, Double), radians: Double, around: (Double, Double) = (0, 0)): (Double, Double) = {
-      val sin = math.sin(radians)
-      val cos = math.cos(radians)
+    def setRVarL[From : Reusability, To](rv: CallbackTo[ReusableVar[From]], lens: Lens[From, To]) =
+      ReusableFn((from: From, to: To) => rv.flatMap(_.set(lens.set(to)(from))))
+    def modRVarL[From : Reusability, To](rv: CallbackTo[ReusableVar[From]], lens: Lens[From, To]) =
+      ReusableFn((from: From, f: To => To) => rv.flatMap(_.set(lens.modify(f)(from))))
 
-      val tx = point._1 - around._1
-      val ty = point._2 - around._2
-
-      val nx = tx * cos - ty * sin
-      val ny = tx * sin + ty * cos
-
-      (nx + around._1, ny + around._2)
-    }
-
-    def resetMode(): IO[Unit] = for {
-      _ <- $.props.setL(AppState.mode)(Mode.Selection)
-      _ <- $.setStateIO(InputState.Default)
-    } yield ()
-
-    def mouseClick(e: ReactMouseEvent): IO[Unit] =
-      (button(e), $.props.value.mode, $.state) match {
-        case (Mouse.Left, Mode.PlaceResidue(residue), InputState.AddResidue(x, y, children, parent)) =>
-          $.props.modL(AppStateL.graphL) { g =>
-            g + GraphEntry(residue, x, y, 0, children, parent)
-          }
-        case (Mouse.Left, Mode.PlaceSubstituent(st), InputState.AddSubstituent(_, _, Some(link))) =>
-          $.props.modL(AppStateL.graphL) {
-            RGraph.residues ^|-? index(link.r) ^|-> GraphEntry.residue ^|-> Residue.subs ^|->
-              at(link.position) modify { m => Some(m.orZero :+ st) }
-          }
-        case (Mouse.Left, Mode.PlaceAnnotation, InputState.AddAnnotation(x, y)) =>
-          $.props.modL(AppStateL.graphL) {
-            val entry = AnnotId.next() -> Annot("Annotation", $.props.value.annotationFontSize, x, y)
-            RGraph.annotations modify (_ + entry)
-          }
-        case _ =>
-          IO.ioUnit
-      }
-
-    def mouseDown(e: ReactMouseEvent): IO[Unit] =
-      (button(e), $.props.value.mode, $.state) match {
-        case (Mouse.Right, Mode.PlaceResidue(_), _) => resetMode()
-        case (Mouse.Right, Mode.PlaceSubstituent(_), _) => resetMode()
-        case (Mouse.Right, Mode.PlaceAnnotation, _) => resetMode()
-        case (Mouse.Right, Mode.CreateBond, _) => resetMode()
-        case (Mouse.Right, Mode.Selection, InputState.CreateBond(_, _, _)) =>
-          $.setStateIO(InputState.Default)
-        case (Mouse.Left, Mode.Selection, InputState.CreateBond(from, (x, y), target)) =>
-          for {
-            _ <- target.map(to => $.props.modL(AppStateL.graphL)(RGraph.addBondRemovingOld(from.r)(to).exec)).orZero
-            _ <- $.setStateIO(InputState.Default)
-          } yield ()
-        case (Mouse.Left, Mode.CreateBond, InputState.CreateBondFree(rOpt, to)) =>
-          for {
-            _ <- $.setStateIO(rOpt.fold[InputState](InputState.Default)(r => InputState.CreateBond(Link(r, 1), to, None)))
-            _ <- $.props.setL(AppState.mode)(Mode.Selection)
-          } yield ()
-        case _ => IO.ioUnit
-      }
-
-    def closestLinkDsq(r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
-      val links = for {
-        ge <- r.graphEntry.toIterable
-        residueLinks = appState.displayConv.links(ge.residue)
-        i <- 1 to ge.residue.rt.linkage
-        (lx, ly) = appState.displayConv.linkPos(residueLinks, ge, i)
-        (dx, dy) = (lx - x, ly - y)
-        dsq = dx * dx + dy * dy if dsq < tsq
-      } yield Link(r, i) -> dsq
-      links.nonEmpty option links.minBy(_._2)
-    }
-
-    def closestLinkHandle(x: Double, y: Double): Option[ResidueId] = {
-      val inRange = for {
-        r <- graph.residues.keys.toSeq
-        ge <- r.graphEntry
-        residueLinks = appState.displayConv.links(ge.residue)
-        (lx, ly) = appState.displayConv.linkPos(residueLinks, ge, 1)
-        (dx, dy) = (lx - x, ly - y)
-        dsq = dx * dx + dy * dy if dsq < 100 * 100
-      } yield r -> dsq
-      inRange.sortBy(_._2).headOption.map(_._1)
-    }
-
-    def closestLink(x: Double, y: Double, threshold: Double = 400): Option[Link] = {
-      import scalaz.syntax.std.boolean._
-      val links = for {
-        r <- graph.residues.keys
-        linkDsq <- closestLinkDsq(r, x, y, threshold)
-      } yield linkDsq
-      links.nonEmpty option links.minBy(_._2)._1
-    }
-
-    def closestValidLinkDsq(from: ResidueId, r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
-      val links = for {
-        ge <- r.graphEntry.toIterable
-        residueLinks = appState.displayConv.links(ge.residue)
-        i <- 1 to ge.residue.rt.linkage
-        (lx, ly) = appState.displayConv.linkPos(residueLinks, ge, i)
-        endOutgoing = ge.residue.rt == ResidueType.End && i == 0
-        beginAny = ge.residue.rt == ResidueType.Begin
-        if !endOutgoing && !beginAny
-        (dx, dy) = (lx - x, ly - y)
-        dsq = dx * dx + dy * dy if dsq < tsq
-      } yield Link(r, i) -> dsq
-      links.nonEmpty option links.minBy(_._2)
-    }
-
-    def closestValidLink(from: ResidueId, x: Double, y: Double, threshold: Double = 400): Option[Link] = {
-      import scalaz.syntax.std.boolean._
-      val g = graph
-      val links = for {
-        r <- g.residues.keys
-        if r.id != from.id
-        ge <- g.residues.get(r)
-        linkDsq <- closestValidLinkDsq(from, r, x, y, threshold)
-      } yield linkDsq
-      links.nonEmpty option links.minBy(_._2)._1
-    }
-
-    def linkPosition(link: Link): Option[(Double, Double)] = {
-      for {
-        ge <- graph.residues.get(link.r)
-      } yield {
-        appState.displayConv.linkPos(appState.displayConv.links(ge.residue), ge, link.position)
-      }
-    }
-
-    def mouseMove(e: ReactMouseEvent): IO[Unit] =
-      if (!appState.limitUpdateRate || updateReady()) ($.props.value.mode, $.state) match {
-        case (Mode.Selection, BoxSelect(down, _)) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case pos =>
-              $.setStateIO(InputState.BoxSelect(down, pos))
-          }
-        case (Mode.PlaceResidue(residue), _) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case viewPos =>
-              val (x, y) = if (appState.snapToGrid) snap(viewPos, (0, 0)) else viewPos
-              val ((xm, ym), w, h) = appState.displayConv.bounds(residue)
-              val dsqThreshold: Double = 500 * 500
-              val facing: (Double, Double) = (1, 0)
-              val residueLinks = appState.displayConv.links(residue)
-              val linkPositions = for (((ox, oy), i) <- residueLinks.zipWithIndex) yield (x + ox - (xm + w / 2.0), y + oy - (ym + h / 2.0))
-              val (hx, hy) = linkPositions.head
-
-              val lefts = for {
-                (id, ge) <- graph.residues
-                if ge.parent.isEmpty
-                linkPos @ (lx, ly) <- linkPosition(Link(id, 1))
-                if facing._1 * (lx - hx) + facing._2 * (ly - hy) < 0
-                if ge.residue.rt != ResidueType.End
-
-                (dx, dy) = (lx - x, ly - y)
-                dsq = dx * dx + dy * dy
-                //todo: limit using bounds or closest link
-                if dsq < dsqThreshold
-              } yield (id, linkPos, dsq)
-
-              def linkMappings(src: List[(ResidueId, (Double, Double), Double)], dst: List[((Double, Double), Int)]): Map[Int, ResidueId] = {
-                src match {
-                  case (id, (x1, y1), _) :: rest =>
-                    val mapping = for {
-                      (_, i) <- dst.nonEmpty option dst.minBy {
-                        case ((x2, y2), _) =>
-                          val (dx, dy) = (x2 - x1, y2 - y1)
-                          dx * dx + dy * dy
-                      }
-                    } yield (i + 1) -> id
-                    linkMappings(rest, dst.filterNot(m => mapping.exists(_._1 - 1 == m._2))) ++ mapping
-                  case _ => Map.empty
-                }
-              }
-              val children = linkMappings(lefts.toList.sortBy(_._3), linkPositions.zipWithIndex.toList.tail)
-
-              val parents = for {
-                (id, ge) <- graph.residues
-                if linkPosition(Link(id, 1)).exists {
-                  case (thx, thy) =>
-                    facing._1 * (thx - hx) + facing._2 * (thy - hy) >= 0
-                }
-                i <- 2 to ge.residue.rt.linkage
-                if !ge.children.contains(i)
-                link = Link(id, i)
-                (tx, ty) <- linkPosition(link)
-                (dx, dy) = (tx - hx, ty - hy)
-                dsq = dx * dx + dy * dy
-                if dsq < dsqThreshold
-              } yield (link, dsq)
-              val parent = (residue.rt != ResidueType.End && parents.nonEmpty option parents.minBy(_._2)).map(_._1)
-
-              for {
-                _ <- $.setStateIO(InputState.AddResidue(x, y, children, parent))
-              } yield ()
-          }
-        case (Mode.PlaceSubstituent(_), _) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case (x, y) =>
-              val link = closestLink(x, y)
-              $.setStateIO(InputState.AddSubstituent(x, y, link))
-          }
-        case (Mode.PlaceAnnotation, _) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case viewPos =>
-              val (x, y) = if (appState.snapToGrid) snap(viewPos, (0, 0)) else viewPos
-              $.setStateIO(InputState.AddAnnotation(x, y))
-          }
-        case (Mode.Selection, InputState.Drag(down @ (x0, y0), _, center)) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case (x, y) =>
-              val offset = (x - x0, y - y0)
-              val snappedOffset = if (appState.snapToGrid) snap(offset, center) else offset
-              $.setStateIO(InputState.Drag(down, snappedOffset, center))
-          }
-        case (_, InputState.DragView(down @ (x0, y0), (ox, oy))) =>
-          if (true/*e.shiftKey*/) clientToCanvasIO(e.clientX, e.clientY) {
-            case (x, y) =>
-              val offset = (-(x - x0) / $.props.value.view.scale, -(y - y0) / $.props.value.view.scale)
-              $.setStateIO(InputState.DragView(down, offset))
-          } else {
-            for {
-              _ <- $.setStateIO(InputState.Default)
-              _ <- $.props.modL(AppState.view)({ View.x modify (_ + ox) } andThen { View.y modify (_ + oy) })
-            } yield ()
-          }
-        case (Mode.Selection, InputState.CreateBond(from, last, _)) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case (x, y) =>
-              val target = closestValidLink(from.r, x, y)
-              $.setStateIO(InputState.CreateBond(from, (x, y), target))
-          }
-        case (Mode.Selection, InputState.Rotate(r, _)) =>
-          (for {
-            x1 <- r.x
-            y1 <- r.y
-            (x2, y2) <- clientToView(e.clientX, e.clientY).toOption
-          } yield {
-            val rot = math.toDegrees(js.Math.atan2(y2 - y1, x2 - x1)) + 90
-            val snapped = if (appState.snapRotation) {
-              val deg = appState.snapRotationDegrees
-              val rounded = math.round(rot / deg).toDouble * deg
-              rounded
-            } else rot
-            $.setStateIO(InputState.Rotate(r, snapped))
-          }).getOrElse(IO.ioUnit)
-        case (Mode.CreateBond, _) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case to @ (x, y) =>
-              val closest = closestLinkHandle(x, y)
-              $.setStateIO(InputState.CreateBondFree(closest, to))
-          }
-        case _ => IO.ioUnit
-      } else IO.ioUnit
-
-    def inBounds(x: Double, y: Double) =
-      0 <= x && x < $.props.value.view.width &&
-        0 <= y && y < $.props.value.view.height
-
-    def mouseOut(e: ReactMouseEvent): IO[Unit] =
-      $.props.value.mode match {
-        case Mode.PlaceResidue(_) | Mode.PlaceSubstituent(_) | Mode.PlaceAnnotation =>
-          clientToCanvasIO(e.clientX, e.clientY) {
-            case (x, y) if !inBounds(x, y) => $.setStateIO(InputState.Out)
-            case _ => IO.ioUnit
-          }
-        case _ => IO.ioUnit
-      }
-
-    def boxSelectDown(e: ReactMouseEvent): IO[Unit] = {
-      if (e.shiftKey) {
-        $.state match {
-          case InputState.DragView(_, _) => IO.ioUnit
-          case _ =>
-            clientToCanvasIO(e.clientX, e.clientY) { down =>
-              $.setStateIO(InputState.DragView(down, (0, 0)))
-            }
-        }
-      } else {
-        (button(e), $.props.value.mode) match {
-          case (Mouse.Left, Selection) =>
-            clientToViewIO(e.clientX, e.clientY) { down =>
-              $.setStateIO(InputState.BoxSelect(down, down))
-            }
-          case _ => IO.ioUnit
-        }
-      }
-    }
-
-    def mouseUp(e: ReactMouseEvent): IO[Unit] =
-      ($.props.value.mode, $.state) match {
-        case (Selection, BoxSelect((x1, y1), (x2, y2))) =>
-          val (xMin, xMax) = if (x1 < x2) (x1, x2) else (x2, x1)
-          val (yMin, yMax) = if (y1 < y2) (y1, y2) else (y2, y1)
-          def inSelection(x: Double, y: Double) = xMin <= x && x < xMax && yMin <= y && y < yMax
-          val residues = graph.residues.filter(e => inSelection(e._2.x, e._2.y)).keySet
-          val annotations = graph.annotations.filter(e => inSelection(e._2.x, e._2.y)).keySet
-          for {
-            _ <- $.setStateIO(InputState.Default)
-            _ <- $.props.setL(AppState.selection)((residues, annotations))
-          } yield ()
-        case (Mode.Selection, InputState.Drag(_, (dx, dy), _)) =>
-          for {
-            _ <- if (dx != 0 || dy != 0) {
-              val (rs, as) = $.props.value.selection
-              $.props.modL(AppStateL.graphL) { graph =>
-                val g2 = graph.residues.filterKeys(rs.contains).foldLeft(graph) {
-                  case (g, (r, ge)) =>
-                    g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
-                }
-                val g3 = g2.annotations.filterKeys(as.contains).foldLeft(g2) {
-                  case (g, (id, annot)) =>
-                    (RGraph.annotations ^|-? index(id) modify (a => a.copy(x = a.x + dx, y = a.y + dy)))(g)
-                }
-                g3
-              }
-            } else IO.ioUnit
-            _ <- $.setStateIO(InputState.Default)
-          } yield ()
-        case (_, InputState.DragView(_, (ox, oy))) =>
-          for {
-            _ <- $.setStateIO(InputState.Default)
-            _ <- $.props.modL(AppState.view)({ View.x modify (_ + ox) } andThen { View.y modify (_ + oy) })
-          } yield ()
-        case (Mode.Selection, InputState.PreCreateBond(r)) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case to =>
-              $.setStateIO(InputState.CreateBond(Link(r, 1), to, None))
-          }
-        case (Mode.Selection, InputState.Rotate(r, rot)) =>
-          for {
-            _ <- $.setStateIO(InputState.Default)
-            _ <- $.props.modL(AppStateL.graphL)(RGraph.residues ^|-? index(r) ^|-> GraphEntry.rotation set rot)
-          } yield ()
-        case _ => IO.ioUnit
-      }
-
-    def annotationMouseDown(id: AnnotId)(e: ReactMouseEvent): IO[Unit] =
-      (button(e), $.props.value.mode, $.state) match {
-        case (Mouse.Left, Mode.Selection, InputState.Default) =>
-          clientToViewIO(e.clientX, e.clientY) {
-            case down =>
-              val annot = graph.annotations(id)
-              val center = (annot.x, annot.y)
-              $.setState(InputState.Drag(down, (0.0, 0.0), center))
-              if (!$.props.value.selection._2.contains(id))
-                $.props.setL(AppState.selection)((Set.empty, Set(id)))
-              else IO.ioUnit
-          }
-        case _ => IO.ioUnit
-      }
-
-    def setRVarL[From : Reusability, To](rv: ReusableVar[From], lens: Lens[From, To]) =
-      ReusableFn((from: From, to: To) => rv.set(lens.set(to)(from)))
-    def modRVarL[From : Reusability, To](rv: ReusableVar[From], lens: Lens[From, To]) =
-      ReusableFn((from: From, f: To => To) => rv.set(lens.modify(f)(from)))
-
-    val setInputStateFn = ReusableFn($).setStateIO
+    val setInputStateFn = ReusableFn($).setState
     val setModeFn = setRVarL($.props, AppState.mode)
     val setGraphFn = setRVarL($.props, AppStateL.graphL)
     val setSelectionFn = setRVarL($.props, AppState.selection)
     val modGraphFn = modRVarL($.props, AppStateL.graphL)
     val clientToViewFn = ReusableFn((clientToView _).tupled)
-  }
 
-  sealed trait InputState
-  object InputState {
-    case object Default extends InputState
-    case class AddResidue(x: Double, y: Double, children: Map[Int, ResidueId], parent: Option[Link]) extends InputState
-    case class AddSubstituent(x: Double, y: Double, target: Option[Link]) extends InputState
-    case class BoxSelect(from: (Double, Double), to: (Double, Double)) extends InputState
-    case class Drag(down: (Double, Double), offset: (Double, Double), center: (Double, Double)) extends InputState
-    case class DragView(down: (Double, Double), offset: (Double, Double)) extends InputState
-    case class PreCreateBond(r: ResidueId) extends InputState
-    case class CreateBond(from: Link, to: (Double, Double), target: Option[Link]) extends InputState
-    case class CreateBondFree(r: Option[ResidueId], to: (Double, Double)) extends InputState
-    case object PostCreateBond extends InputState
-    case class Rotate(r: ResidueId, rotation: Double) extends InputState
-    case class AddAnnotation(x: Double, y: Double) extends InputState
-    case object Out extends InputState
+    val resetMode = for {
+      props <- $.props
+      _ <- props.setL(AppState.mode)(Mode.Selection)
+      _ <- $.setState(InputState.Default)
+    } yield ()
 
-    implicit val reusability: Reusability[InputState] = Reusability.by_==
-  }
-
-  def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
-
-  def apply(props: ReusableVar[AppState], children: ReactNode*) = component.apply(props, children)
-  val component = ReactComponentB[ReusableVar[AppState]]("GlycanoCanvas")
-    .initialState[InputState](InputState.Default)
-    .backend(new Backend(_))
-    .render { $ =>
-      val appState = $.props.value
+    def render(props: ReusableVar[AppState], state: InputState) = {
+      val appState = props.value
       implicit val graph: RGraph = appState.graph
 
-      val rvInputState = $.backend.setInputStateFn.asVar($.state)
-      val rvMode = $.backend.setModeFn($.props.value).asVar(appState.mode)
-      val rvGraph = $.backend.setGraphFn($.props.value).asVar(appState.graph)
+      def selectionCentroid: (Double, Double) = {
+        val residuePositions = for {
+          r <- props.value.selection._1.toSeq
+          ge <- r.graphEntry
+        } yield (ge.x, ge.y)
+        val annotationPositions = for {
+          a <- props.value.selection._2.toSeq
+          annot <- graph.annotations.get(a)
+        } yield (annot.x, annot.y)
+        val positions = residuePositions ++ annotationPositions
+        val (sumX, sumY) = positions.foldLeft((0.0, 0.0))({ case ((x0, y0), (x1, y1)) => (x0 + x1, y0 + y1) })
+        (sumX / positions.size, sumY / positions.size)
+      }
 
-      val (voX, voY) = $.state match {
+      def snap(offset: (Double, Double), center: (Double, Double)): (Double, Double) = {
+        val (ox, oy) = offset
+        val (cx, cy) = center
+        val snappedX = math.round((cx + ox) / appState.gridWidth).toDouble * appState.gridWidth - cx
+        val snappedY = math.round((cy + oy) / appState.gridWidth).toDouble * appState.gridWidth - cy
+        (snappedX, snappedY)
+      }
+
+      def rotatePointRadians(point: (Double, Double), radians: Double, around: (Double, Double) = (0, 0)): (Double, Double) = {
+        val sin = math.sin(radians)
+        val cos = math.cos(radians)
+
+        val tx = point._1 - around._1
+        val ty = point._2 - around._2
+
+        val nx = tx * cos - ty * sin
+        val ny = tx * sin + ty * cos
+
+        (nx + around._1, ny + around._2)
+      }
+
+      def mouseClick(e: ReactMouseEvent): Callback =
+        (button(e), props.value.mode, state) match {
+          case (Mouse.Left, Mode.PlaceResidue(residue), InputState.AddResidue(x, y, children, parent)) =>
+            props.modL(AppStateL.graphL) { g =>
+              g + GraphEntry(residue, x, y, 0, children, parent)
+            }
+          case (Mouse.Left, Mode.PlaceSubstituent(st), InputState.AddSubstituent(_, _, Some(link))) =>
+            props.modL(AppStateL.graphL) {
+              RGraph.residues ^|-? index(link.r) ^|-> GraphEntry.residue ^|-> Residue.subs ^|->
+                at(link.position) modify { m => Some(m.orZero :+ st) }
+            }
+          case (Mouse.Left, Mode.PlaceAnnotation, InputState.AddAnnotation(x, y)) =>
+            props.modL(AppStateL.graphL) {
+              val entry = AnnotId.next() -> Annot("Annotation", props.value.annotationFontSize, x, y)
+              RGraph.annotations modify (_ + entry)
+            }
+          case _ =>
+            Callback.empty
+        }
+
+      def mouseDown(e: ReactMouseEvent): Callback =
+        (button(e), props.value.mode, state) match {
+          case (Mouse.Right, Mode.PlaceResidue(_), _) => resetMode
+          case (Mouse.Right, Mode.PlaceSubstituent(_), _) => resetMode
+          case (Mouse.Right, Mode.PlaceAnnotation, _) => resetMode
+          case (Mouse.Right, Mode.CreateBond, _) => resetMode
+          case (Mouse.Right, Mode.Selection, InputState.CreateBond(_, _, _)) =>
+            $.setState(InputState.Default)
+          case (Mouse.Left, Mode.Selection, InputState.CreateBond(from, (x, y), target)) =>
+            for {
+              to <- CallbackOption.liftOption(target)
+              _ <- props.modL(AppStateL.graphL)(RGraph.addBondRemovingOld(from.r)(to).exec)
+              _ <- $.setState(InputState.Default)
+            } yield ()
+          case (Mouse.Left, Mode.CreateBond, InputState.CreateBondFree(rOpt, to)) =>
+            for {
+              _ <- $.setState(rOpt.fold[InputState](InputState.Default)(r => InputState.CreateBond(Link(r, 1), to, None)))
+              _ <- props.setL(AppState.mode)(Mode.Selection)
+            } yield ()
+          case _ => Callback.empty
+        }
+
+      def closestLinkDsq(r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
+        val links = for {
+          ge <- r.graphEntry.toIterable
+          residueLinks = appState.displayConv.links(ge.residue)
+          i <- 1 to ge.residue.rt.linkage
+          (lx, ly) = appState.displayConv.linkPos(residueLinks, ge, i)
+          (dx, dy) = (lx - x, ly - y)
+          dsq = dx * dx + dy * dy if dsq < tsq
+        } yield Link(r, i) -> dsq
+        links.nonEmpty option links.minBy(_._2)
+      }
+
+      def closestLinkHandle(x: Double, y: Double): Option[ResidueId] = {
+        val inRange = for {
+          r <- graph.residues.keys.toSeq
+          ge <- r.graphEntry
+          residueLinks = appState.displayConv.links(ge.residue)
+          (lx, ly) = appState.displayConv.linkPos(residueLinks, ge, 1)
+          (dx, dy) = (lx - x, ly - y)
+          dsq = dx * dx + dy * dy if dsq < 100 * 100
+        } yield r -> dsq
+        inRange.sortBy(_._2).headOption.map(_._1)
+      }
+
+      def closestLink(x: Double, y: Double, threshold: Double = 400): Option[Link] = {
+        import scalaz.syntax.std.boolean._
+        val links = for {
+          r <- graph.residues.keys
+          linkDsq <- closestLinkDsq(r, x, y, threshold)
+        } yield linkDsq
+        links.nonEmpty option links.minBy(_._2)._1
+      }
+
+      def closestValidLinkDsq(from: ResidueId, r: ResidueId, x: Double, y: Double, tsq: Double = Double.MaxValue): Option[(Link, Double)] = {
+        val links = for {
+          ge <- r.graphEntry.toIterable
+          residueLinks = appState.displayConv.links(ge.residue)
+          i <- 1 to ge.residue.rt.linkage
+          (lx, ly) = appState.displayConv.linkPos(residueLinks, ge, i)
+          endOutgoing = ge.residue.rt == ResidueType.End && i == 0
+          beginAny = ge.residue.rt == ResidueType.Begin
+          if !endOutgoing && !beginAny
+          (dx, dy) = (lx - x, ly - y)
+          dsq = dx * dx + dy * dy if dsq < tsq
+        } yield Link(r, i) -> dsq
+        links.nonEmpty option links.minBy(_._2)
+      }
+
+      def closestValidLink(from: ResidueId, x: Double, y: Double, threshold: Double = 400): Option[Link] = {
+        import scalaz.syntax.std.boolean._
+        val links = for {
+          r <- graph.residues.keys
+          if r.id != from.id
+          ge <- graph.residues.get(r)
+          linkDsq <- closestValidLinkDsq(from, r, x, y, threshold)
+        } yield linkDsq
+        links.nonEmpty option links.minBy(_._2)._1
+      }
+
+      def linkPosition(link: Link): Option[(Double, Double)] = {
+        for {
+          ge <- graph.residues.get(link.r)
+        } yield {
+          appState.displayConv.linkPos(appState.displayConv.links(ge.residue), ge, link.position)
+        }
+      }
+
+      def mouseMove(e: ReactMouseEvent): Callback =
+        if (!appState.limitUpdateRate || updateReady()) (props.value.mode, state) match {
+          case (Mode.Selection, BoxSelect(down, _)) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case pos =>
+                $.setState(InputState.BoxSelect(down, pos))
+            }
+          case (Mode.PlaceResidue(residue), _) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case viewPos =>
+                val (x, y) = if (appState.snapToGrid) snap(viewPos, (0, 0)) else viewPos
+                val ((xm, ym), w, h) = appState.displayConv.bounds(residue)
+                val dsqThreshold: Double = 500 * 500
+                val facing: (Double, Double) = (1, 0)
+                val residueLinks = appState.displayConv.links(residue)
+                val linkPositions = for (((ox, oy), i) <- residueLinks.zipWithIndex) yield (x + ox - (xm + w / 2.0), y + oy - (ym + h / 2.0))
+                val (hx, hy) = linkPositions.head
+
+                val lefts = for {
+                  (id, ge) <- graph.residues
+                  if ge.parent.isEmpty
+                  linkPos @ (lx, ly) <- linkPosition(Link(id, 1))
+                  if facing._1 * (lx - hx) + facing._2 * (ly - hy) < 0
+                  if ge.residue.rt != ResidueType.End
+
+                  (dx, dy) = (lx - x, ly - y)
+                  dsq = dx * dx + dy * dy
+                  //todo: limit using bounds or closest link
+                  if dsq < dsqThreshold
+                } yield (id, linkPos, dsq)
+
+                def linkMappings(src: List[(ResidueId, (Double, Double), Double)], dst: List[((Double, Double), Int)]): Map[Int, ResidueId] = {
+                  src match {
+                    case (id, (x1, y1), _) :: rest =>
+                      val mapping = for {
+                        (_, i) <- dst.nonEmpty option dst.minBy {
+                          case ((x2, y2), _) =>
+                            val (dx, dy) = (x2 - x1, y2 - y1)
+                            dx * dx + dy * dy
+                        }
+                      } yield (i + 1) -> id
+                      linkMappings(rest, dst.filterNot(m => mapping.exists(_._1 - 1 == m._2))) ++ mapping
+                    case _ => Map.empty
+                  }
+                }
+                val children = linkMappings(lefts.toList.sortBy(_._3), linkPositions.zipWithIndex.toList.tail)
+
+                val parents = for {
+                  (id, ge) <- graph.residues
+                  if linkPosition(Link(id, 1)).exists {
+                    case (thx, thy) =>
+                      facing._1 * (thx - hx) + facing._2 * (thy - hy) >= 0
+                  }
+                  i <- 2 to ge.residue.rt.linkage
+                  if !ge.children.contains(i)
+                  link = Link(id, i)
+                  (tx, ty) <- linkPosition(link)
+                  (dx, dy) = (tx - hx, ty - hy)
+                  dsq = dx * dx + dy * dy
+                  if dsq < dsqThreshold
+                } yield (link, dsq)
+                val parent = (residue.rt != ResidueType.End && parents.nonEmpty option parents.minBy(_._2)).map(_._1)
+
+                $.setState(InputState.AddResidue(x, y, children, parent))
+            }
+          case (Mode.PlaceSubstituent(_), _) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case (x, y) =>
+                val link = closestLink(x, y)
+                $.setState(InputState.AddSubstituent(x, y, link))
+            }
+          case (Mode.PlaceAnnotation, _) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case viewPos =>
+                val (x, y) = if (appState.snapToGrid) snap(viewPos, (0, 0)) else viewPos
+                $.setState(InputState.AddAnnotation(x, y))
+            }
+          case (Mode.Selection, InputState.Drag(down @ (x0, y0), _, center)) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case (x, y) =>
+                val offset = (x - x0, y - y0)
+                val snappedOffset = if (appState.snapToGrid) snap(offset, center) else offset
+                $.setState(InputState.Drag(down, snappedOffset, center))
+            }
+          case (_, InputState.DragView(down @ (x0, y0), (ox, oy))) =>
+            if (true/*e.shiftKey*/) clientToCanvasCB(e.clientX, e.clientY) {
+              case (x, y) =>
+                val offset = (-(x - x0) / props.value.view.scale, -(y - y0) / props.value.view.scale)
+                $.setState(InputState.DragView(down, offset))
+            } else {
+              for {
+                _ <- $.setState(InputState.Default)
+                _ <- props.modL(AppState.view)({ View.x modify (_ + ox) } andThen { View.y modify (_ + oy) })
+              } yield ()
+            }
+          case (Mode.Selection, InputState.CreateBond(from, last, _)) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case (x, y) =>
+                val target = closestValidLink(from.r, x, y)
+                $.setState(InputState.CreateBond(from, (x, y), target))
+            }
+          case (Mode.Selection, InputState.Rotate(r, _)) =>
+            for {
+              ge: GraphEntry <- CallbackOption.liftOption(r.graphEntry)
+              _ <- clientToViewCB(e.clientX, e.clientY) {
+                case (x, y) =>
+                  val rot = math.toDegrees(js.Math.atan2(y - ge.y, x - ge.x)) + 90
+                  val snapped = if (appState.snapRotation) {
+                    val deg = appState.snapRotationDegrees
+                    val rounded = math.round(rot / deg).toDouble * deg
+                    rounded
+                  } else rot
+                  $.setState(InputState.Rotate(r, snapped))
+              }
+            } yield ()
+          case (Mode.CreateBond, _) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case to @ (x, y) =>
+                val closest = closestLinkHandle(x, y)
+                $.setState(InputState.CreateBondFree(closest, to))
+            }
+          case _ => Callback.empty
+        } else Callback.empty
+
+      def inBounds(x: Double, y: Double) =
+        0 <= x && x < props.value.view.width &&
+          0 <= y && y < props.value.view.height
+
+      def mouseOut(e: ReactMouseEvent): Callback =
+        props.value.mode match {
+          case Mode.PlaceResidue(_) | Mode.PlaceSubstituent(_) | Mode.PlaceAnnotation =>
+            clientToCanvasCB(e.clientX, e.clientY) {
+              case (x, y) if !inBounds(x, y) => $.setState(InputState.Out)
+              case _ => Callback.empty
+            }
+          case _ => Callback.empty
+        }
+
+      def boxSelectDown(e: ReactMouseEvent): Callback = {
+        if (e.shiftKey) {
+          state match {
+            case InputState.DragView(_, _) => Callback.empty
+            case _ =>
+              clientToCanvasCB(e.clientX, e.clientY) { down =>
+                $.setState(InputState.DragView(down, (0, 0)))
+              }
+          }
+        } else {
+          (button(e), props.value.mode) match {
+            case (Mouse.Left, Selection) =>
+              clientToViewCB(e.clientX, e.clientY) { down =>
+                $.setState(InputState.BoxSelect(down, down))
+              }
+            case _ => Callback.empty
+          }
+        }
+      }
+
+      def mouseUp(e: ReactMouseEvent): Callback =
+        (props.value.mode, state) match {
+          case (Selection, BoxSelect((x1, y1), (x2, y2))) =>
+            val (xMin, xMax) = if (x1 < x2) (x1, x2) else (x2, x1)
+            val (yMin, yMax) = if (y1 < y2) (y1, y2) else (y2, y1)
+            def inSelection(x: Double, y: Double) = xMin <= x && x < xMax && yMin <= y && y < yMax
+            val residues = graph.residues.filter(e => inSelection(e._2.x, e._2.y)).keySet
+            val annotations = graph.annotations.filter(e => inSelection(e._2.x, e._2.y)).keySet
+            for {
+              _ <- $.setState(InputState.Default)
+              _ <- props.setL(AppState.selection)((residues, annotations))
+            } yield ()
+          case (Mode.Selection, InputState.Drag(_, (dx, dy), _)) =>
+            for {
+              _ <- if (dx != 0 || dy != 0) {
+                val (rs, as) = props.value.selection
+                props.modL(AppStateL.graphL) { graph =>
+                  val g2 = graph.residues.filterKeys(rs.contains).foldLeft(graph) {
+                    case (g, (r, ge)) =>
+                      g.updated(r, Placement(ge.x + dx, ge.y + dy, ge.rotation))
+                  }
+                  val g3 = g2.annotations.filterKeys(as.contains).foldLeft(g2) {
+                    case (g, (id, annot)) =>
+                      (RGraph.annotations ^|-? index(id) modify (a => a.copy(x = a.x + dx, y = a.y + dy)))(g)
+                  }
+                  g3
+                }
+              } else Callback.empty
+              _ <- $.setState(InputState.Default)
+            } yield ()
+          case (_, InputState.DragView(_, (ox, oy))) =>
+            for {
+              _ <- $.setState(InputState.Default)
+              _ <- props.modL(AppState.view)({ View.x modify (_ + ox) } andThen { View.y modify (_ + oy) })
+            } yield ()
+          case (Mode.Selection, InputState.PreCreateBond(r)) =>
+            clientToViewCB(e.clientX, e.clientY) {
+              case to =>
+                $.setState(InputState.CreateBond(Link(r, 1), to, None))
+            }
+          case (Mode.Selection, InputState.Rotate(r, rot)) =>
+            for {
+              _ <- $.setState(InputState.Default)
+              _ <- props.modL(AppStateL.graphL)(RGraph.residues ^|-? index(r) ^|-> GraphEntry.rotation set rot)
+            } yield ()
+          case _ => Callback.empty
+        }
+
+      def annotationMouseDown(id: AnnotId)(e: ReactMouseEvent): Callback = (button(e), props.value.mode, state) match {
+        case (Mouse.Left, Mode.Selection, InputState.Default) =>
+          for {
+            _ <- clientToViewCB(e.clientX, e.clientY) {
+              case down =>
+                val annot = graph.annotations(id)
+                val center = (annot.x, annot.y)
+                $.setState(InputState.Drag(down, (0.0, 0.0), center))
+            }
+            _ <- CallbackOption.require(!props.value.selection._2.contains(id))
+            _ <- props.setL(AppState.selection)((Set.empty, Set(id)))
+          } yield ()
+        case _ => Callback.empty
+      }
+
+      val rvInputState = setInputStateFn.asVar(state)
+      val rvMode = setModeFn(appState).asVar(appState.mode)
+      val rvGraph = setGraphFn(appState).asVar(appState.graph)
+
+      val (voX, voY) = state match {
         case InputState.DragView(down, offset) => offset
         case _ => (0.0, 0.0)
       }
@@ -535,13 +506,13 @@ object GlycanoCanvas {
         r -> appState.displayConv.links(ge.residue)
       }
 
-      val (drag, dx, dy) = $.state match {
+      val (drag, dx, dy) = state match {
         case InputState.Drag(_, (ox, oy), _) => (true, ox, oy)
         case _ => (false, 0.0, 0.0)
       }
 
       val entriesOffset = for ((r, ge) <- graph.residues) yield {
-        val ge2 = (appState.mode, $.state) match {
+        val ge2 = (appState.mode, state) match {
           case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(_, _, Some(Link(tr, tp)))) if tr == r =>
             ge &|-> GraphEntry.residue ^|-> Residue.subs ^|-> at(tp) modify { m => Some(m.orZero :+ st) }
           case (Mode.Selection, InputState.Rotate(`r`, rot)) =>
@@ -558,17 +529,17 @@ object GlycanoCanvas {
         (r, ge) <- entriesOffset.toSeq
         toLink @ Link(toRes, i) <- ge.parent
       } yield {
-        val from = appState.displayConv.linkPos(allLinks(r), ge, 1)
-        val to = appState.displayConv.linkPos(allLinks(toRes), entriesOffset(toRes), i)
-        val anomer = ge.residue.rt match {
-          case ResidueType.Begin => rootAnomer(r)
-          case _ => ge.residue.ano
+          val from = appState.displayConv.linkPos(allLinks(r), ge, 1)
+          val to = appState.displayConv.linkPos(allLinks(toRes), entriesOffset(toRes), i)
+          val anomer = ge.residue.rt match {
+            case ResidueType.Begin => rootAnomer(r)
+            case _ => ge.residue.ano
+          }
+          val highlight = appState.highlightBond.contains(r)
+          SVGBond.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, appState.bondLabels, highlight))
         }
-        val highlight = appState.highlightBond.contains(r)
-        SVGBond.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, appState.bondLabels, highlight))
-      }
 
-      val tempBonds = (appState.mode, $.state) match {
+      val tempBonds = (appState.mode, state) match {
         case (Mode.Selection, InputState.CreateBond(fromLink, mouse, target)) =>
           for (ge <- fromLink.r.graphEntry.toSeq) yield {
             val from = appState.displayConv.linkPos(allLinks(fromLink.r), ge, fromLink.position)
@@ -585,21 +556,21 @@ object GlycanoCanvas {
             (i, id) <- children.toSeq
             ge <- graph.residues.get(id)
           } yield {
-            val fromPos = appState.displayConv.linkPos(allLinks(id), ge, 1)
-            val (ox, oy) = appState.displayConv.links(residue)(i - 1)
-            val toPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
-            SVGBond.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
-          }
+              val fromPos = appState.displayConv.linkPos(allLinks(id), ge, 1)
+              val (ox, oy) = appState.displayConv.links(residue)(i - 1)
+              val toPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
+              SVGBond.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
+            }
 
           val to = for {
             Link(id, i) <- parent.toSeq
             ge <- graph.residues.get(id)
           } yield {
-            val (ox, oy) = appState.displayConv.links(residue).head
-            val fromPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
-            val toPos = appState.displayConv.linkPos(allLinks(id), ge, i)
-            SVGBond.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
-          }
+              val (ox, oy) = appState.displayConv.links(residue).head
+              val fromPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
+              val toPos = appState.displayConv.linkPos(allLinks(id), ge, i)
+              SVGBond.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, appState.bondLabels))
+            }
 
           from ++ to
         case _ =>
@@ -611,11 +582,11 @@ object GlycanoCanvas {
         SVGResidue.C.withKey("residue" + r.id)(SVGResidue.Props(
           r, ge, appState.displayConv, selected, appState.scaleSubstituents,
           rvInputState, rvMode,
-          $.backend.modGraphFn($.props.value), $.backend.setSelectionFn($.props.value), $.backend.clientToViewFn
+          modGraphFn(props.value), setSelectionFn(props.value), clientToViewFn
         ))
       }
 
-      val tempSubstituent = (appState.mode, $.state) match {
+      val tempSubstituent = (appState.mode, state) match {
         case (Mode.PlaceSubstituent(st), InputState.AddSubstituent(x, y, None))=>
           val (shape, (w, h)) = SubstituentShape(st)
           val scale = appState.scaleSubstituents
@@ -624,7 +595,7 @@ object GlycanoCanvas {
         case _ => None
       }
 
-      val selectionBox = $.state match {
+      val selectionBox = state match {
         case InputState.BoxSelect((x1, y1), (x2, y2)) =>
           Some(<.svg.rect(
             ^.svg.x := math.min(x1, x2),
@@ -637,7 +608,7 @@ object GlycanoCanvas {
         case _ => None
       }
 
-      val tempResidue = (appState.mode, $.state) match {
+      val tempResidue = (appState.mode, state) match {
         case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y, _, _)) =>
           val ge = GraphEntry(residue, x, y, 0)
           val props = (ge, appState.displayConv, appState.scaleSubstituents)
@@ -648,10 +619,10 @@ object GlycanoCanvas {
       val annotations = for ((id, annot) <- graph.annotations.toSeq) yield {
         val selected = appState.selection._2.contains(id)
         val annot2 = if (drag && selected) annot.copy(x = annot.x + dx, y = annot.y + dy) else annot
-        Annotation.withKey(id.id)(($.backend.annotationMouseDown(id), id, annot2, selected))
+        Annotation.withKey(id.id)((annotationMouseDown(id), id, annot2, selected))
       }
 
-      val tempAnnotation = (appState.mode, $.state) match {
+      val tempAnnotation = (appState.mode, state) match {
         case (Mode.PlaceAnnotation, InputState.AddAnnotation(x, y)) =>
           Some(<.svg.text("Annotation")(
             ^.svg.fontSize := appState.annotationFontSize,
@@ -663,8 +634,8 @@ object GlycanoCanvas {
       }
 
       val gw = appState.gridWidth * viewScale
-      
-      val gridSnapIndicator: Seq[TagMod] = $.state match {
+
+      val gridSnapIndicator: Seq[TagMod] = state match {
         case InputState.Drag((downX, downY), (ox, oy), (cx, cy)) if appState.snapToGrid =>
           val tx = cx + ox
           val ty = cy + oy
@@ -687,7 +658,7 @@ object GlycanoCanvas {
           Seq.empty
       }
 
-      val createBondFreeIndicator = $.state match {
+      val createBondFreeIndicator = state match {
         case InputState.CreateBondFree(Some(r), _) =>
           for {
             ge <- r.graphEntry
@@ -705,11 +676,11 @@ object GlycanoCanvas {
         ^.svg.height := viewHeight,
         ^.ref := "canvas",
         ^.id := "canvas",
-        ^.onMouseMove ~~> $.backend.mouseMove _,
-        ^.onClick ~~> $.backend.mouseClick _,
-        ^.onMouseOut ~~> $.backend.mouseOut _,
-        ^.onMouseUp ~~> $.backend.mouseUp _,
-        ^.onMouseDown ~~> $.backend.mouseDown _
+        ^.onMouseMove ==> mouseMove,
+        ^.onClick ==> mouseClick,
+        ^.onMouseOut ==> mouseOut,
+        ^.onMouseUp ==> mouseUp,
+        ^.onMouseDown ==> mouseDown
       )(
         <.svg.defs(
           <.svg.pattern(
@@ -740,7 +711,7 @@ object GlycanoCanvas {
             ^.svg.fill := "transparent",
             ^.svg.width := appState.view.width,
             ^.svg.height := appState.view.height,
-            ^.onMouseDown ~~> $.backend.boxSelectDown _
+            ^.onMouseDown ==> boxSelectDown
           ),
           <.svg.g(^.ref := "bounds")(
             residues,
@@ -754,15 +725,46 @@ object GlycanoCanvas {
         )
       )
     }
+  }
+
+  sealed trait InputState
+  object InputState {
+    case object Default extends InputState
+    case class AddResidue(x: Double, y: Double, children: Map[Int, ResidueId], parent: Option[Link]) extends InputState
+    case class AddSubstituent(x: Double, y: Double, target: Option[Link]) extends InputState
+    case class BoxSelect(from: (Double, Double), to: (Double, Double)) extends InputState
+    case class Drag(down: (Double, Double), offset: (Double, Double), center: (Double, Double)) extends InputState
+    case class DragView(down: (Double, Double), offset: (Double, Double)) extends InputState
+    case class PreCreateBond(r: ResidueId) extends InputState
+    case class CreateBond(from: Link, to: (Double, Double), target: Option[Link]) extends InputState
+    case class CreateBondFree(r: Option[ResidueId], to: (Double, Double)) extends InputState
+    case object PostCreateBond extends InputState
+    case class Rotate(r: ResidueId, rotation: Double) extends InputState
+    case class AddAnnotation(x: Double, y: Double) extends InputState
+    case object Out extends InputState
+
+    implicit val reusability: Reusability[InputState] = Reusability.by_==
+  }
+
+  def polygonOutline(points: String) = points.split("[, ]").map(_.toDouble).grouped(2).map(a => (a(0), a(1))).toIndexedSeq
+
+  def apply(props: ReusableVar[AppState], children: ReactNode*) = component.apply(props, children)
+  val component = ReactComponentB[ReusableVar[AppState]]("GlycanoCanvas")
+    .initialState[InputState](InputState.Default)
+    .renderBackend[Backend]
     .domType[dom.svg.SVG]
-    .configure(EventListener[dom.Event].installIO("contextmenu", _ => e => IO(e.preventDefault())))
+    .configure(EventListener[dom.Event].install("contextmenu", _ => _.preventDefaultCB))
     .configure(Reusability.shouldComponentUpdate)
-    .componentDidUpdateIO { (scope, props, state) =>
-      val bounds = for (g <- scope.refs[dom.svg.G]("bounds")) yield {
-        val bb = g.getDOMNode().getBBox()
-        Bounds(bb.x, bb.y, bb.width, bb.height)
-      }
-      scope.props.setL(AppState.bounds)(bounds.toOption)
+    .componentDidUpdate { c =>
+      for {
+        bounds <- CallbackTo {
+          c.$.refs[dom.svg.G]("bounds").toOption.map { g =>
+            val bb = g.getDOMNode().getBBox()
+            Bounds(bb.x, bb.y, bb.width, bb.height)
+          }
+        }
+        _ <- c.$.props.setL(AppState.bounds)(bounds)
+      } yield ()
     }
     .build
 }

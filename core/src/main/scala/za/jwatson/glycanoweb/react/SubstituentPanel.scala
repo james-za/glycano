@@ -1,6 +1,6 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.ScalazReact._
+import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react.extra.{ReusableVar, Reusability}
 import japgolly.scalajs.react.extra.Reusability._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -18,7 +18,7 @@ object SubstituentPanel {
 
   val reuseAppState = Reusability.by((s: AppState) => (s.mode, s.scaleSubstituents))
   val C = ReactComponentB[ReusableVar[AppState]]("ResiduePanel")
-    .render { props =>
+    .render_P { props =>
       val appState = props.value
       val substPages = div"btn-group"("data-toggle".reactAttr := "buttons")(
         for (st <- SubstituentType.SubstituentTypes) yield {
@@ -39,7 +39,7 @@ object SubstituentPanel {
               active ?= c"active",
               ^.title := st.name,
               ^.padding := 2.px,
-              ^.onClick ~~> click
+              ^.onClick --> click
             )(icon)
           )
         }

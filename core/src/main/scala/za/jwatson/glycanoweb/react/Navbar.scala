@@ -3,7 +3,7 @@ package za.jwatson.glycanoweb.react
 import importedjs.filereaderjs.{FileReaderJS, Opts}
 import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.ScalazReact._
+import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Iso
 import org.scalajs.dom
@@ -23,15 +23,15 @@ import scalaz.effect.IO
 object Navbar {
 
   class Backend(val $: BackendScope[ReusableVar[AppState], Boolean]) extends OnUnmount {
-    val dataUrlSvg = IO {
+    val dataUrlSvg = CallbackTo {
       val svg = dom.document.getElementById("canvas").outerHTML
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
       "data:image/svg+xml;base64," + base64
     }
 
-    val dataUrlGly = IO {
+    val dataUrlGly = for (props <- $.props) yield {
       import upickle._, Gly._
-      val graph = $.props.value.graph
+      val graph = props.value.graph
       val gly = write[Gly](Gly.from(graph))
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
       "data:text/plain;base64," + base64
@@ -39,12 +39,12 @@ object Navbar {
 
     def nameInput = $.refs[dom.html.Input]("filename").map(_.getDOMNode())
 
-    val baseName = IO(nameInput.map(_.value).filter(_.nonEmpty).getOrElse("glycano"))
+    val baseName = CallbackTo(nameInput.map(_.value).filter(_.nonEmpty).getOrElse("glycano"))
 
-    def save(extension: String, dataUrlIO: IO[String]) = for {
+    def save(extension: String, dataUrlCB: CallbackTo[String]) = for {
       baseName <- baseName
-      dataUrl <- dataUrlIO
-      _ <- IO {
+      dataUrl <- dataUrlCB
+      _ <- Callback {
         val a = dom.document.createElement("a").asInstanceOf[dom.html.Anchor]
         a.asInstanceOf[js.Dynamic].download = baseName + extension
         a.asInstanceOf[js.Dynamic].href = dataUrl
@@ -57,12 +57,13 @@ object Navbar {
     val saveGly = save(".gly", dataUrlGly)
     val savePng = for {
       name <- baseName
-      _ <- IO(g.saveSvgAsPng(dom.document.getElementById("canvas"), name + ".png"))
+      _ <- Callback(g.saveSvgAsPng(dom.document.getElementById("canvas"), name + ".png"))
     } yield ()
 
     def loadGly(name: String, gly: Gly) = for {
-      _ <- $.props.setL(AppStateL.graphL)(gly.toRGraph)
-      _ <- IO(nameInput.foreach(_.value = if (name.endsWith(".gly")) name.dropRight(4) else name))
+      props <- $.props
+      _ <- props.setL(AppStateL.graphL)(gly.toRGraph)
+      _ <- Callback(nameInput.foreach(_.value = if (name.endsWith(".gly")) name.dropRight(4) else name))
     } yield ()
   }
 
@@ -105,13 +106,13 @@ object Navbar {
                     $.state ?= c"open",
                     <.button(
                       c"btn btn-default dropdown-toggle", ^.ref := "toggle",
-                      ^.onClick ~~> preventingDefaultIO($.modStateIO(!_))
+                      ^.onClick ==> (preventDefault(_: ReactMouseEvent) >> $.modState(!_))
                     )("Save As...", <.span(c"caret")),
                     <.ul(c"dropdown-menu dropdown-menu-right", ^.ref := "dropmenu")(
-                      <.li(<.a(c"btn", "Glycano (.gly)", ^.onClick ~~> $.backend.saveGly)),
+                      <.li(<.a(c"btn", "Glycano (.gly)", ^.onClick --> $.backend.saveGly)),
                       <.li(c"divider"),
-                      <.li(<.a(c"btn", "Vector (.svg)", ^.onClick ~~> $.backend.saveSvg)),
-                      <.li(<.a(c"btn", "Image (.png)", ^.onClick ~~> $.backend.savePng))
+                      <.li(<.a(c"btn", "Vector (.svg)", ^.onClick --> $.backend.saveSvg)),
+                      <.li(<.a(c"btn", "Image (.png)", ^.onClick --> $.backend.savePng))
                     )
                   )
                 )
@@ -122,25 +123,26 @@ object Navbar {
       )
     }
     .configure(Reusability.shouldComponentUpdate)
-    .configure(EventListener[dom.Event].installIO(
+    .configure(EventListener[dom.Event].install(
       "click",
       $ => e => {
         val node = e.target.asInstanceOf[dom.Node]
-        (for {
-          toggleElement <- $.refs[dom.Element]("toggle")
+        for {
+          toggleElement <- CallbackOption.liftOptionLike($.refs[dom.Element]("toggle"))
           if !hasParent(node, toggleElement.getDOMNode())
-          dropMenu <- $.refs[dom.Element]("dropmenu")
+          dropMenu <- CallbackOption.liftOptionLike($.refs[dom.Element]("dropmenu"))
           if !hasParent(node, dropMenu.getDOMNode())
-        } yield $.setStateIO(false)).getOrElse(IO.ioUnit)
+          _ <- $.setState(false)
+        } yield ()
       },
       _ => dom.document.body
     ))
     .componentDidMount { $ =>
-      for (load <- $.refs[dom.html.Input]("loadfile")) {
+      CallbackOption.liftOptionLike($.refs[dom.html.Input]("loadfile")).map { load =>
         val fileReaderOpts = Opts.load((e: dom.ProgressEvent, file: dom.File) => {
           import upickle._, Gly._
           val str = e.target.asInstanceOf[js.Dynamic].result.asInstanceOf[String]
-          Try($.backend.loadGly(file.name, read[Gly](str)(rwGly)).unsafePerformIO())
+          Try($.backend.loadGly(file.name, read[Gly](str)(rwGly)).runNow())
         })
         fileReaderOpts.readAsDefault = "Text"
         fileReaderOpts.dragClass = "blue"
