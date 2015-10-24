@@ -22,16 +22,16 @@ import scalaz.effect.IO
 
 object Navbar {
 
-  class Backend(val $: BackendScope[ReusableVar[AppState], Boolean]) extends OnUnmount {
+  class Backend(val $: BackendScope[ReusableVar[RGraph], Boolean]) extends OnUnmount {
     val dataUrlSvg = CallbackTo {
       val svg = dom.document.getElementById("canvas").outerHTML
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
       "data:image/svg+xml;base64," + base64
     }
 
-    val dataUrlGly = for (props <- $.props) yield {
+    val dataUrlGly = for (rvGraph <- $.props) yield {
       import upickle._, Gly._
-      val graph = props.value.graph
+      val graph = rvGraph.value
       val gly = write[Gly](Gly.from(graph))
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(gly)).asInstanceOf[String])
       "data:text/plain;base64," + base64
@@ -61,33 +61,17 @@ object Navbar {
     } yield ()
 
     def loadGly(name: String, gly: Gly) = for {
-      props <- $.props
-      _ <- props.setL(AppStateL.graphL)(gly.toRGraph)
+      rvGraph <- $.props
+      _ <- rvGraph.set(gly.toRGraph)
       _ <- Callback(nameInput.foreach(_.value = if (name.endsWith(".gly")) name.dropRight(4) else name))
     } yield ()
   }
 
-  val reuseAppState: Reusability[AppState] =
-    Reusability.by((a: AppState) => (
-      a.annotationFontSize,
-      a.bondLabels,
-      a.gridWidth,
-      a.showGrid,
-      a.snapRotation,
-      a.snapRotationDegrees,
-      a.snapToGrid,
-      a.view,
-      a.undoPosition,
-      a.history.length,
-      a.buffer.isEmpty,
-      a.selection match { case (rs, as) => rs.isEmpty && as.isEmpty }
-    ))(Reusability.by_==)
-
-  val C = ReactComponentB[ReusableVar[AppState]]("Navbar")
+  val C = ReactComponentB[ReusableVar[RGraph]]("Navbar")
     .initialState(false)
     .backend(new Backend(_))
     .render { $ =>
-      implicit val graph: RGraph = $.props.value.graph
+      implicit val graph: RGraph = $.props.value
 
       <.nav(c"navbar navbar-default", ^.role := "navigation")(
         div"container-fluid"(

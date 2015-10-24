@@ -6,26 +6,21 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react._
 import org.scalajs.dom
 import za.jwatson.glycanoweb.react.GlycanoApp.{AppState, AppStateL}
+import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph._
-import za.jwatson.glycanoweb.structure.{RGraph, ResidueType}
+import za.jwatson.glycanoweb.structure.{ResidueId, RGraph, ResidueType}
 
 object BondStatus {
-  case class Props(bond: Bond, rvAppState: ReusableVar[AppState])
+  case class Props(rvGraph: ReusableVar[RGraph], bond: Bond, rvHighlightBond: ReusableVar[Option[ResidueId]], displayConv: DisplayConv)
+  implicit val reuseProps = Reusability.caseClass[Props]
 
   class Backend($: BackendScope[Props, Unit]) extends OnUnmount {
-    val mouseEnter = for {
-      p <- $.props
-      _ <- p.rvAppState.setL(AppState.highlightBond)(Some(p.bond.from))
-    } yield ()
-    val mouseLeave = for {
-      p <- $.props
-      _ <- p.rvAppState.setL(AppState.highlightBond)(None)
-    } yield ()
+    val mouseEnter = $.props.flatMap(p => p.rvHighlightBond.set(Some(p.bond.from)))
+    val mouseLeave = $.props.flatMap(p => p.rvHighlightBond.set(None))
 
     def render(p: Props) = {
-      val appState = p.rvAppState.value
-      val hl = appState.highlightBond.contains(p.bond.from)
-      implicit val g: RGraph = appState.graph
+      val hl = p.rvHighlightBond.value.contains(p.bond.from)
+      implicit val g: RGraph = p.rvGraph.value
       div"row"(
         for {
           ge1 <- g.residues.get(p.bond.from)
@@ -36,14 +31,14 @@ object BondStatus {
           }
         } yield Seq(
           div"col-xs-6"(
-            ResidueStatus.C((ge1.residue, appState.displayConv)),
+            ResidueStatus.C((ge1.residue, p.displayConv)),
             <.svg.svg(
               ^.display.`inline-block`,
               ^.svg.width := 40.px,
               ^.svg.height := 30.px,
               ^.svg.viewBox := "0 0 120 90"
             )(SVGBond.C(SVGBond.Props(anomer, None, (0, 45), (120, 45), highlight = hl))),
-            ResidueStatus.C((ge2.residue, appState.displayConv))
+            ResidueStatus.C((ge2.residue, p.displayConv))
           ),
           div"col-xs-2"(
             <.p(s"${ge1.residue.ano.desc}-${p.bond.to.position}")
@@ -51,16 +46,13 @@ object BondStatus {
           div"col-xs-4"(
             <.button(
               c"btn btn-link", "remove bond",
-              ^.onClick ==> (preventDefault(_: ReactMouseEvent) >> p.rvAppState.modL(AppStateL.graphL)(_ - p.bond))
+              ^.onClick ==> (preventDefault(_: ReactMouseEvent) >> p.rvGraph.mod(_ - p.bond))
             )
           )
         )
       )
     }
   }
-
-  val reuseAppState = Reusability.by((s: AppState) => (s.graph, s.displayConv, s.highlightBond))
-  implicit val reusability = Reusability.caseClass[Props]
 
   val C = ReactComponentB[Props]("BondStatus")
     .stateless

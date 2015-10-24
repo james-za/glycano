@@ -41,13 +41,6 @@ object ResidueId {
 
 @Lenses case class Link(r: ResidueId, position: Int)
 
-
-
-
-
-
-
-
-
-
-
+object Link {
+  implicit val reusability: Reusability[Link] = Reusability.by_==
+}

@@ -3,17 +3,15 @@ package za.jwatson.glycanoweb.react
 import japgolly.scalajs.react.ReactComponentB
 import japgolly.scalajs.react.extra.{Reusability, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
-import japgolly.scalajs.react.MonocleReact._
 import org.scalajs.dom
-import za.jwatson.glycanoweb.react.GlycanoApp.{AppStateL, AppState}
 import za.jwatson.glycanoweb.render.SubstituentShape
-import za.jwatson.glycanoweb.structure.{RGraph, ResidueId, SubstituentType, Link}
+import za.jwatson.glycanoweb.structure.{Link, RGraph, SubstituentType}
 
 object SubStatus {
-  val reuseAppState = Reusability.by((_: AppState).graph)
-  val C = ReactComponentB[(ResidueId, Int, Int, SubstituentType, ReusableVar[AppState])]("SubStatus")
+  //todo: only pass function to remove link instead of rvGraph
+  val C = ReactComponentB[(Link, Int, SubstituentType, ReusableVar[RGraph])]("SubStatus")
     .render_P { props =>
-      val (id, i, j, st, rvAppState) = props
+      val (link, j, st, rvGraph) = props
       val (sub, (w, h)) = SubstituentShape(st)
       div"row"(
         div"col-xs-3"(
@@ -25,12 +23,13 @@ object SubStatus {
             ^.marginRight := "auto"
           )(sub)
         ),
-        div"col-xs-5"(s"$i-${st.symbol}"),
+        div"col-xs-5"(s"${link.position}-${st.symbol}"),
         div"col-xs-4"(
-          <.button(c"btn btn-link", ^.onClick --> rvAppState.modL(AppStateL.graphL)(_ - (Link(id, i), j)))("remove")
+          <.button(c"btn btn-link", ^.onClick --> rvGraph.mod(_ - (link, j)))("remove")
         )
       )
     }
     .domType[dom.html.Div]
+    .configure(Reusability.shouldComponentUpdate)
     .build
 }

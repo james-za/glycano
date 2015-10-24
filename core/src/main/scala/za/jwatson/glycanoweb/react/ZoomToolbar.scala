@@ -22,22 +22,28 @@ object ZoomToolbar {
   def multIso(mult: Double): Iso[Double, Double] =
     Iso[Double, Double](_ * mult)(_ / mult)
 
-  class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
-    def handler(f: ReusableVar[AppState] => Callback) = (e: ReactMouseEvent) => preventDefault(e) >> $.props.flatMap(f)
-    val clickCenter = handler(props => props.modL(AppState.view)(v => props.value.bounds.fold(v)(v.fitBounds)))
-    val clickReset = handler(_.setL(AppState.view ^|-> View.scale)(1.0))
-    val clickZoomIn = handler(_.modL(AppState.view ^|-> View.scale)(_ / 1.1))
-    val clickZoomOut = handler(_.modL(AppState.view ^|-> View.scale)(_ * 1.1))
-    val changeZoomSlider = (e: ReactEventI) => preventDefault(e) >> $.props.flatMap(p => p.setL(AppState.view ^|-> View.scale)(Try(e.target.value.toDouble).getOrElse(p.value.view.scale) / 100))
+  case class Props(rvView: ReusableVar[View], bounds: Option[Bounds])
+  implicit val reuseProps = Reusability.caseClass[Props]
 
-    def zoomChange(e: ReactEventI): Callback = for {
-      scale <- CallbackOption.liftOptionLike(Try(e.target.value.toDouble * 0.01))
-      rvAppState <- $.props
-      _ <- rvAppState.setL(AppState.view ^|-> View.scale)(scale)
+  class Backend($: BackendScope[Props, Unit]) {
+    def clickCenter(e: ReactMouseEvent) = for {
+      _ <- e.preventDefaultCB
+      p <- $.props
+      b <- CallbackOption.liftOption(p.bounds)
+      _ <- p.rvView.mod(_.fitBounds(b))
+    } yield ()
+    val clickReset = (e: ReactMouseEvent) => e.preventDefaultCB >> $.props.flatMap(p => p.rvView.setL(View.scale)(1.0))
+    val clickZoomIn = (e: ReactMouseEvent) => e.preventDefaultCB >> $.props.flatMap(p => p.rvView.modL(View.scale)(_ / 1.1))
+    val clickZoomOut = (e: ReactMouseEvent) => e.preventDefaultCB >> $.props.flatMap(p => p.rvView.modL(View.scale)(_ * 1.1))
+    def changeZoomSlider(e: ReactEventI): Callback = for {
+      value <- CallbackOption.liftOptionLike(Try(e.target.value.toDouble))
+      _ <- e.preventDefaultCB
+      p <- $.props
+      _ <- p.rvView.setL(View.scale)(value / 100)
     } yield ()
 
-    def render(rvAppState: ReusableVar[AppState]) = {
-      val view = rvAppState.value.view
+    def render(props: Props) = {
+      val view = props.rvView.value
       <.form(c"form-inline text-right")(
         div"form-group"(
           for (element <- Seq(
@@ -67,8 +73,7 @@ object ZoomToolbar {
     }
   }
 
-  val reuseAppState = Reusability.by((s: AppState) => (s.view, s.bounds))
-  val C = ReactComponentB[ReusableVar[AppState]]("ZoomToolbar")
+  val C = ReactComponentB[Props]("ZoomToolbar")
     .stateless
     .renderBackend[Backend]
     .configure(Reusability.shouldComponentUpdate)

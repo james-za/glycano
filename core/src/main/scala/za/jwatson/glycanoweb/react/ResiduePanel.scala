@@ -17,7 +17,8 @@ import org.scalajs.dom
 import scalaz.effect.IO
 
 object ResiduePanel {
-  case class Props(rvAppState: ReusableVar[AppState], conventions: Map[String, DisplayConv])
+  case class Props(rvMode: ReusableVar[Mode], rvPlaceAnomer: ReusableVar[Anomer], rvPlaceAbsolute: ReusableVar[Absolute],
+                   displayConv: DisplayConv, scaleSubstituents: Double, conventions: Map[String, DisplayConv])
 
   implicit val reuseDouble: Reusability[Double] = Reusability.by_==
   implicit val reuseConventions: Reusability[Map[String, DisplayConv]] = Reusability.by_==
@@ -27,31 +28,33 @@ object ResiduePanel {
   class Backend($: BackendScope[Props, Map[DisplayConv, Palette]]) {
     def clickResidue(rt: ResidueType, subs: Map[Int, Vector[SubstituentType]]) = for {
       p <- $.props
-      _ <- p.rvAppState.modL(AppState.mode) {
-        case Mode.PlaceResidue(r) if r.rt == rt && r.subs == subs => Mode.Selection
+      _ <- p.rvMode.mod {
+        case Mode.PlaceResidue(r) if r.rt == rt && r.subs == subs => Mode.Select
         case _ => Mode.PlaceResidue(Residue(
-          p.rvAppState.value.placeAnomer,
-          p.rvAppState.value.placeAbsolute,
+          p.rvPlaceAnomer.value,
+          p.rvPlaceAbsolute.value,
           rt, subs
         ))
       }
     } yield ()
 
-    def setOption[A](lens: monocle.Lens[AppState, A])(a: Option[A]) = for {
-      p <- $.props
+    val setAnoFn: Option[Anomer] ~=> Callback = ReusableFn(a => for {
       v <- CallbackOption.liftOption(a)
-      _ <- p.rvAppState.setL(lens)(v)
-    } yield ()
-    val setAnoFn: Option[Anomer] ~=> Callback = ReusableFn(setOption(AppState.placeAnomer))
-    val setAbsFn: Option[Absolute] ~=> Callback = ReusableFn(setOption(AppState.placeAbsolute))
+      p <- $.props
+      _ <- p.rvPlaceAnomer.set(v)
+    } yield ())
+    val setAbsFn: Option[Absolute] ~=> Callback = ReusableFn(a => for {
+      v <- CallbackOption.liftOption(a)
+      p <- $.props
+      _ <- p.rvPlaceAbsolute.set(v)
+    } yield ())
     val getNameAnoFn: Anomer ~=> String = ReusableFn(_.symbol)
     val getNameAbsFn: Absolute ~=> String = ReusableFn(_.symbol)
 
-    def render(props: Props, state: Map[DisplayConv, Palette]) = {
-      val appState = props.rvAppState.value
+    def render(p: Props, state: Map[DisplayConv, Palette]) = {
       val residueTabs = <.ul(c"nav nav-tabs", ^.role := "tablist", ^.marginBottom := 5.px)(
-        for (pal <- appState.displayConv.conv.palettes :+ Palette.Repeat) yield {
-          val f = index[Map[DisplayConv, Palette], DisplayConv, Palette](appState.displayConv).set(pal)
+        for (pal <- p.displayConv.conv.palettes :+ Palette.Repeat) yield {
+          val f = index[Map[DisplayConv, Palette], DisplayConv, Palette](p.displayConv).set(pal)
           <.li(
             <.a(
               ^.href := "#",
@@ -60,13 +63,13 @@ object ResiduePanel {
               "data-toggle".reactAttr := "tab",
               ^.padding := "4px 7px"
             )(pal.name),
-            state.get(appState.displayConv).contains(pal) ?= c"active"
+            state.get(p.displayConv).contains(pal) ?= c"active"
           )
         }
       )
 
-      val rvAno = setAnoFn.asVar(Some(appState.placeAnomer))
-      val rvAbs = setAbsFn.asVar(Some(appState.placeAbsolute))
+      val rvAno = setAnoFn.asVar(Some(p.rvPlaceAnomer.value))
+      val rvAbs = setAbsFn.asVar(Some(p.rvPlaceAbsolute.value))
 
       val residueConfig = div"btn-toolbar"(^.role := "toolbar", ^.display.`inline-block`)(
         RadioAnomer(RadioGroupMap.Props[Anomer](rvAno, Anomer.Anomers, getNameAnoFn, toggle = false)),
@@ -76,20 +79,20 @@ object ResiduePanel {
       val residuePages = div"btn-group"("data-toggle".reactAttr := "buttons")(
         div"tab-content"(
           div"tab-pane active"(^.role := "tabpanel")(
-            for ((rt, subs) <- state(appState.displayConv).residues) yield {
-              val res = Residue(appState.placeAnomer, appState.placeAbsolute, rt, subs)
-              val ((x, y), w, h) = appState.displayConv.bounds(res)
+            for ((rt, subs) <- state(p.displayConv).residues) yield {
+              val res = Residue(p.rvPlaceAnomer.value, p.rvPlaceAbsolute.value, rt, subs)
+              val ((x, y), w, h) = p.displayConv.bounds(res)
               val scale = 0.4
-              val (residue, handle) = appState.displayConv.shapes(res)
+              val (residue, handle) = p.displayConv.shapes(res)
 
-              val residueLinks = appState.displayConv.links(res)
+              val residueLinks = p.displayConv.links(res)
               val substituents = for ((i, sts) <- subs.toSeq) yield {
                 val (x1, y1) = residueLinks(i - 1)
-                <.svg.g(^.svg.transform := s"translate($x1, $y1) scale(${appState.scaleSubstituents})")(
+                <.svg.g(^.svg.transform := s"translate($x1, $y1) scale(${p.scaleSubstituents})")(
                   SVGSubstituentStack.C.withKey(i)(sts)
                 )
               }
-              val selected = appState.mode match {
+              val selected = p.rvMode.value match {
                 case Mode.PlaceResidue(r) if r.rt == rt && r.subs == subs => true
                 case _ => false
               }
@@ -100,7 +103,7 @@ object ResiduePanel {
                     ^.svg.height := (h + 20) * scale
                   )(
                     <.svg.g(^.svg.transform := s"scale($scale) translate(${10 - x} ${10 - y})")(
-                      <.svg.g(residue, handle, appState.displayConv.name == "UCT" ?= substituents)
+                      <.svg.g(residue, handle, p.displayConv.name == "UCT" ?= substituents)
                     )
                   )
                 )

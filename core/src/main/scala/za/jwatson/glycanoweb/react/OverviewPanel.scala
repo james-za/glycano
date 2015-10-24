@@ -5,7 +5,7 @@ import japgolly.scalajs.react.extra.{ReusableFn, ~=>, Reusability, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ScalazReact._
 import monocle.Monocle._
-import za.jwatson.glycanoweb.react.GlycanoApp.{AppStateL, AppState}
+import za.jwatson.glycanoweb.react.GlycanoApp.{Selection, AppStateL, AppState}
 import za.jwatson.glycanoweb.react.bootstrap.RadioGroupMap
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph.{GraphEntry, Bond}
@@ -18,22 +18,26 @@ object OverviewPanel {
   val RadioAnomer = RadioGroupMap[Anomer]
   val RadioAbsolute = RadioGroupMap[Absolute]
 
-  def selectedResidues(in: Set[ResidueId]) = AppStateL.graphL ^|-> RGraph.residues ^|->> filterIndex(in.contains) ^|-> GraphEntry.residue
-  def selectedAnnotations(asel: Map[AnnotId, Annot]) = AppStateL.graphL ^|-> RGraph.annotations ^|->> filterIndex(asel.contains)
+  def selectedResidues(in: Set[ResidueId]) = RGraph.residues ^|->> filterIndex(in.contains) ^|-> GraphEntry.residue
+  def selectedAnnotations(asel: Map[AnnotId, Annot]) = RGraph.annotations ^|->> filterIndex(asel.contains)
 
-  class Backend($: BackendScope[ReusableVar[AppState], Unit]) {
+  case class Props(rvGraph: ReusableVar[RGraph], selection: Selection,
+                   displayConv: DisplayConv, rvHighlightBond: ReusableVar[Option[ResidueId]])
+  implicit val reuseProps = Reusability.caseClass[Props]
+
+  class Backend($: BackendScope[Props, Unit]) {
     val setSelAnoFn = ReusableFn[Set[ResidueId], Option[Anomer], Callback] { (sel, ano) =>
       for {
         anomer <- CallbackOption.liftOption(ano)
-        rvAppState <- $.props
-        _ <- rvAppState.mod(selectedResidues(sel) ^|-> Residue.ano set anomer)
+        p <- $.props
+        _ <- p.rvGraph.mod(selectedResidues(sel) ^|-> Residue.ano set anomer)
       } yield ()
     }
     val setSelAbsFn = ReusableFn[Set[ResidueId], Option[Absolute], Callback] { (sel, abs) =>
       for {
         absolute <- CallbackOption.liftOption(abs)
-        rvAppState <- $.props
-        _ <- rvAppState.mod(selectedResidues(sel) ^|-> Residue.abs set absolute)
+        p <- $.props
+        _ <- p.rvGraph.mod(selectedResidues(sel) ^|-> Residue.abs set absolute)
       } yield ()
     }
 
@@ -42,21 +46,20 @@ object OverviewPanel {
 
     def changeText(asel: Map[AnnotId, Annot])(e: ReactEventI) = for {
       _ <- e.preventDefaultCB
-      rvAppState <- $.props
-      _ <- rvAppState.mod(selectedAnnotations(asel) ^|-> Annot.text set e.target.value)
+      p <- $.props
+      _ <- p.rvGraph.mod(selectedAnnotations(asel) ^|-> Annot.text set e.target.value)
     } yield ()
 
     def changeFontSize(asel: Map[AnnotId, Annot])(e: ReactEventI) = for {
       _ <- e.preventDefaultCB
-      rvAppState <- $.props
+      p <- $.props
       value <- CallbackOption.liftOptionLike(Try(e.target.value.toDouble))
-      _ <- rvAppState.mod(selectedAnnotations(asel) ^|-> Annot.size set value)
+      _ <- p.rvGraph.mod(selectedAnnotations(asel) ^|-> Annot.size set value)
     } yield ()
 
-    def render(rvAppState: ReusableVar[AppState]) = {
-      val appState = rvAppState.value
-      implicit val graph: RGraph = appState.graph
-      val (rs, as) = appState.selection
+    def render(p: Props) = {
+      implicit val graph: RGraph = p.rvGraph.value
+      val (rs, as) = p.selection
       val rsel = graph.residues.filterKeys(rs.contains)
       val asel = graph.annotations.filterKeys(as.contains)
 
@@ -76,13 +79,14 @@ object OverviewPanel {
             rsel.toList match {
               case Nil => ""
               case (id, ge) :: Nil =>
-                val rvAppStateBondStatus = rvAppState.withReusability(BondStatus.reuseAppState)
-                val first = for (link <- ge.parent.toSeq) yield BondStatus.C(BondStatus.Props(Bond(id, link), rvAppStateBondStatus))
-                val rest = for ((i, from) <- ge.children.toSeq) yield BondStatus.C(BondStatus.Props(Bond(from, Link(id, i)), rvAppStateBondStatus))
+                val first = for (link <- ge.parent.toSeq) yield
+                  BondStatus.C(BondStatus.Props(p.rvGraph, Bond(id, link), p.rvHighlightBond, p.displayConv))
+                val rest = for ((i, from) <- ge.children.toSeq) yield
+                  BondStatus.C(BondStatus.Props(p.rvGraph, Bond(from, Link(id, i)), p.rvHighlightBond, p.displayConv))
                 val subs = for {
                   (i, stack) <- ge.residue.subs.toSeq
                   (st, j) <- stack.zipWithIndex
-                } yield SubStatus.C((id, i, j, st, rvAppState.withReusability(SubStatus.reuseAppState)))
+                } yield SubStatus.C((Link(id, i), j, st, p.rvGraph))
                 first ++ rest ++ subs
               case resList =>
                 for ((id, ge) <- resList) yield {
@@ -124,8 +128,7 @@ object OverviewPanel {
     }
   }
 
-  val reuseAppState: Reusability[AppState] = Reusability.by((s: AppState) => (s.graph, s.selection, s.displayConv, s.highlightBond, s.view))(Reusability.by_==)
-  val C = ReactComponentB[ReusableVar[AppState]]("OverviewPanel")
+  val C = ReactComponentB[Props]("OverviewPanel")
     .stateless
     .renderBackend[Backend]
     .configure(Reusability.shouldComponentUpdate)

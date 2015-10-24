@@ -1,5 +1,6 @@
 package za.jwatson.glycanoweb.react
 
+import japgolly.scalajs.react.Addons.Perf
 import japgolly.scalajs.react.MonocleReact._
 import japgolly.scalajs.react.ScalazReact._
 import japgolly.scalajs.react._
@@ -29,30 +30,38 @@ import scalaz.effect.IO
 object GlycanoApp {
   case class Props(conventions: Map[String, DisplayConv])
 
+  type Selection = (Set[ResidueId], Set[AnnotId])
+
   object Props {
     implicit val reusability: Reusability[Props] = Reusability.by_==
   }
 
-  @Lenses case class AppState(
-    undoPosition: Int = 0,
-    history: Vector[RGraph] = Vector(RGraph()),
-    selection: (Set[ResidueId], Set[AnnotId]) = (Set.empty, Set.empty),
-    highlightBond: Option[ResidueId] = None,
-    placeAnomer: Anomer = Anomer.Alpha, placeAbsolute: Absolute = Absolute.D,
-    bondLabels: Boolean = false,
-    view: View = View(),
-    buffer: RGraph = RGraph(),
-    mode: Mode = Mode.Selection,
-    displayConv: DisplayConv = DisplayConv.convUCT,
-    scaleSubstituents: Double = 1.0,
-    limitUpdateRate: Boolean = false,
-    annotationFontSize: Double = 24,
-    bounds: Option[Bounds] = None,
-    showGrid: Boolean = false,
-    gridWidth: Double = 10.0,
-    snapToGrid: Boolean = false,
-    snapRotation: Boolean = false,
-    snapRotationDegrees: Double = 15.0
+  @Lenses case class Snap(showGrid: Boolean = false,
+                          gridWidth: Double = 10.0,
+                          snapToGrid: Boolean = false,
+                          snapRotation: Boolean = false,
+                          snapRotationDegrees: Double = 15.0)
+
+  object Snap {
+    implicit val reusability = Reusability.by_==[Snap]
+  }
+
+  @Lenses case class AppState(undoPosition: Int = 0,
+                              history: Vector[RGraph] = Vector(RGraph()),
+                              selection: Selection = (Set.empty, Set.empty),
+                              highlightBond: Option[ResidueId] = None,
+                              placeAnomer: Anomer = Anomer.Alpha, placeAbsolute: Absolute = Absolute.D,
+                              bondLabels: Boolean = false,
+                              view: View = View(),
+                              buffer: RGraph = RGraph(),
+                              mode: Mode = Mode.Select,
+                              displayConv: DisplayConv = DisplayConv.convUCT,
+                              scaleSubstituents: Double = 1.0,
+                              limitUpdateRate: Boolean = false,
+                              annotationFontSize: Double = 24,
+                              bounds: Option[Bounds] = None,
+                              snap: Snap = Snap()
+
   ) {
     def graph: RGraph = history(undoPosition)
 
@@ -100,9 +109,13 @@ object GlycanoApp {
     }
   }
 
+  object AppState {
+    implicit val reusability: Reusability[AppState] = Reusability.by_==
+  }
+
   sealed trait Mode
   object Mode {
-    case object Selection extends Mode
+    case object Select extends Mode
     @Lenses case class PlaceResidue(residue: Residue) extends Mode
     case class PlaceSubstituent(st: SubstituentType) extends Mode
     case object PlaceAnnotation extends Mode
@@ -192,12 +205,24 @@ object GlycanoApp {
 
     def keydownCB(e: dom.KeyboardEvent) = CallbackOption.matchPF(e.keyCode) {
       case 46 => $.modState(_.doDelete)
-      case 27 | 32 => $.modState(AppState.mode set Mode.Selection)
+      case 27 | 32 => $.modState(AppState.mode set Mode.Select)
       case 88 /*X*/ if e.ctrlKey || e.metaKey => $.modState(_.doCut)
       case 67 /*C*/ if e.ctrlKey || e.metaKey => $.modState(_.doCopy)
       case 86 /*V*/ if e.ctrlKey || e.metaKey => $.modState(_.doPaste)
       case 90 /*Z*/ if e.ctrlKey || e.metaKey => $.modState(if (e.shiftKey) redo else undo)
       case 89 /*Y*/ if e.ctrlKey || e.metaKey => $.modState(redo)
+      case 'W' => Callback {
+        println("Perf.start()")
+        Perf.start()
+      }
+      case 'Q' => Callback {
+        println("Perf.stop()")
+        Perf.stop()
+        Perf.printInclusive()
+        Perf.printExclusive()
+        Perf.printWasted()
+        Perf.printDOM()
+      }
     }.flatMap(_.toCBO)
 
     val setAppStateFn = ReusableFn($).setState
@@ -205,38 +230,57 @@ object GlycanoApp {
     val setDisplayConvFn: Option[DisplayConv] ~=> Callback = ReusableFn(_.fold(Callback.empty)($._setStateL(AppState.displayConv)))
     val getNameDisplayConvFn: DisplayConv ~=> String = ReusableFn(_.name)
 
-    def render(p: Props, s: AppState) = {
-      def rvAppState(r: Reusability[AppState]): ReusableVar[AppState] = setAppStateFn.asVarR(s, r)
 
+    def render(p: Props, s: AppState) = {
+    }
+  }
+
+  val RadioDisplayConv = RadioGroupMap[DisplayConv]
+
+  val C = ReactComponentB[Props]("GlycanoApp")
+    .initialState_P(props => AppState(
+      history = Vector(loadGraph()),
+      displayConv = props.conventions.getOrElse("UCT", DisplayConv.convDefault)
+    ))
+    .backend(new Backend(_))
+    .renderPS { ($, p, s) =>
       implicit val g: RGraph = s.graph
       implicit val dc: DisplayConv = s.displayConv
 
-      val rvAppStateToolBar = rvAppState(ToolBar.reuseAppState)
-      val rvAppStateCanvas = rvAppState(GlycanoCanvas.reuseAppState)
+      val rvAppState = ReusableVar.state($)
 
       val rtTemplate = s.mode match {
         case Mode.PlaceResidue(res) => Some(res.rt)
         case _ => None
       }
 
-      val rvDisplayConv = setDisplayConvFn.asVar(Some(dc))
+      val rvDisplayConv = $.backend.setDisplayConvFn.asVar(Some(dc))
+      val rvView = ReusableVar.state($ zoomL AppState.view)
+      val rvGraph = ReusableVar.state($ zoomL AppStateL.graphL)
+      val rvHighlightBond = ReusableVar.state($ zoomL AppState.highlightBond)
+      val rvMode = ReusableVar.state($ zoomL AppState.mode)
+      val rvPlaceAnomer = ReusableVar.state($ zoomL AppState.placeAnomer)
+      val rvPlaceAbsolute = ReusableVar.state($ zoomL AppState.placeAbsolute)
+      val rvSelection = ReusableVar.state($ zoomL AppState.selection)
+      val rvBounds = ReusableVar.state($ zoomL AppState.bounds)
 
       div"container-fluid"(
-        div"row"(Navbar.C(rvAppState(Navbar.reuseAppState))),
-        ToolBar.C(rvAppStateToolBar),
+        div"row"(Navbar.C(rvGraph)),
+        ToolBar.C(rvAppState),
         div"row"(
           div"col-xs-3"(
             div"row"(div"col-xs-12 text-center"(^.marginBottom := 20.px)(
               RadioDisplayConv(RadioGroupMap.Props[DisplayConv](
                 rvDisplayConv,
                 DisplayConv.conventions.values.toSeq,
-                getNameDisplayConvFn,
+                $.backend.getNameDisplayConvFn,
                 toggle = false
               ))
             )),
             div"row"(div"col-xs-12"(
               ResiduePanel.C(ResiduePanel.Props(
-                rvAppState(ResiduePanel.reuseAppState),
+                rvMode, rvPlaceAnomer, rvPlaceAbsolute,
+                s.displayConv, s.scaleSubstituents,
                 p.conventions
               ))
             )),
@@ -250,7 +294,7 @@ object GlycanoApp {
                   "max".reactAttr := 2.0,
                   ^.step := 0.01,
                   ^.value := s.scaleSubstituents,
-                  ^.onChange --> scaleSubstituentsSlider
+                  ^.onChange --> $.backend.scaleSubstituentsSlider
                 )
               ),
               div"col-xs-4"(
@@ -259,12 +303,12 @@ object GlycanoApp {
                   ^.ref := "ssNumber",
                   ^.`type` := "number",
                   ^.value := s.scaleSubstituents,
-                  ^.onChange --> scaleSubstituentsNumber
+                  ^.onChange --> $.backend.scaleSubstituentsNumber
                 )
               )
             ),
             div"row"(div"col-xs-12"(
-              SubstituentPanel.C(rvAppState(SubstituentPanel.reuseAppState))
+              SubstituentPanel.C(SubstituentPanel.Props(rvMode, s.scaleSubstituents))
             )),
             div"row"(
               div"checkbox"(
@@ -272,7 +316,7 @@ object GlycanoApp {
                   <.input(
                     ^.`type` := "checkbox",
                     ^.checked := s.limitUpdateRate,
-                    ^.onChange --> toggleLimitUpdateRate
+                    ^.onChange --> $.backend.toggleLimitUpdateRate
                   ),
                   "Limit Update Rate"
                 )
@@ -290,30 +334,24 @@ object GlycanoApp {
                   ^.padding := 0.px, ^.fontSize := 0,
                   ^.borderTop := "1px solid #ddd"
                 )(
-                  GlycanoCanvas(rvAppStateCanvas)
+                  GlycanoCanvas.C(GlycanoCanvas.Props(
+                    rvMode, rvSelection, rvBounds, rvGraph, rvView,
+                    s.snap, s.annotationFontSize, s.displayConv, s.limitUpdateRate,
+                    s.scaleSubstituents, s.highlightBond, s.bondLabels
+                  ))
                 ),
                 div"panel-footer"(
-                  ZoomToolbar.C(rvAppState(ZoomToolbar.reuseAppState))
+                  ZoomToolbar.C(ZoomToolbar.Props(rvView, s.bounds))
                 )
               )
             ))
           ),
           div"col-xs-3"(
-            OverviewPanel.C(rvAppState(OverviewPanel.reuseAppState))
+            OverviewPanel.C(OverviewPanel.Props(rvGraph, s.selection, s.displayConv, rvHighlightBond))
           )
         )
       )
     }
-  }
-
-  val RadioDisplayConv = RadioGroupMap[DisplayConv]
-
-  val C = ReactComponentB[Props]("GlycanoApp")
-    .initialState_P(props => AppState(
-      history = Vector(loadGraph()),
-      displayConv = props.conventions.getOrElse("UCT", DisplayConv.convDefault)
-    ))
-    .renderBackend[Backend]
     .domType[dom.html.Div]
     .configure(Reusability.shouldComponentUpdate(implicitly, Reusability.by_==))
     .configure(EventListener.install("resize", _.backend.resizeCB, _ => dom.window))

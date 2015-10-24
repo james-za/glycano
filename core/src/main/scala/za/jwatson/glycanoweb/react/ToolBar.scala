@@ -5,7 +5,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Iso
-import za.jwatson.glycanoweb.react.GlycanoApp.{AppState, AppStateL, Mode}
+import za.jwatson.glycanoweb.react.GlycanoApp.{Snap, AppState, AppStateL, Mode}
 import za.jwatson.glycanoweb.react.bootstrap.{Dropdown, Bootstrap}
 import za.jwatson.glycanoweb.structure.{AnnotId, ResidueId, RGraph}
 
@@ -81,7 +81,7 @@ object ToolBar {
       val btnAnnotation = toolbtni(
         "edit", "Add Annotation",
         rvAppState.modL(AppState.mode) {
-          case Mode.PlaceAnnotation => Mode.Selection
+          case Mode.PlaceAnnotation => Mode.Select
           case _ => Mode.PlaceAnnotation
         }
       )(appState.mode == Mode.PlaceAnnotation ?= c"active")
@@ -114,14 +114,14 @@ object ToolBar {
             ),
             Dropdown.Toggle(
               (Bootstrap.Sm, Seq(
-                tooltogglei("magnet", "Snap To Grid", rvAppState, AppState.snapToGrid),
-                tooltogglei("th", "Show Grid", rvAppState, AppState.showGrid)
+                tooltogglei("magnet", "Snap To Grid", rvAppState, AppState.snap ^|-> Snap.snapToGrid),
+                tooltogglei("th", "Show Grid", rvAppState, AppState.snap ^|-> Snap.showGrid)
               )),
-              toolnumber("Grid Spacing:", rvAppState, AppState.gridWidth, dropdown = true)
+              toolnumber("Grid Spacing:", rvAppState, AppState.snap ^|-> Snap.gridWidth, dropdown = true)
             ),
             Dropdown.Toggle(
-              (Bootstrap.Sm, tooltogglei_(Seq(<.i(c"fa fa-lg fa-magnet"), <.b("º")), "Snap Rotation", rvAppState, AppState.snapRotation)),
-              toolnumber("Snap To (º):", rvAppState, AppState.snapRotationDegrees, dropdown = true)
+              (Bootstrap.Sm, tooltogglei_(Seq(<.i(c"fa fa-lg fa-magnet"), <.b("º")), "Snap Rotation", rvAppState, AppState.snap ^|-> Snap.snapRotation)),
+              toolnumber("Snap To (º):", rvAppState, AppState.snap ^|-> Snap.snapRotationDegrees, dropdown = true)
             )
           )
         )
@@ -129,23 +129,23 @@ object ToolBar {
     }
   }
 
-  implicit val reuseSelection: Reusability[(Set[ResidueId], Set[AnnotId])] = Reusability.by_==
-  implicit val reuseAppState: Reusability[AppState] =
-    Reusability.by((a: AppState) => (
-      a.annotationFontSize,
-      a.bondLabels,
-      a.gridWidth,
-      a.showGrid,
-      a.snapRotation,
-      a.snapRotationDegrees,
-      a.snapToGrid,
-      a.undoPosition,
-      a.history.length,
-      a.buffer.isEmpty,
-      a.mode,
-      a.view,
-      a.selection
-    ))(Reusability.by_==)
+//  implicit val reuseSelection: Reusability[(Set[ResidueId], Set[AnnotId])] = Reusability.by_==
+//  implicit val reuseAppState: Reusability[AppState] =
+//    Reusability.by((a: AppState) => (
+//      a.annotationFontSize,
+//      a.bondLabels,
+//      a.gridWidth,
+//      a.showGrid,
+//      a.snapRotation,
+//      a.snapRotationDegrees,
+//      a.snapToGrid,
+//      a.undoPosition,
+//      a.history.length,
+//      a.buffer.isEmpty,
+//      a.mode,
+//      a.view,
+//      a.selection
+//    ))(Reusability.by_==)
 
   val C = ReactComponentB[ReusableVar[AppState]]("ToolBar")
     .initialState("glycano")

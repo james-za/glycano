@@ -11,28 +11,28 @@ import za.jwatson.glycanoweb.render.SubstituentShape
 import za.jwatson.glycanoweb.structure._
 
 object SubstituentPanel {
+  case class Props(rvMode: ReusableVar[Mode], scaleSubstituents: Double)
   implicit val reuseDouble: Reusability[Double] = Reusability.by_==
+  implicit val reuseProps = Reusability.caseClass[Props]
 
   val choicesAno = Anomer.Anomers.map(ano => ano -> ano.desc).toMap
   val choicesAbs = Absolute.Absolutes.map(abs => abs -> abs.desc).toMap
 
-  val reuseAppState = Reusability.by((s: AppState) => (s.mode, s.scaleSubstituents))
-  val C = ReactComponentB[ReusableVar[AppState]]("ResiduePanel")
-    .render_P { props =>
-      val appState = props.value
+  val C = ReactComponentB[Props]("ResiduePanel")
+    .render_P { p =>
       val substPages = div"btn-group"("data-toggle".reactAttr := "buttons")(
         for (st <- SubstituentType.SubstituentTypes) yield {
           val (shape, (w, h)) = SubstituentShape(st)
           val icon = <.svg.svg(
-            ^.svg.width := w * appState.scaleSubstituents,
-            ^.svg.height := h * appState.scaleSubstituents,
+            ^.svg.width := w * p.scaleSubstituents,
+            ^.svg.height := h * p.scaleSubstituents,
             ^.svg.viewBox := s"0 0 $w $h"
           )(shape)
-          val active = appState.mode match {
+          val active = p.rvMode.value match {
             case Mode.PlaceSubstituent(`st`) => true
             case _ => false
           }
-          val click = props.setL(AppState.mode)(if (active) Mode.Selection else Mode.PlaceSubstituent(st))
+          val click = p.rvMode.set(if (active) Mode.Select else Mode.PlaceSubstituent(st))
           <.span(
             <.button(
               ^.cls := s"btn btn-default",

@@ -5,7 +5,7 @@ import japgolly.scalajs.react.extra.{Reusability, ~=>, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import japgolly.scalajs.react.ScalazReact._
 import org.scalajs.dom
-import za.jwatson.glycanoweb.react.GlycanoApp.{AppStateL, Mode}
+import za.jwatson.glycanoweb.react.GlycanoApp.{Selection, AppStateL, Mode}
 import za.jwatson.glycanoweb.react.GlycanoCanvas.{Mouse, InputState}
 import za.jwatson.glycanoweb.render.DisplayConv
 import za.jwatson.glycanoweb.structure.RGraph.GraphEntry
@@ -24,19 +24,17 @@ object SVGResidue {
   case class Props(r: ResidueId, ge: GraphEntry, dc: DisplayConv, selected: Boolean, scaleSubstituents: Double,
                    inputState: ReusableVar[InputState], mode: ReusableVar[Mode],
                    modGraph: (RGraph => RGraph) ~=> Callback,
-                   setSelection: (Set[ResidueId], Set[AnnotId]) ~=> Callback,
+                   setSelection: Selection ~=> Callback,
                    clientToViewFn: (Double, Double) ~=> UndefOr[(Double, Double)])
 
   implicit val reuseDouble: Reusability[Double] = Reusability.by_==
   implicit val reuseProps: Reusability[Props] = Reusability.caseClass[Props]
 
-  implicitly[Reusability[(RGraph => RGraph) ~=> Callback]]
-
   class Backend($: BackendScope[Props, Boolean]) {
     def render(props: Props, state: Boolean) = {
       def handleMouseDown(e: ReactMouseEvent) =
         (button(e), props.mode.value) match {
-          case (Mouse.Left, Mode.Selection) =>
+          case (Mouse.Left, Mode.Select) =>
             for {
               _ <- props.inputState.set(InputState.PreCreateBond(props.r)).toCBO
               link <- CallbackOption.liftOption(props.ge.parent)
@@ -47,14 +45,14 @@ object SVGResidue {
 
       def rotatorMouseDown(e: ReactMouseEvent) =
         (button(e), props.mode.value, props.inputState.value) match {
-          case (Mouse.Left, Mode.Selection, InputState.Default) =>
+          case (Mouse.Left, Mode.Select, InputState.Default) =>
             props.inputState.set(InputState.Rotate(props.r, props.ge.rotation))
           case _ => Callback.empty
         }
 
       def residueMouseDown(e: ReactMouseEvent) =
         (button(e), props.mode.value, props.inputState.value) match {
-          case (Mouse.Left, Mode.Selection, InputState.Default) =>
+          case (Mouse.Left, Mode.Select, InputState.Default) =>
             val down = props.clientToViewFn((e.clientX, e.clientY))
             val center = (props.ge.x, props.ge.y)
             for {
