@@ -1,7 +1,7 @@
 package za.jwatson.glycanoweb.react
 
-import japgolly.scalajs.react.ReactComponentB
-import japgolly.scalajs.react.extra.{Reusability, ReusableVar}
+import japgolly.scalajs.react.{Callback, ReactComponentB}
+import japgolly.scalajs.react.extra.{~=>, Reusability, ReusableVar}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import org.scalajs.dom
 import za.jwatson.glycanoweb.render.SubstituentShape
@@ -9,9 +9,9 @@ import za.jwatson.glycanoweb.structure.{Link, RGraph, SubstituentType}
 
 object SubStatus {
   //todo: only pass function to remove link instead of rvGraph
-  val C = ReactComponentB[(Link, Int, SubstituentType, ReusableVar[RGraph])]("SubStatus")
+  val C = ReactComponentB[(Link, Int, SubstituentType, (RGraph => RGraph) ~=> Callback)]("SubStatus")
     .render_P { props =>
-      val (link, j, st, rvGraph) = props
+      val (link, j, st, modGraph) = props
       val (sub, (w, h)) = SubstituentShape(st)
       div"row"(
         div"col-xs-3"(
@@ -25,7 +25,7 @@ object SubStatus {
         ),
         div"col-xs-5"(s"${link.position}-${st.symbol}"),
         div"col-xs-4"(
-          <.button(c"btn btn-link", ^.onClick --> rvGraph.mod(_ - (link, j)))("remove")
+          <.button(c"btn btn-link", ^.onClick --> modGraph(_ - (link, j)))("remove")
         )
       )
     }

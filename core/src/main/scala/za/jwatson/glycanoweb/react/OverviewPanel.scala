@@ -44,6 +44,8 @@ object OverviewPanel {
     val getNameAnoFn = ReusableFn((_: Anomer).desc)
     val getNameAbsFn = ReusableFn((_: Absolute).desc)
 
+    val modGraph = ReusableFn((rv: ReusableVar[RGraph], f: RGraph => RGraph) => rv.mod(f))
+
     def changeText(asel: Map[AnnotId, Annot])(e: ReactEventI) = for {
       _ <- e.preventDefaultCB
       p <- $.props
@@ -86,7 +88,7 @@ object OverviewPanel {
                 val subs = for {
                   (i, stack) <- ge.residue.subs.toSeq
                   (st, j) <- stack.zipWithIndex
-                } yield SubStatus.C((Link(id, i), j, st, p.rvGraph))
+                } yield SubStatus.C((Link(id, i), j, st, modGraph(p.rvGraph)))
                 first ++ rest ++ subs
               case resList =>
                 for ((id, ge) <- resList) yield {
