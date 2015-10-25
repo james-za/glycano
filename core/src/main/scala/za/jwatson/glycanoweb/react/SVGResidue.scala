@@ -101,12 +101,12 @@ object SVGResidue {
           residue(
             ^.onMouseDown ==> residueMouseDown
           ),
-          handle(
+          handle.map(_(
             ^.onMouseOver --> $.setState(true),
             ^.onMouseOut --> $.setState(false),
             ^.onMouseDown ==> handleMouseDown,
             state ?= Seq(^.svg.strokeWidth := "3", ^.svg.stroke := "blue")
-          ),
+          )),
           props.dc.name == "UCT" ?= substituents
         )
       )

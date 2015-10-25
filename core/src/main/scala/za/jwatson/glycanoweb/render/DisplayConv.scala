@@ -155,7 +155,7 @@ class DisplayConv(val conv: Conv) {
   }
 
   def shapes(residue: Residue) = shapesMemo.getOrElseUpdate(residue.symbol, shapesInner(residue))
-  val shapesMemo = js.Dictionary.empty[(ReactTag, ReactTag)]
+  val shapesMemo = js.Dictionary.empty[(ReactTag, Option[ReactTag])]
   def shapesInner(residue: Residue) = residue.rt match {
     case ResidueType.Begin => pathGroup((0, 0), (10, 0), (10, 4), (4, 4), (4, 28), (10, 28), (10, 32), (0, 32))
     case ResidueType.End => pathGroup((0, 0), (10, 0), (10, 32), (0, 32), (0, 28), (6, 28), (6, 4), (0, 4))
@@ -165,10 +165,10 @@ class DisplayConv(val conv: Conv) {
   def pathGroup(pts: (Double, Double)*) = {
     val path = pts.map { case (x, y) => s"${x * 3},${y * 3}" }
     val points = path.mkString(" ")
-    (<.svg.g(<.svg.polygon(^.svg.points := points, ^.svg.fill := "black")), <.svg.g())
+    (<.svg.g(<.svg.polygon(^.svg.points := points, ^.svg.fill := "black")), None)
   }
 
-  def shapesFromConv(residue: Residue): (ReactTag, ReactTag) = {
+  def shapesFromConv(residue: Residue): (ReactTag, Option[ReactTag]) = {
     val mods = residueMods(residue)
 
     val styles = mods.foldLeft(Map[String, Map[String, String]]()) {
@@ -202,7 +202,7 @@ class DisplayConv(val conv: Conv) {
 
         (priority, isHandle, item(linksMod, outlineMod, styleMods, handleMod))
     }.sortBy(_._1).partition(_._2)
-    (<.svg.g(residueShapeMods.map(_._3)), handleShapeMods.map(_._3).headOption.getOrElse(<.svg.g()))
+    (<.svg.g(residueShapeMods.map(_._3)), handleShapeMods.map(_._3).headOption)
   }
 
 }
