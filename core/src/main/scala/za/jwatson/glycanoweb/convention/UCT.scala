@@ -100,9 +100,11 @@ object UCT {
       |   L (Man) -> style [primary] { fill: #000000 } -> style [secondary] { fill: #00FF00 }
       |   (Tal) -> style [primary] { fill: #000000 }
       |
-      |   D (Glc) <6Deoxy> -> style[primary] { fill: #FF0000 }
+      |   (Glc) <6Deoxy> -> style [primary] { fill: #FF0000 }
       |   D (Gal) <6Deoxy> -> style [primary] { fill: #FF0000 } -> style [secondary] { fill: #000000 }
+      |   L (Gal) <6Deoxy> -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FF0000 }
       |   D (Man) <6Deoxy> -> style [primary] { fill: #FF0000 } -> style [secondary] { fill: #000000 }
+      |   L (Man) <6Deoxy> -> style [primary] { fill: #000000 } -> style [secondary] { fill: #FF0000 }
       |
       |   L (Glycero,
       |      Three)

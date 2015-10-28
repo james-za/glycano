@@ -15,10 +15,15 @@ import monocle.macros.Lenses
     case ResidueCategory.Repeat => rt.symbol
     case _ => ano.symbol + abs.symbol + rt.symbol + substSymbol
   }
+
+  def is6DeoxySugar = subs == Map(6 -> Vector(SubstituentType.deoxy))
   
   def desc: String = rt match {
     case ResidueType.Begin => s"${ano.desc}-${rt.desc}"
     case ResidueType.End => rt.desc
+    case ResidueType.Glc if is6DeoxySugar => s"${ano.desc}-${abs.desc}-Qui"
+    case ResidueType.Gal if is6DeoxySugar => s"${ano.desc}-${abs.desc}-Fuc"
+    case ResidueType.Man if is6DeoxySugar => s"${ano.desc}-${abs.desc}-Rha"
     case _ => s"${ano.desc}-${abs.desc}-${rt.desc}$substSymbol"
   }
   
