@@ -65,10 +65,13 @@ object GlycanoApp {
   ) {
     def graph: RGraph = history(undoPosition)
 
+    private def checkParent(copiedResidues: Map[ResidueId, GraphEntry]) = GraphEntry.parent.modify(_.filter(link => copiedResidues.contains(link.r)))
+    private def checkChildren(copiedResidues: Map[ResidueId, GraphEntry]) = GraphEntry.children.modify(_.filter(entry => copiedResidues.contains(entry._2)))
     def doCopy = {
       val copiedResidues = graph.residues.filterKeys(selection._1.contains)
       val copiedAnnotations = graph.annotations.filterKeys(selection._2.contains)
-      this &|-> AppState.buffer set RGraph(copiedResidues, copiedAnnotations)
+      val filteredResidues = copiedResidues &|->> each modify (checkParent(copiedResidues) andThen checkChildren(copiedResidues))
+      this &|-> AppState.buffer set RGraph(filteredResidues, copiedAnnotations)
     }
 
     def doDelete = {
