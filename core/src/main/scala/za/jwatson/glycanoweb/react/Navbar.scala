@@ -23,8 +23,14 @@ import scalaz.effect.IO
 object Navbar {
 
   class Backend(val $: BackendScope[ReusableVar[RGraph], Boolean]) extends OnUnmount {
+    val xmlHeader = """<?xml version="1.0" standalone="no"?>"""
+    val svgDoctype = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">"""
+    val svgHeader = s"$xmlHeader\n$svgDoctype\n"
+
     val dataUrlSvg = CallbackTo {
-      val svg = dom.document.getElementById("canvas").outerHTML
+      val svgElement = dom.document.getElementById("canvas")
+      svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+      val svg = svgHeader + svgElement.outerHTML
       val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
       "data:image/svg+xml;base64," + base64
     }
