@@ -58,7 +58,8 @@ trait Ketoses {
   val Tag = ketose("Tag", "Tag", 6)
   val AltHep = ketose("AltHep", "AltroHeptulose", 7)
   val ManOct = ketose("ManOct", "MannoseOctulose", 8)
-  val Ketoses = Seq(Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, AltHep, ManOct)
+  val Non = ketose("Non", "Nonose", 9)
+  val Ketoses = Seq(Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, AltHep, ManOct, Non)
 }
 
 trait Alditols {
