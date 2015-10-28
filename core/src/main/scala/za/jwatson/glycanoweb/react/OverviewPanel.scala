@@ -65,8 +65,17 @@ object OverviewPanel {
       val rsel = graph.residues.filterKeys(rs.contains)
       val asel = graph.annotations.filterKeys(as.contains)
 
+      val residueName = rsel.keys.toList match {
+        case Nil => ""
+        case residue :: Nil => rsel(residue).residue.desc
+        case residues => residues.size + " residues"
+      }
+
       div"row"(div"col-xs-12"(
         div"panel panel-default"(
+          div"panel-heading"(
+            <.h3(c"panel-title", residueName)
+          ),
           div"panel-body"(
             for (hd <- rsel.values.headOption) yield {
               val repeat = rsel.values.exists(_.residue.rt.category == ResidueCategory.Repeat)
