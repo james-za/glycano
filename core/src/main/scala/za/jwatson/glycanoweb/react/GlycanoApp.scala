@@ -77,7 +77,8 @@ object GlycanoApp {
     def doDelete = {
       val remainingResidues = graph.residues.filterKeys(r => !selection._1.contains(r))
       val remainingAnnotations = graph.annotations.filterKeys(a => !selection._2.contains(a))
-      this &|-> AppStateL.graphL set RGraph(remainingResidues, remainingAnnotations)
+      val filteredResidues = remainingResidues &|->> each modify (checkParent(remainingResidues) andThen checkChildren(remainingResidues))
+      this &|-> AppStateL.graphL set RGraph(filteredResidues, remainingAnnotations)
     }
 
     def doCut = this.doCopy.doDelete
