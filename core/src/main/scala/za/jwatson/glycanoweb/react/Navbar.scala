@@ -31,7 +31,8 @@ object Navbar {
       val svgElement = dom.document.getElementById("canvas")
       svgElement.setAttribute("xmlns", "http://www.w3.org/2000/svg")
       val svg = svgHeader + svgElement.outerHTML
-      val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svg)).asInstanceOf[String])
+      val svgReplaced = svg.replaceAll("fill=\"transparent\"", "fill=\"none\"").replaceAll("<polygon[^<]*class=\"links\"[^<]*</polygon>", "")
+      val base64 = dom.window.btoa(g.unescape(g.encodeURIComponent(svgReplaced)).asInstanceOf[String])
       "data:image/svg+xml;base64," + base64
     }
 
