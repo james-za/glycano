@@ -1,19 +1,19 @@
 package za.jwatson.glycanoweb.convention
 
-object CFG {
+object ESN {
   val text =
     """
-      |convention "CFG" {
-      |   def CFGCircle = Circle(r="30")
-      |   def CFGSquare = Rect(width="60", height="60")
-      |   def CFGSquareTR = Polygon(points="0,0 60,0 60,60")
-      |   def CFGDiamond = Polygon(points="30,0 60,30 30,60 0,30")
-      |   def CFGDiamondT = Polygon(points="0,30 30,0 60,30")
-      |   def CFGDiamondB = Polygon(points="60,30 30,60 0,30")
-      |   def CFGDiamondL = Polygon(points="30,60 0,30 30,0")
-      |   def CFGDiamondR = Polygon(points="30,0 60,30 30,60")
-      |   def CFGTriangle = Polygon(points="0,60 30,0 60,60")
-      |   def CFGStar = Star(n="5", r1="10", r2="30")
+      |convention "ESN" {
+      |   def ESNCircle = Circle(r="30")
+      |   def ESNSquare = Rect(width="60", height="60")
+      |   def ESNSquareTR = Polygon(points="0,0 60,0 60,60")
+      |   def ESNDiamond = Polygon(points="30,0 60,30 30,60 0,30")
+      |   def ESNDiamondT = Polygon(points="0,30 30,0 60,30")
+      |   def ESNDiamondB = Polygon(points="60,30 30,60 0,30")
+      |   def ESNDiamondL = Polygon(points="30,60 0,30 30,0")
+      |   def ESNDiamondR = Polygon(points="30,0 60,30 30,60")
+      |   def ESNTriangle = Polygon(points="0,60 30,0 60,60")
+      |   def ESNStar = Star(n="5", r1="10", r2="30")
       |
       |   palette "Pentoses" { Rib, Ara, Xyl, Lyx }
       |   palette "Hexoses" { All, Alt, Glc, Man, Gul, Ido, Gal, Tal }
@@ -22,38 +22,38 @@ object CFG {
       |   palette "A" { All2COOH, Alt2COOH, Glc2COOH, Man2COOH, Gul2COOH, Ido2COOH, Gal2COOH, Tal2COOH }
       |
       |   default
-      |   -> #1 [primary] CFGCircle
-      |   -> #2 [outline] CFGCircle
+      |   -> #1 [primary] ESNCircle
+      |   -> #2 [outline] ESNCircle
       |   -> style [primary] { fill: #FFFFFF }
       |   -> style [outline] { stroke: #000000; stroke-width: 3 }
       |
       |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <>
-      |   -> #1 [primary] CFGCircle
-      |   -> #2 [outline] CFGCircle
+      |   -> #1 [primary] ESNCircle
+      |   -> #2 [outline] ESNCircle
       |
       |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <N, Ac>
-      |   -> #1 [primary] CFGSquare
-      |   -> #2 [outline] CFGSquare
+      |   -> #1 [primary] ESNSquare
+      |   -> #2 [outline] ESNSquare
       |
       |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <N>
-      |   -> #1 [secondary] CFGSquare
-      |   -> #2 [primary] CFGSquareTR
-      |   -> #3 [thin] CFGSquareTR
-      |   -> #4 [outline] CFGSquare
+      |   -> #1 [secondary] ESNSquare
+      |   -> #2 [primary] ESNSquareTR
+      |   -> #3 [thin] ESNSquareTR
+      |   -> #4 [outline] ESNSquare
       |
       |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <COOH>
-      |   -> #1 [secondary] CFGDiamond
-      |   -> #2 [primary] CFGDiamondB
-      |   -> #3 [thin] CFGDiamondB
-      |   -> #4 [outline] CFGDiamond
+      |   -> #1 [secondary] ESNDiamond
+      |   -> #2 [primary] ESNDiamondB
+      |   -> #3 [thin] ESNDiamondB
+      |   -> #4 [outline] ESNDiamond
       |
       |   (Fuc) <>
-      |   -> #1 [primary] CFGTriangle
-      |   -> #2 [outline] CFGTriangle
+      |   -> #1 [primary] ESNTriangle
+      |   -> #2 [outline] ESNTriangle
       |
       |   (Rib, Ara, Xyl, Lyx) <>
-      |   -> #1 [primary] CFGStar
-      |   -> #2 [outline] CFGStar
+      |   -> #1 [primary] ESNStar
+      |   -> #2 [outline] ESNStar
       |
       |   (All) -> style [primary] { fill: #7D007D }
       |   (Alt) -> style [primary] { fill: #FA6400 }

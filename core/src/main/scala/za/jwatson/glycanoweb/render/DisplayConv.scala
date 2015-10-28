@@ -5,7 +5,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import org.parboiled2.ParseError
 import za.jwatson.glycanoweb.convention.Convention.RuleCond.{DefaultCond, ResCond}
 import za.jwatson.glycanoweb.convention.Convention._
-import za.jwatson.glycanoweb.convention.{CFG, Convention, ConventionParser, UCT}
+import za.jwatson.glycanoweb.convention.{ESN, Convention, ConventionParser, UCT}
 import za.jwatson.glycanoweb.structure.RGraph.GraphEntry
 import za.jwatson.glycanoweb.structure._
 
@@ -226,13 +226,13 @@ object DisplayConv {
   val conventions = for {
     (k, v) <- Map(
       "UCT" -> UCT.text,
-      "CFG" -> CFG.text
+      "ESN" -> ESN.text
     )
     c <- parseTextConv(v)
   } yield k -> c
 
   def convUCT = conventions.getOrElse("UCT", convDefault)
-  def convCFG = conventions.getOrElse("CFG", convDefault)
+  def convESN = conventions.getOrElse("ESN", convDefault)
 }
 
 object ToInt {
