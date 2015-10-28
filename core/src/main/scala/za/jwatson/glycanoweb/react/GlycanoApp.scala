@@ -285,25 +285,31 @@ object GlycanoApp {
               ))
             )),
             div"row"(^.marginBottom := 5.px)(
-              div"col-xs-8"(
-                <.input(
-                  c"form-control",
-                  ^.ref := "ssSlider",
-                  ^.`type` := "range",
-                  "min".reactAttr := 0.1,
-                  "max".reactAttr := 2.0,
-                  ^.step := 0.01,
-                  ^.value := s.scaleSubstituents,
-                  ^.onChange --> $.backend.scaleSubstituentsSlider
-                )
-              ),
-              div"col-xs-4"(
-                <.input(
-                  c"form-control",
-                  ^.ref := "ssNumber",
-                  ^.`type` := "number",
-                  ^.value := s.scaleSubstituents,
-                  ^.onChange --> $.backend.scaleSubstituentsNumber
+              div"col-xs-12"(
+                <.form(c"form-inline")(
+                  div"form-group"(^.width := "100%")(
+                    div"form-group"(^.margin := "0 5px", ^.width := "65%")(
+                      <.input(
+                        ^.width := "100%",
+                        c"form-control",
+                        ^.ref := "ssSlider",
+                        ^.`type` := "range",
+                        "min".reactAttr := 0.1,
+                        "max".reactAttr := 2.0,
+                        ^.step := 0.01,
+                        ^.value := s.scaleSubstituents,
+                        ^.onChange --> $.backend.scaleSubstituentsSlider
+                      )
+                    ),
+                    <.input(
+                      c"form-control",
+                      ^.width := "30%",
+                      ^.ref := "ssNumber",
+                      ^.`type` := "number",
+                      ^.value := s.scaleSubstituents,
+                      ^.onChange --> $.backend.scaleSubstituentsNumber
+                    )
+                  )
                 )
               )
             ),
