@@ -5,6 +5,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.extra._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monocle.Iso
+import org.scalajs.dom
 import za.jwatson.glycanoweb.react.GlycanoApp.{Snap, AppState, AppStateL, Mode}
 import za.jwatson.glycanoweb.react.bootstrap.{Dropdown, Bootstrap}
 import za.jwatson.glycanoweb.structure.{AnnotId, ResidueId, RGraph}
@@ -73,6 +74,18 @@ object ToolBar {
     toolnumber(name, lens.get(rv.value), rv.setL(lens), disabled, dropdown)
 
   class Backend(val $: BackendScope[ReusableVar[AppState], String]) {
+
+    def scaleBondLabelsSlider = scaleBondLabels("sblSlider")
+    def scaleBondLabelsNumber = scaleBondLabels("sblNumber")
+    def scaleBondLabels(ref: String) = {
+      for {
+        input: dom.html.Input <- CallbackOption.liftOptionLike(Ref[dom.html.Input](ref)($))
+        rvAppState <- $.props
+        scale = Try(input.value.toDouble).getOrElse(1.0)
+        _ <- rvAppState.setL(AppState.scaleBondLabels)(scale).toCBO
+      } yield ()
+    }
+
     def render(rvAppState: ReusableVar[AppState], state: String) = {
       val appState = rvAppState.value
       val emptySelection = appState.selection match {
@@ -105,8 +118,31 @@ object ToolBar {
             div"btn-group"(
               toolbtni("chain", "Add Bond", rvAppState.setL(AppState.mode)(Mode.CreateBond), appState.graph.isEmpty)
             ),
-            div"btn-group"(
-              tooltogglei_(<.b("\u03B1|\u03B2"), "Bond Labels", rvAppState, AppState.bondLabels)
+            Dropdown.Toggle(
+              (Bootstrap.Sm, tooltogglei_(<.b("\u03B1|\u03B2"), "Bond Labels", rvAppState, AppState.bondLabels)),
+                div"form-group"(^.marginLeft := 5.px, ^.marginRight := 5.px, ^.marginBottom := 5.px)(
+                  <.label("Scale:", ^.paddingRight := 5.px),
+                  <.input(
+                    ^.width := "100%",
+                    c"form-control",
+                    ^.ref := "sblSlider",
+                    ^.`type` := "range",
+                    "min".reactAttr := 0.1,
+                    "max".reactAttr := 2.0,
+                    ^.step := 0.01,
+                    ^.value := appState.scaleBondLabels,
+                    ^.onChange --> scaleBondLabelsSlider
+                  )
+                ),
+                div"form-group"(^.marginLeft := 5.px, ^.marginRight := 5.px, ^.marginBottom := 0)(
+                  <.input(
+                    c"form-control",
+                    ^.ref := "sblNumber",
+                    ^.`type` := "number",
+                    ^.value := appState.scaleBondLabels,
+                    ^.onChange --> scaleBondLabelsNumber
+                  )
+                )
             ),
             Dropdown.Toggle(
               (Bootstrap.Sm, btnAnnotation),

@@ -60,7 +60,8 @@ object GlycanoApp {
                               limitUpdateRate: Boolean = false,
                               annotationFontSize: Double = 24,
                               bounds: Option[Bounds] = None,
-                              snap: Snap = Snap()
+                              snap: Snap = Snap(),
+                              scaleBondLabels: Double = 1.0
 
   ) {
     def graph: RGraph = history(undoPosition)
@@ -347,7 +348,7 @@ object GlycanoApp {
                   GlycanoCanvas.C(GlycanoCanvas.Props(
                     rvMode, rvSelection, rvBounds, rvGraph, rvView,
                     s.snap, s.annotationFontSize, s.displayConv, s.limitUpdateRate,
-                    s.scaleSubstituents, s.highlightBond, s.bondLabels
+                    s.scaleSubstituents, s.highlightBond, s.bondLabels, s.scaleBondLabels
                   ))
                 ),
                 div"panel-footer"(

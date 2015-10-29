@@ -33,7 +33,7 @@ object GlycanoCanvas {
                    rvBounds: ReusableVar[Option[Bounds]], rvGraph: ReusableVar[RGraph],
                    rvView: ReusableVar[View], snap: Snap, annotationFontSize: Double,
                    displayConv: DisplayConv, limitUpdateRate: Boolean, scaleSubstituents: Double,
-                   highlightBond: Option[ResidueId], bondLabels: Boolean)
+                   highlightBond: Option[ResidueId], bondLabels: Boolean, scaleBondLabels: Double)
   implicit val reuseDouble = Reusability.by_==[Double]
   implicit val reuseProps = Reusability.caseClass[Props]
 
@@ -540,7 +540,7 @@ object GlycanoCanvas {
             case _ => ge.residue.ano
           }
           val highlight = props.highlightBond.contains(r)
-          SVGBond.C.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, props.bondLabels, highlight))
+          SVGBond.C.withKey("bond" + r.id)(SVGBond.Props(anomer, Some(i), from, to, props.bondLabels, props.scaleBondLabels, highlight))
         }
 
       val tempBonds = (mode, state) match {
@@ -552,7 +552,7 @@ object GlycanoCanvas {
               geLink <- rLink.graphEntry
             } yield props.displayConv.linkPos(allLinks(rLink), geLink, pos)
             val to = targetLink getOrElse mouse
-            SVGBond.C.withKey("tempBond")(SVGBond.Props(ge.residue.ano, target.map(_.position), from, to, props.bondLabels))
+            SVGBond.C.withKey("tempBond")(SVGBond.Props(ge.residue.ano, target.map(_.position), from, to, props.bondLabels, props.scaleBondLabels))
           }
         case (Mode.PlaceResidue(residue), InputState.AddResidue(x, y, children, parent)) =>
           val ((rx, ry), rw, rh) = props.displayConv.bounds(residue)
@@ -563,7 +563,7 @@ object GlycanoCanvas {
               val fromPos = props.displayConv.linkPos(allLinks(id), ge, 1)
               val (ox, oy) = props.displayConv.links(residue)(i - 1)
               val toPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
-              SVGBond.C.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, props.bondLabels))
+              SVGBond.C.withKey("tempBond" + i)(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, props.bondLabels, props.scaleBondLabels))
             }
 
           val to = for {
@@ -573,7 +573,7 @@ object GlycanoCanvas {
               val (ox, oy) = props.displayConv.links(residue).head
               val fromPos = (x + ox - (rx + rw / 2.0), y + oy - (ry + rh / 2.0))
               val toPos = props.displayConv.linkPos(allLinks(id), ge, i)
-              SVGBond.C.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, props.bondLabels))
+              SVGBond.C.withKey("tempBond1")(SVGBond.Props(residue.ano, Some(i), fromPos, toPos, props.bondLabels, props.scaleBondLabels))
             }
 
           from ++ to

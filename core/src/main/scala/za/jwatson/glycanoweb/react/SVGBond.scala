@@ -10,7 +10,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 object SVGBond {
   case class Props(ano: Anomer, target: Option[Int], from: (Double, Double), to: (Double, Double),
-                   label: Boolean = false, highlight: Boolean = false)
+                   label: Boolean = false, scaleLabel: Double = 1.0, highlight: Boolean = false)
 
   implicit val reuseProps: Reusability[Props] = Reusability.by_==
 
@@ -32,7 +32,7 @@ object SVGBond {
         props.label ?= <.svg.text(
           ^.svg.pointerEvents := "none",
           ^.svg.transform := s"translate($midX, $midY) rotate($angle) translate(0, -6)",
-          ^.svg.fontSize := 20,
+          ^.svg.fontSize := 20 * props.scaleLabel,
           ^.svg.textAnchor := "middle"
         )(
           props.ano.desc + props.target.fold("")(_.toString)
