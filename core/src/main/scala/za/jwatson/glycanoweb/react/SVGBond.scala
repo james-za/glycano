@@ -24,7 +24,7 @@ object SVGBond {
       val line = <.svg.line(
         ^.svg.x1 := x1, ^.svg.y1 := y1,
         ^.svg.x2 := x2, ^.svg.y2 := y2,
-        ^.svg.stroke := "#black", ^.svg.strokeWidth := 7,
+        ^.svg.stroke := "black", ^.svg.strokeWidth := 7,
         ^.svg.strokeLinecap := "square",
         (props.ano == Anomer.Beta) ?= (^.svg.strokeDasharray := "15 17")
       )
