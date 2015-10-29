@@ -21,13 +21,20 @@ object SVGBond {
       val angle = math.toDegrees(math.atan2(y2 - y1, x2 - x1))
       val midX = (x1 + x2) / 2
       val midY = (y1 + y2) / 2
-      val stroke = if (props.highlight) "blue" else "black"
       <.svg.g(
+        props.highlight ?= <.svg.line(
+          ^.svg.x1 := x1, ^.svg.y1 := y1,
+          ^.svg.x2 := x2, ^.svg.y2 := y2,
+          ^.svg.stroke := "#0080FF", ^.svg.strokeWidth := 11,
+          ^.svg.strokeLinecap := "square",
+          (props.ano == Anomer.Beta) ?= (^.svg.strokeDasharray := "15 17")
+        ),
         <.svg.line(
           ^.svg.x1 := x1, ^.svg.y1 := y1,
           ^.svg.x2 := x2, ^.svg.y2 := y2,
-          ^.svg.stroke := stroke, ^.svg.strokeWidth := 7,
-          (props.ano == Anomer.Beta) ?= (^.svg.strokeDasharray := "15 10")
+          ^.svg.stroke := "black", ^.svg.strokeWidth := 7,
+          ^.svg.strokeLinecap := "square",
+          (props.ano == Anomer.Beta) ?= (^.svg.strokeDasharray := "15 17")
         ),
         props.label ?= <.svg.text(
           ^.svg.pointerEvents := "none",
