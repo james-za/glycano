@@ -37,7 +37,7 @@ object ESN {
       |   -> #1 [primary] ESNCircle
       |   -> #2 [outline] ESNCircle
       |   -> style [primary] { fill: #FFFFFF }
-      |   -> style [outline] { stroke: #000000; stroke-width: 3 }
+      |   -> style [outline] { fill: none; stroke: #000000; stroke-width: 3 }
       |
       |   (All, Alt, Glc, Man, Gul, Ido, Gal, Tal) <>
       |   -> #1 [primary] ESNCircle
