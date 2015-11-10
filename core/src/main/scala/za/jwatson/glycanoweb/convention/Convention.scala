@@ -20,13 +20,17 @@ object Convention {
     }
     case class SubCond(allowed: Seq[(Option[Int], String)]) extends RuleCond {
       def matches(residue: Residue) = {
-        val subsSet = (for ((p, sts) <- residue.subs; st <- sts) yield st.symbol.toLowerCase).toSet
+        val subsFlat = for ((p, sts) <- residue.subs.toSeq; st <- sts) yield p -> st.symbol.toLowerCase
+        val subsSet: Set[String] = subsFlat.map(_._2)(collection.breakOut)
         allowed.forall {
           case (Some(p), st) =>
             residue.subs.get(p).exists(_.exists(_.symbol.toLowerCase == st.toLowerCase))
           case (None, st) =>
             subsSet.contains(st.toLowerCase)
-        } && subsSet.forall(str => allowed.exists(_._2.toLowerCase == str))
+        } && subsFlat.forall {
+          case (i, str) =>
+            allowed.exists(c => c._2.toLowerCase == str && c._1.forall(_ == i))
+        }
       }
     }
     case object DefaultCond extends RuleCond {
@@ -41,23 +45,34 @@ object Convention {
   case class DefinedShape(position: Int, name: String) extends Shape
   case class Path(d: String) extends Shape
   case class Polygon(points: String) extends Shape
-  case class Rect(x: String = "0", y: String = "0", width: String, height: String, rx: String = "0", ry: String = "0") extends Shape
-  case class Circle(x: String = "0", y: String = "0", radius: String) extends Shape
-  case class Star(x: String = "0", y: String = "0", n: String, r1: String, r2: String) extends Shape
+  case class RegularPolygon(cx: Double = 0.0, cy: Double = 0.0, n: Int, radius: Double) extends Shape
+  case class Rect(x: Double = 0.0, y: Double = 0.0, width: Double, height: Double, rx: Double = 0.0, ry: Double = 0.0) extends Shape
+  case class Circle(x: Double = 0.0, y: Double = 0.0, radius: Double) extends Shape
+  case class Star(x: Double = 0.0, y: Double = 0.0, n: Int, r1: Double, r2: Double) extends Shape
   object Rect {
     val fromMap = (map: Map[String, String]) => Rect(
-      map.getOrElse("x", "0"), map.getOrElse("y", "0"),
-      map.getOrElse("width", "0"), map.getOrElse("height", "0"),
-      map.getOrElse("rx", "0"), map.getOrElse("ry", "0")
+      map.get("x").fold(0.0)(_.toDouble), map.get("y").fold(0.0)(_.toDouble),
+      map.get("width").fold(0.0)(_.toDouble), map.get("height").fold(0.0)(_.toDouble),
+      map.get("rx").fold(0.0)(_.toDouble), map.get("ry").fold(0.0)(_.toDouble)
     )
   }
   object Circle {
-    val fromMap = (map: Map[String, String]) =>
-      Circle(map.getOrElse("x", "0"), map.getOrElse("y", "0"), map("r"))
+    val fromMap = (map: Map[String, String]) => Circle(
+      map.get("x").fold(0.0)(_.toDouble), map.get("y").fold(0.0)(_.toDouble),
+      map("r").toDouble
+    )
   }
   object Star {
-    val fromMap = (map: Map[String, String]) =>
-      Star(map.getOrElse("x", "0"), map.getOrElse("y", "0"), map("n"), map("r1"), map("r2"))
+    val fromMap = (map: Map[String, String]) => Star(
+      map.get("x").fold(0.0)(_.toDouble), map.get("y").fold(0.0)(_.toDouble),
+      map("n").toInt, map("r1").toDouble, map("r2").toDouble
+    )
+  }
+  object RegularPolygon {
+    val fromMap = (map: Map[String, String]) => RegularPolygon(
+      map.get("x").fold(0.0)(_.toDouble), map.get("y").fold(0.0)(_.toDouble),
+      map("n").toInt, map("r").toDouble
+    )
   }
   class ConvBuilder(name: String) {
     val shapeDefs = Map.newBuilder[String, Shape]

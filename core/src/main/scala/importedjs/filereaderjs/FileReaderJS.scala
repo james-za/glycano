@@ -4,6 +4,7 @@ import org.scalajs.dom._
 
 import scalajs.js
 
+@js.native
 object FileReaderJS extends js.Object {
   def enabled: Boolean = js.native
   def setupInput(element: html.Input, options: FileReaderOpts): Unit = js.native
@@ -14,6 +15,7 @@ object FileReaderJS extends js.Object {
   def opts: FileReaderOpts = js.native
 }
 
+@js.native
 trait FileReaderOpts extends js.Object {
   var dragClass: String = js.native
   var accept: String = js.native
@@ -22,6 +24,7 @@ trait FileReaderOpts extends js.Object {
   var on: FileReaderEvents = js.native
 }
 
+@js.native
 trait FileReaderEvents extends js.Object {
   var beforestart: js.Function2[ProgressEvent, File, Boolean] = js.native
   var loadstart: js.Function2[ProgressEvent, File, _] = js.native
@@ -34,6 +37,7 @@ trait FileReaderEvents extends js.Object {
   var groupstart: js.Function1[Group, _] = js.native
 }
 
+@js.native
 trait Group extends js.Object {
   def groupID: String = js.native
   def files: FileList = js.native

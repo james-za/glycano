@@ -25,23 +25,30 @@ class DisplayConv(val conv: Conv) {
       <.svg.path(^.svg.d := d)
     case Polygon(points) =>
       <.svg.polygon(^.svg.points := points)
-    case Circle(ToDouble(x), ToDouble(y), ToDouble(r)) =>
+    case Circle(x, y, r) =>
       <.svg.circle(^.svg.cx := x, ^.svg.cy := y, ^.svg.r := r)
-    case Star(ToDouble(x), ToDouble(y), ToDouble(n), ToDouble(r1), ToDouble(r2)) =>
-      val count = n.toInt * 2
+    case Star(cx, cy, n, r1, r2) =>
+      val count = n * 2
       val dt = 2 * math.Pi / count
       val points = for (i <- 0 until count) yield {
         val angle = i * dt - math.Pi / 2.0
         val out = i % 2 == 0
         val r = if (out) r2 else r1
-        val x = r * math.cos(angle)
-        val y = r * math.sin(angle)
+        val x = cx + r * math.cos(angle)
+        val y = cy + r * math.sin(angle)
         s"$x,$y"
       }
       <.svg.polygon(^.svg.points := points.mkString(" "))
-    case Rect(ToDouble(x), ToDouble(y),
-    ToDouble(width), ToDouble(height),
-    ToDouble(rx), ToDouble(ry)) =>
+    case RegularPolygon(cx, cy, n, radius) =>
+      val dt = 2 * math.Pi / n
+      val points = for (i <- 0 until n) yield {
+        val angle = i * dt - math.Pi / 2.0
+        val x = cx + radius * math.cos(angle)
+        val y = cy + radius * math.sin(angle)
+        s"$x,$y"
+      }
+      <.svg.polygon(^.svg.points := points.mkString(" "))
+    case Rect(x, y, width, height, rx, ry) =>
       <.svg.rect(
         ^.svg.x := x, ^.svg.y := y,
         ^.svg.width := width, ^.svg.height := height,
@@ -84,21 +91,16 @@ class DisplayConv(val conv: Conv) {
         innerShape <- conv.shapeDefs.get(shapeName)
         outline <- outlineFromShape(innerShape)
       } yield outline
-    case Circle(x, y, r) =>
-      val cx = x.toDouble
-      val cy = y.toDouble
-      val radius = math.abs(r.toDouble)
+    case Circle(cx, cy, r) =>
+      val radius = math.abs(r)
       Some(IndexedSeq[(Double, Double)]((cx - radius, cy - radius), (cx + radius, cy + radius)))
-    case Rect(x, y, w, h, _, _) =>
-      val rx = x.toDouble
-      val ry = y.toDouble
-      val rw = w.toDouble
-      val rh = h.toDouble
+    case Rect(rx, ry, rw, rh, _, _) =>
       Some(IndexedSeq[(Double, Double)]((rx, ry), (rx + rw, ry + rh)))
-    case Star(x, y, n, r1, r2) =>
-      val cx = x.toDouble
-      val cy = y.toDouble
-      val radius = math.max(math.abs(r1.toDouble), math.abs(r2.toDouble))
+    case Star(cx, cy, n, r1, r2) =>
+      val radius = math.max(math.abs(r1), math.abs(r2))
+      Some(IndexedSeq[(Double, Double)]((cx - radius, cy - radius), (cx + radius, cy + radius)))
+    case RegularPolygon(cx, cy, n, r) =>
+      val radius = math.abs(r)
       Some(IndexedSeq[(Double, Double)]((cx - radius, cy - radius), (cx + radius, cy + radius)))
     case _ => None
   }
@@ -117,7 +119,11 @@ class DisplayConv(val conv: Conv) {
             Polygon(points) <- conv.shapeDefs.get(shapeName)
           } yield polygonOutline(points)
         case _ => None
-      }.headOption.getOrElse(IndexedSeq.fill(residue.rt.linkage)((0.0, 0.0)))
+      }.headOption.getOrElse {
+        val ((x, y), w, h) = bounds(residue)
+        val center = (x + w / 2.0, y + h / 2.0)
+        IndexedSeq.fill(residue.rt.linkage)(center)
+      }
   }
 
   def bounds(residue: Residue) = boundsMemo.getOrElseUpdate(residue.symbol, boundsInner(residue))

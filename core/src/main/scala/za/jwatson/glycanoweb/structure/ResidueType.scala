@@ -5,8 +5,8 @@ import ResidueType._
 
 case class ResidueType(symbol: String, desc: String, linkage: Int, category: ResidueCategory)
 
-object ResidueType extends Aldoses with Ketoses with Alditols with Repeat {
-  val ResidueTypes = Aldoses ++ Ketoses ++ Alditols ++ Repeats
+object ResidueType extends Aldoses with Ketoses with Alditols with Misc with Repeat {
+  val ResidueTypes = Aldoses ++ Ketoses ++ Alditols ++ Miscs ++ Repeats
   val ResidueTypeCategories = ResidueTypes.groupBy(_.category)// + (Repeat -> Seq.empty)
   val ResidueTypeMap = ResidueTypes.map(rt => rt.symbol -> rt).toMap
 
@@ -18,6 +18,8 @@ object ResidueType extends Aldoses with Ketoses with Alditols with Repeat {
     ResidueType(symbol, desc, linkage, Alditol)
   def repeat(symbol: String, desc: String, linkage: Int) =
     ResidueType(symbol, desc, linkage, Repeat)
+  def misc(symbol: String, desc: String, linkage: Int) =
+    ResidueType(symbol, desc, linkage, Misc)
 
   def unapply(str: String): Option[ResidueType] = ResidueTypeMap.get(str)
 }
@@ -56,10 +58,11 @@ trait Ketoses {
   val Psi = ketose("Psi", "Psi", 6)
   val Sor = ketose("Sor", "Sor", 6)
   val Tag = ketose("Tag", "Tag", 6)
+  val Api = ketose("Api", "Api", 6)
   val AltHep = ketose("AltHep", "AltroHeptulose", 7)
   val ManOct = ketose("ManOct", "MannoseOctulose", 8)
   val Non = ketose("Non", "Nonose", 9)
-  val Ketoses = Seq(Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, AltHep, ManOct, Non)
+  val Ketoses = Seq(Three, Four, Rul, Xul, Fru, Psi, Sor, Tag, Api, AltHep, ManOct, Non)
 }
 
 trait Alditols {
@@ -74,4 +77,24 @@ trait Alditols {
   val UnknownB = alditol("UnknownB", "UnknownB", 6)
   val MesoAllitol = alditol("MesoAllitol", "MesoAllitol", 6)
   val Alditols = Seq(Glycerol, Erythritol, Threitol, MesoRibitol, Arabinitol, MesoXylitol, Glucitol, UnknownA, UnknownB, MesoAllitol)
+}
+
+trait Misc {
+  // "Unknown" in ESN
+  val Kdn = misc("Kdn", "Kdn", 6)
+  val NeuAc = misc("NeuAc", "NeuAc", 6)
+  val NeuGc = misc("NeuGc", "NeuGc", 6)
+  val Neu = misc("Neu", "Neu", 6)
+
+  // "Assigned" in ESN
+  val Bac = misc("Bac", "Bac", 6)
+  val LDManHep = misc("LDManHep", "LDManHep", 6)
+  val Kdo = misc("Kdo", "Kdo", 6)
+  val Dha = misc("Dha", "Dha", 6)
+  val DDManHep = misc("DDManHep", "DDManHep", 6)
+  val MurNAc = misc("MurNAc", "MurNAc", 6)
+  val MurNGc = misc("MurNGc", "MurNGc", 6)
+  val Mur = misc("Mur", "Mur", 6)
+
+  val Miscs = Seq(Kdn, NeuAc, NeuGc, Neu, Bac, LDManHep, Kdo, Dha, DDManHep, MurNAc, MurNGc, Mur)
 }
